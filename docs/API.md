@@ -1,4 +1,4 @@
-# Local API — 0.2.7
+# Local API — 0.3.0
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -17,7 +17,7 @@ by the web login. Mutations require `Content-Type: application/json`. CORS is no
   PBKDF2-SHA256 hash in NVS, invalidates old sessions and issues a new one. Returns
   `{"saved":true}`. The password is never returned.
 - `GET /api/account`: requires a web session, including bootstrap sessions. Returns
-  `password_required` and `setup_ssid`. `api_key` is included only after password
+  `password_required`, `setup_ssid`, `hostname` and `device_name` (empty until customized). `api_key` is included only after password
   setup. API-key header authentication does not grant access to this endpoint.
 - `POST /api/logout`, body `{}`: removes the web session. The cookie is HttpOnly,
   SameSite=Strict and has a 12-hour lifetime; server sessions also have a 12-hour
@@ -25,13 +25,15 @@ by the web login. Mutations require `Content-Type: application/json`. CORS is no
 
 ## GET /api/status
 
-Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, four
-slots, discovery state and results. `alexa_started` confirms only SSDP startup.
+Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, a dynamic list of up to 16
+entries, discovery state and results. `alexa_started` confirms only SSDP startup.
+Top-level fields include `max_stations:16`, `maintenance`, `setup_ssid`,
+`ota_supported` and `ota_product`. Station IDs are stable opaque integers.
 A station entry looks like this:
 
 ```json
 {
-  "id":1,"name":"Base station 1","mac":"AA:BB:CC:DD:EE:01","address_type":0,
+  "id":1,"name":"Base station 1","mac":"AA:BB:CC:DD:EE:01","address_type":1,
   "configured":true,"requested":"on","pending":false,"busy":false,
   "reading":false,"reachable":true,"command_sent":true,"command_confirmed":true,
   "command_status":"confirmed","last_sent_ms":35000,
@@ -61,7 +63,7 @@ means `reachable=false`. Failures never refresh the measurement timestamp.
 `ble_error` is the last numeric NimBLE error, or 0 if unavailable. Code 574
 (`0x023e`, HCI `0x3e`) means connection establishment failed, not a specific
 GATT read error. Before retrying this code, a two-second passive scan checks the
-assigned MAC and refreshes its address type for that job only. Recovery scans
+assigned MAC; configured connections always use Random (1). Recovery scans
 never write power or replace the explicit discovery results. Serial output
 includes the actual failing phase, attempt and recovery scan signal information.
 The scan distinguishes an unseen address from a matching but non-connectable
@@ -102,7 +104,7 @@ window. This verification does not prolong the separate Hue accepted-target view
 
 ## POST /api/refresh
 
-Body `{}`, response `202 {"accepted":true}`. Queues reads for all configured slots.
+Body `{}`, response `202 {"accepted":true}`. Queues reads for all configured entries.
 It sends **no power writes**. Follow progress in status.
 
 ## POST /api/power
@@ -114,7 +116,7 @@ pending/busy share the active work, generation and original acceptance time.
 Opposite targets replace pending requests; an in-flight action may still finish.
 A request after completion can queue a new attempt. There are at
 most three worker/write attempts. Each connection call allows one internal
-HCI 0x3e retry, so there can be up to six controller starts for a command job. Groups include only assigned slots;
+HCI 0x3e retry, so there can be up to six controller starts for a command job. All-station requests include only entries with a Bluetooth address;
 otherwise the endpoint returns `409 NO_STATION`.
 
 ```sh
@@ -131,22 +133,85 @@ results; `scan_truncated` indicates truncation. Results are never assigned autom
 
 ## POST /api/config
 
-Save all four slots together as `{"stations":[…]}`. Each entry has the shape
-`{"name":"Base station 1","mac":"AA:BB:CC:DD:EE:01","address_type":0}`.
-An empty MAC disables the slot. Type `0` means public, `1` random; preserve the
-discovered type. Names must be unique, 1–40 UTF-8 bytes, without control characters
-or `"`, `\`, `<`, `>`, `&`. `VR Basisstationen` is reserved. MACs are unique and
-normalized. Success: `200 {"saved":true}`. Active commands or discovery cause
-`409 BLE_BUSY`; changes are atomic. Changing an address clears its previous
-readings. Background reads do not block saving; results for the previous
-assignment are discarded.
+Replace the complete dynamic list using `{"stations":[…]}` (0–16 entries).
+Each entry contains `id`, `name`, `mac`:
+
+```json
+{"stations":[{"id":1,"name":"Left corner","mac":"AA:BB:CC:DD:EE:01"},{"id":0,"name":"New station","mac":""}]}
+```
+
+Keep the existing ID for edits/reordering. Omit `id` or use `0` for a new entry.
+The server allocates stable monotonically increasing IDs, never reusing removed
+IDs. ID 5 is permanently reserved for the retired virtual Alexa group. IDs are
+opaque identities, not array indexes; do not assume the sequence 1–16.
+Leave an entry out to remove it. Empty MAC disables an explicitly added entry;
+it still counts toward capacity and is not advertised to Alexa. Save returns
+`200 {"saved":true,"stations":[{"id":…, "name":…, "mac":…},…]}` with assigned IDs.
+
+All connections use Random (1); `address_type` input is ignored and status returns
+1 for compatibility. Names must be unique, 1–40 UTF-8 bytes, without control
+characters or `"`, `\`, `<`, `>`, `&`. Addresses must be unique and are normalized.
+Old four-slot records migrate assigned devices to their original IDs 1–4; empty
+legacy slots are discarded. The list and next-ID counter persist atomically.
+
+Active commands/discovery or maintenance cause `409 BLE_BUSY`. Background reads
+do not block saving. State/history follows ID and unchanged MAC when reordered;
+a changed address resets measurements. Old in-flight reads cannot apply to new
+assignments. A malformed list is rejected as a whole (`CONFIG_LIMIT`, `CONFIG_IDS`,
+`CONFIG_NAME`, `CONFIG_MAC`); reload after an unknown/removed ID error.
 
 ## POST /api/wifi
 
 Body `{}`, response `202 {"accepted":true,"setup_ssid":"Lighthouse-Setup-XXXXXX"}`.
 Opens protected Wi-Fi setup and pauses BLE/normal administration HTTP.
-Returns `409` during active BLE work. Reboots after completion or a three-minute
+Returns `409` during commands, discovery or maintenance. A background read is
+allowed to finish before the portal starts. Reboots after completion or a three-minute
 timeout. The key and assignments stay unchanged; USB information remains available.
+
+## POST /api/device — web session only
+
+Body `{"name":"vr-room"}`. Changes the setup AP SSID and mDNS hostname together:
+`vr-room` and `http://vr-room.local/`. Requires a personal-password web session,
+not API-key or bootstrap access. JSON and same-origin rules apply. Name: 1–32
+lowercase ASCII letters/digits, optional internal hyphens. Saved in NVS and mDNS
+restarted immediately; DHCP hostname is used on subsequent network connection.
+Returns `{ "saved":true, "hostname":"vr-room", "setup_ssid":"vr-room", "url":"http://vr-room.local/" }`.
+Default legacy names remain until a custom name is saved. Credentials/key unchanged.
+
+## Firmware upload — web session only
+
+Requires firmware >=0.3.0, a personal-password browser session and a second app
+partition. API keys/bootstrap sessions cannot prepare, inspect or upload updates.
+The partition table and NVS locations do not change.
+
+1. `POST /api/ota/prepare`, JSON `{}`: pauses new BLE jobs, waits for any current
+   background read/cleanup. Commands/discovery/maintenance return `409 BLE_BUSY`.
+   Returns `202 {"token":"…","ready":false,"max_bytes":1966080}`. Token is bound
+   to the requesting session and only returned here; keep it in memory.
+2. Poll `GET /api/ota` until `ready:true`. Response includes `prepared`, `ready`,
+   `uploading`, `max_bytes`. A preparation without an upload expires after 60 s.
+3. `POST /api/ota`: multipart upload of **one official .lhota file**, with session
+   cookie and `X-OTA-Token`. Do not set multipart Content-Type manually; let the
+   browser supply its boundary. An Origin header, if present, must match Host.
+4. Success: `200 {"installed":true,"restarting":true}`; reboot follows after about
+   1.5 s. Sessions are cleared on reboot. No power commands occur at startup.
+5. `POST /api/ota/cancel`, JSON `{}`: releases a prepared idle update. An active
+   upload or committed installation cannot be cancelled through this endpoint.
+   Connection-aborted uploads abort the firmware writer and release BLE.
+
+The 64-byte container header uses magic `LHBRIDGE-ESP32-OTA1` zero-padded to
+24 bytes, uint32 little-endian app length at 24, raw SHA-256 digest at 28, and
+four zero bytes at 60. The payload must be a classic ESP32 app with app descriptor
+and Lighthouse Bridge product marker. Length, slot capacity, digest, chip/product
+and ESP image validity are checked before selecting the inactive slot for boot.
+Wrong chip, truncated/corrupt/trailing data, raw/merged BINs and multiple files are
+rejected. Package branding/integrity is not a digital signature; use trusted files.
+Interrupted uploads leave the previous boot selection intact. No automatic
+post-install crash rollback is promised. Wi-Fi/stations/passwords/keys stay in NVS.
+
+Errors: `OTA_INVALID`, `OTA_WRITE_FAILED`, `OTA_ABORTED`, `OTA_UNAVAILABLE`,
+`LOGIN_REQUIRED`, `PASSWORD_REQUIRED`, `BLE_BUSY`. A rejected multipart upload is
+still consumed by the HTTP library; it cannot write firmware without authorization.
 
 ## Alexa / Hue queries
 
@@ -158,17 +223,17 @@ the measured value; duplicates do not extend the deadline. `reachable` always
 uses measured health, including failed cycles and measurement age. Dashboard and
 local API measurements are unchanged. This policy was explicitly chosen by the
 owner after Echo queried the opposite old value immediately after accepting PUT.
-Light IDs
-remain compatible with the previous Espalexa scheme. Group ON requires every
-assigned slot's Hue view to be ON (active target or measured); group reachability
-requires usable readings for all.
+Only individual configured stations appear in the Hue collection. Existing first
+four light IDs/unique IDs are preserved. The old virtual group (station ID 5) is
+unavailable (Hue error 3), never reused; delete its cached Alexa app entry once.
+Use Alexa groups or the local API `station:"all"` for collective control.
 Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
 There is no state push into the Alexa app: Alexa decides when to query again.
 
 ### Hue light writes
 
 `PUT /api/<username>/lights/<id>/state`, body `{"on":true}` or `{"on":false}`,
-uses the encoded ID returned by GET, including the existing virtual group ID.
+uses the encoded ID returned by GET, for an individual configured station.
 The HTTP handler validates and queues without waiting for BLE. Its HTTP 200
 response has the Hue shape (replace `<id>` with the actual requested ID):
 
@@ -192,7 +257,8 @@ USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
 `Hue GET` (reported on, measured reachability, pending work; collection
 configured/fresh counts). `source=accepted_target` identifies the bounded target
 view; `source=measurement` identifies the measured value.
-`station=0` means the virtual group, 1–4 the individual slots. These diagnostics
+`station` identifies a persistent station ID; collections log configured/fresh
+counts. The retired virtual group is never controlled. These diagnostics
 omit usernames, raw request paths/bodies and credentials. Handler time excludes
 network transfer/request parsing before dispatch. A correct ACK cannot guarantee
 that Alexa will not warn about a later unavailable or unchanged measurement.
@@ -203,7 +269,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.7","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.0","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.
@@ -219,6 +285,6 @@ automatically initiated by the installer.
 
 JSON errors have an `error` code; the dashboard translates it into English/German.
 `400`: invalid input; `401`: missing/incorrect login or key; `403`: origin;
-`409`: busy/no target; `413`: body exceeds 2400 characters; `415`: content type;
+`409`: busy/no target; `413`: body exceeds 8192 characters; `415`: content type;
 `428`: personal password required; `429`: login block; `500`: storage/hash failure.
 The request must also fit the endpoint's JSON-document capacity.

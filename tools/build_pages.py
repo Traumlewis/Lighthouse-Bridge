@@ -9,6 +9,7 @@ import re
 import shutil
 
 from package_release import ROOT, VERSION
+from ota_package import unpack
 
 
 def build():
@@ -52,6 +53,10 @@ def build():
         # The installer uses normal browser caching: give each image its own URL.
         digest = hashlib.sha256(file.read_bytes()).hexdigest()
         parts.append({'path': 'firmware/' + file.name + '?sha=' + digest, 'offset': offset})
+    ota = ROOT / 'dist' / f'lighthouse-bridge-v{VERSION}.lhota'
+    if unpack(ota.read_bytes()) != (ROOT / 'dist/lighthouse-bridge-app.bin').read_bytes():
+        raise ValueError('OTA payload differs from application')
+    shutil.copy2(ota, firmware)
     shutil.copy2(ROOT / 'dist/SHA256SUMS', firmware / 'SHA256SUMS')
     shutil.copy2(ROOT / 'dist' / f'lighthouse-bridge-v{VERSION}.zip', firmware)
     manifest = {

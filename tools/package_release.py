@@ -8,9 +8,10 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.2.7"
+VERSION = "0.3.0"
 
 
 def main():
@@ -52,6 +53,7 @@ def main():
             "bootloader", "partitions", "boot-app0", "app"]):
             offset = int(address, 16)
             segments[f"lighthouse-bridge-{name}.bin"] = payload[offset:offset + file.stat().st_size]
+        segments[f"lighthouse-bridge-v{VERSION}.lhota"] = package(segments["lighthouse-bridge-app.bin"])
         checksums = f"{checksum}  {merged.name}\n" + "".join(
             f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in segments.items())
         archive = args.output / f"lighthouse-bridge-v{VERSION}.zip"

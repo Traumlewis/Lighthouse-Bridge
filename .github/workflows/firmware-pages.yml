@@ -41,6 +41,15 @@ jobs:
         run: |
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_hue.cpp -o /tmp/lighthouse-hue-test
           /tmp/lighthouse-hue-test
+      - name: Check station migration and OTA format
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_config.cpp -o /tmp/lighthouse-config-test
+          /tmp/lighthouse-config-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota.cpp -o /tmp/lighthouse-ota-test
+          /tmp/lighthouse-ota-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota_receiver.cpp -o /tmp/lighthouse-ota-receiver-test
+          /tmp/lighthouse-ota-receiver-test
+          python -m unittest discover -s test -p 'test_ota_package.py' -v
       - name: Package flash image and source
         run: python tools/package_release.py
       - name: Build WebFlasher site

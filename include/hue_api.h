@@ -8,7 +8,7 @@ struct HueLightRoute {
   bool matched = false;
   bool valid = false;
   bool stateOnly = false;
-  int slot = -1; // -1 = collection, 0..3 = station, 4 = group.
+  int slot = -1; // -1 = collection; otherwise persistent station ID (not an array index).
   uint32_t key = 0;
 };
 
@@ -32,10 +32,11 @@ inline HueLightRoute parseHueLightRoute(const char* uri, uint32_t mac24) {
     if (std::strcmp(tail, "/state")) return route;
     route.stateOnly = true;
   }
-  if ((key >> 7) != mac24 || (key & 127) > kStations) return route;
+  const uint32_t id = stationIdFromHue(mac24, key);
+  if (!id) return route;
   route.valid = true;
   route.key = key;
-  route.slot = static_cast<int>(key & 127);
+  route.slot = static_cast<int>(id);
   return route;
 }
 
@@ -96,8 +97,7 @@ inline HueWriteReply handleHueWrite(const HueLightRoute& route, const char* body
       continue;
     }
     reply.on = property.value().as<bool>();
-    reply.accepted = queue(route.slot == static_cast<int>(kStations) ? -1 : route.slot,
-                           reply.on ? Target::On : Target::Sleep);
+    reply.accepted = queue(route.slot, reply.on ? Target::On : Target::Sleep);
     if (reply.accepted) {
       auto success = responses.createNestedObject().createNestedObject("success");
       success[address + "on"] = reply.on;

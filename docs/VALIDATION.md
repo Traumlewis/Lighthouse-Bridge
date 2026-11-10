@@ -1,4 +1,51 @@
-# Validation report — prototype 0.2.7
+# Validation report — 0.3.0
+
+## Version 0.3.0 software validation
+
+No ESP32 is attached to this environment. Earlier hardware evidence below concerns
+four physical stations and previous versions. It does not establish OTA behavior
+or operation with 16 physical stations.
+
+- Classic ESP32 PlatformIO build succeeds within the unchanged 1.875 MiB app slot
+  (about 1.26 MB flash / 63 KB static RAM). Runtime heap remains a hardware check.
+- Native production-header tests cover legacy four-slot migration, removal of empty
+  legacy slots, 16-entry capacity, stable monotonic IDs, retired group ID 5,
+  reordering/history preservation, generation invalidation of in-flight reads,
+  duplicate/malformed records, mandatory Random (1) and device-name validation.
+- Hue tests cover 16 individual devices, exact per-ID boolean acknowledgements,
+  unavailable retired group, duplicate request coalescing, malformed requests and
+  measurement separation. Existing request/health/confirmation tests still pass.
+- OTA header/container checks cover capacity/chip/product, reserved bytes,
+  digest/length, truncation, trailing data, wrong chip, merged BIN and corruption.
+  Packager cross-checks the .lhota payload against the USB application image.
+- Native tests also drive the production OTA receiver with arbitrary 1–2048-byte
+  chunks and fake inactive-slot IO: prefix-before-write, length/product/digest
+  rejection, write failures, explicit abort after file-end and commit separation.
+  Hash IO is deterministic in that test; real SHA-256 is checked in Python.
+- Browser checks use the actual embedded/public HTML/JS with mocked HTTP/USB.
+  They exercise password bootstrap, EN/DE, editable drafts surviving polling,
+  address suggestions without a type selector, 16 dynamic entries, removal and
+  non-reused IDs, empty list, background reads with an enabled Wi-Fi button,
+  key copying via the local-HTTP fallback, custom hostname, multipart token upload,
+  waiting, rejected upload/cancellation and successful restart messaging.
+  Firmware writing and reboot in those browser tests are simulated.
+- Python/Node checks verify local assets, translations, USB parser/handoff,
+  SHA-256 URLs and sector-level NVS exclusion of all four Web Serial parts.
+  Vendor modules/licenses and partition offsets are unchanged.
+- Firmware upload auth/abort paths were reviewed against the pinned Arduino
+  WebServer and Update libraries. Update.end (boot-slot selection) occurs only
+  after complete authenticated multipart acceptance, size/product/SHA validation.
+  Invalid/aborted writes abort the inactive-slot writer. These are software checks,
+  not evidence from a physical interrupted flash or power-loss experiment.
+  WiFiManager raw-BIN routes are shadowed before vendor registration; only the
+  authenticated main interface is intended for firmware upload.
+
+Required owner retest: upgrade once by USB with Erase unchecked, verify saved
+settings and existing individual Alexa IDs, delete the old cached virtual group,
+then test .lhota success, wrong-file rejection and interrupted upload on the ESP32.
+Check custom SSID/mDNS and portal appearance on a phone, actual Alexa discovery,
+and longer-running heap/radio behavior. Sixteen-device polling may take longer
+than the target interval; fresh/reachable status remains tied to real timestamps.
 
 ## Additional 0.2.7 SLEEP monitoring sample
 
@@ -398,8 +445,7 @@ change partitions.
   MAC/name validation; starting-state decoding; superseded command/read results;
   no invented measurements after failures; transient health and age limits.
 - Playwright/Chromium tests exercise the embedded HTML with mocked API responses:
-  four initially unassigned slots, discovery/assignment including random address
-  type, preservation of edits during polling, save errors, power actions,
+  dynamic entries up to 16, discovery/address suggestions with fixed Random (1), preservation of edits during polling, save errors, power actions,
   measurement failures and authentication/language flows.
 - Layouts at 1280 and 390 pixels without horizontal overflow. Screenshots are
   simulated examples, not measurements from real stations.
@@ -427,7 +473,7 @@ change partitions.
    unpowered stations; retest the intermittent failures reported by the owner.
 6. Test rapid ON → SLEEP requests: the newest target must execute last. Reboot
    must preserve configuration without sending a power command.
-7. Check Echo Dot 5 discovery, five Hue lights, voice commands, renaming and
+7. Check Alexa discovery of individual configured lights (no virtual group), voice commands, renaming and
    measured-state queries. An acknowledgement is not confirmation of BLE success,
    and app caching remains controlled by Alexa.
 8. Check longer-running heap usage, HTTP responsiveness during BLE work,

@@ -13,6 +13,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     let firmwareMissing=false;
     await page.addInitScript(()=>{
+      window.copiedValue='';Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});document.execCommand=()=>{window.copiedValue=document.activeElement.value;return true;};
       window.serialRequests=0;
       window.usbMode=false;
       const info={protocol:1,version:'0.2.0',api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:false,url:null};
@@ -53,7 +54,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     assert.equal(await page.locator('html').getAttribute('lang'),'de');
     assert.match(await page.locator('h1').innerText(),/Dein VR-Raum/);
     assert.match(await page.locator('#load-status').innerText(),/Bereit/);
-    assert.match(await page.locator('meta[name="description"]').getAttribute('content'),/Vier Valve/);
+    assert.match(await page.locator('meta[name="description"]').getAttribute('content'),/Bis zu 16 Valve/);
     assert.equal(new URL(page.url()).searchParams.get('lang'),'de');
     assert.equal(await page.locator('#board-confirm').isChecked(),true);
     assert.equal(await page.locator('#install').isEnabled(),true);
@@ -66,6 +67,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     await page.locator('#board-confirm').check();
     const download=await page.locator('#download').getAttribute('href');
     assert.equal(download,'firmware/lighthouse-bridge-esp32-merged.bin');
+    assert.equal(await page.locator('#ota-download').getAttribute('href'),'firmware/lighthouse-bridge-'+expectedVersion+'.lhota');
     await page.screenshot({path:path.join(root,'docs/webflasher-desktop.png'),fullPage:true});
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -77,6 +79,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     await page.waitForFunction(()=>document.getElementById('usb-key').textContent==='1234567890abcdef12345678');
     assert.equal(await page.locator('#install').isDisabled(),true,'USB reader owns the port');
     assert.equal(await page.locator('#usb-url').isHidden(),true);
+    await page.locator('#copy-key').click();assert.equal(await page.evaluate(()=>window.copiedValue),'1234567890abcdef12345678');
     await page.evaluate(()=>window.sendWifiAddress());
     await page.waitForFunction(()=>document.getElementById('usb-url').getAttribute('href')==='http://192.168.1.42/');
     assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('1234567890abcdef12345678')),false);

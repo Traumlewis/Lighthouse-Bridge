@@ -1,4 +1,4 @@
-# GitHub Pages / WebFlasher — 0.2.1
+# GitHub Pages / WebFlasher — 0.3.0
 
 **https://traumlewis.github.io/Lighthouse-Bridge/**
 
@@ -99,3 +99,21 @@ real flash operation. Keep version references in `src/main.cpp`, `include/web_ui
 and `tools/package_release.py` aligned with documentation and `AGENTS.md` when
 making an actual firmware release. Documentation translations do not change the
 firmware's functional version.
+
+## Wi-Fi update packages and key copying
+
+The page also offers `firmware/lighthouse-bridge-v<VERSION>.lhota`. Install >=0.3.0
+once over USB; later download the package and upload it through the device's
+**Firmware update over Wi-Fi** section. This uses the inactive application slot;
+NVS and partition locations remain unchanged. The .lhota file is separate from
+the four-part Web Serial manifest. It is also in the ZIP and SHA256SUMS.
+`tools/ota_package.py` validates the classic ESP32 chip, app descriptor, size and
+product marker, and wraps the app with its length and SHA-256 digest. Pages build
+checks that the packaged payload equals the USB application image. It is an
+integrity container, not a signed release or automatic crash rollback system.
+
+Click the displayed key to copy it. The dashboard supports the same action on
+local HTTP using a selection/copy fallback when Clipboard API is unavailable.
+Neither copy path stores the key or sends it to another service. Keyboard activation
+works through native buttons. The Wi-Fi portal itself uses dashboard styling;
+a custom device name controls both setup SSID and the .local address.

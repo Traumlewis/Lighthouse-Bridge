@@ -27,9 +27,10 @@ The Alexa implementation uses unmodified Espalexa for discovery, bridge metadata
 and username registration. The bridge handles light GETs and validated light
 PUTs itself, with tested per-ID acknowledgements. Since 0.2.6, Hue ON can briefly
 follow an accepted in-flight target under the owner-approved 30-second limit;
-dashboard/API data and all reachability remain measured. Its stated Echo
-compatibility is a project goal, not evidence of testing with an Echo Dot 5
-running current firmware.
+dashboard/API data and all reachability remain measured. Alexa discovery remains local Hue emulation; compatibility depends on the Alexa
+device/network/firmware. The owner's four-station setup is the hardware evidence,
+not a restriction to a specific Alexa model. OTA uses Arduino ESP32's bundled
+Update library and ESP-IDF OTA partition APIs; no new updater dependency is added.
 
 The host upgrade in 0.2.4 follows the upstream
 [2.5.0 connection-establishment retry addition](https://github.com/h2zero/NimBLE-Arduino/releases/tag/2.5.0),

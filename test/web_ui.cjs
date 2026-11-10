@@ -10,21 +10,23 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   const page=await browser.newPage({viewport:{width:1280,height:1100}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   const key='1234567890abcdef12345678',password='my own bridge password';
+  let nextId=6,otaPrepared=false,otaInstalled=false,otaInvalid=false;
   let signedIn=false,passwordSet=false,saveFailure=false,offline=false,refreshes=0;
   const commands=[];
-  const stations=Array.from({length:4},(_,i)=>({id:i+1,name:'Base station '+(i+1),mac:'',address_type:0,configured:false,requested:null,pending:false,busy:false,reading:false,reachable:false,command_sent:false,observed:'unknown',observed_raw:-1,observed_ms:0,error:''}));
+  const stations=Array.from({length:4},(_,i)=>({id:i+1,name:'Base station '+(i+1),mac:'',address_type:1,configured:false,requested:null,pending:false,busy:false,reading:false,reachable:false,command_sent:false,observed:'unknown',observed_raw:-1,observed_ms:0,error:''}));
   const data={ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,scanning:false,scan_finished_ms:0,scan_truncated:false,stations,discovered:[]};
+  await page.addInitScript(()=>{window.copiedValue='';document.execCommand=command=>{if(command==='copy'){window.copiedValue=document.activeElement.value;return true;}return false;};});
   await page.route('http://bridge.test/**',async route=>{
    const req=route.request(),uri=new URL(req.url()).pathname;
    if(uri==='/')return route.fulfill({contentType:'text/html',body:html});
    if(offline)return route.abort('connectionfailed');
-   const body=req.method()==='POST'?req.postDataJSON():null;
+   const body=req.method()==='POST'&&uri!=='/api/ota'?req.postDataJSON():null;
    let status=200,result={};
    if(uri==='/api/login'){
     if(body.password===(passwordSet?password:key)){signedIn=true;result={password_required:!passwordSet};}
     else{status=401;result={error:'LOGIN_FAILED'};}
    }else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
-   else if(uri==='/api/account')result={password_required:!passwordSet,setup_ssid:'Lighthouse-Setup-EXAMPLE',...(passwordSet?{api_key:key}:{})};
+   else if(uri==='/api/account')result={password_required:!passwordSet,hostname:data.hostname,device_name:'',setup_ssid:'Lighthouse-Setup-EXAMPLE',...(passwordSet?{api_key:key}:{})};
    else if(uri==='/api/password'){
     if(body.password===key){status=400;result={error:'PASSWORD_MUST_DIFFER'};}
     else{assert.equal(body.password,password);passwordSet=true;result={saved:true};}
@@ -37,12 +39,17 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
     data.discovered=stations.map((s,i)=>({name:i===0?'LHB-<img src=x onerror=alert(1)>':'LHB-'+i,mac:'AA:BB:CC:DD:EE:0'+(i+1),address_type:i%2,rssi:-40-i*5}));
    }else if(uri==='/api/config'){
     if(saveFailure){status=409;result={error:'BLE_BUSY'};}
-    else{body.stations.forEach((s,i)=>Object.assign(stations[i],s,{configured:Boolean(s.mac)}));result={saved:true};}
+    else{const saved=body.stations.map(s=>({...stations.find(old=>old.id===s.id),...s,id:s.id||nextId++,configured:Boolean(s.mac)}));stations.splice(0,stations.length,...saved);result={saved:true,stations};}
    }else if(uri==='/api/power'){
     commands.push(body);status=202;result={accepted:true};
     // A command must not fabricate an observed state.
     for(const s of stations)if(body.station==='all'||s.id===body.station)Object.assign(s,{requested:body.state,pending:true,alexa_target_pending:true,requested_ms:data.uptime_ms});
-   }else if(uri==='/api/wifi'){status=202;result={accepted:true,setup_ssid:'Lighthouse-Setup-EXAMPLE'};}
+   }else if(uri==='/api/device'){assert.equal(body.name,'vr-room');data.hostname=body.name;result={saved:true,hostname:body.name,setup_ssid:body.name,url:'http://vr-room.local/'};}
+   else if(uri==='/api/ota/prepare'){otaPrepared=true;result={token:'test-upload-token',ready:false,max_bytes:0x1e0000};}
+   else if(uri==='/api/ota/cancel'){otaPrepared=false;result={cancelled:true};}
+   else if(uri==='/api/ota'&&req.method()==='GET')result={prepared:otaPrepared,ready:true};
+   else if(uri==='/api/ota'){assert.equal(req.headers()['x-ota-token'],'test-upload-token');assert.ok(req.postDataBuffer().includes(Buffer.from('LHBRIDGE-ESP32-OTA1')));if(otaInvalid){status=400;result={error:'OTA_INVALID'};}else{otaInstalled=true;result={installed:true,restarting:true};}}
+   else if(uri==='/api/wifi'){status=202;result={accepted:true,setup_ssid:'Lighthouse-Setup-EXAMPLE'};}
    else{status=404;result={error:'unknown'};}
    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(result)});
   });
@@ -65,8 +72,10 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#configuration summary').click();await page.locator('#scan').click();
   await page.waitForFunction(()=>document.querySelectorAll('#scan-results li').length===4);
   assert.equal(await page.locator('#scan-results img').count(),0);
-  for(let i=1;i<=4;i++)await page.locator('#pick-'+i).selectOption('AA:BB:CC:DD:EE:0'+i);
-  assert.equal(await page.locator('#edit-type-2').inputValue(),'1');
+  for(let i=1;i<=4;i++)await page.locator('#edit-mac-'+i).fill('AA:BB:CC:DD:EE:0'+i);
+  assert.equal(await page.locator('[id^=pick-],[id^=edit-type-]').count(),0);
+  assert.equal(await page.locator('#edit-mac-2').getAttribute('list'),'discovered-addresses');
+  assert.equal(await page.locator('#discovered-addresses option').count(),4);
   await page.locator('#edit-name-1').fill('Left corner');
   await page.locator('#language').selectOption('de');
   assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');
@@ -126,6 +135,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   stations[2].reading=true;
   await page.waitForFunction(()=>document.getElementById('status-3').textContent.includes('Lese über Bluetooth'));
   assert.equal(await page.locator('#save').isEnabled(),true,'background reads must not trap the assignment form');
+  assert.equal(await page.locator('#wifi').isEnabled(),true,'background reads must not flicker the Wi-Fi button');
   Object.assign(stations[2],{reading:false,read_active:false,read_queued:false});
   await page.locator('#language').selectOption('en');
   assert.match(await page.locator('#status-2').textContent(),/Could not read/);
@@ -143,7 +153,36 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#login-password').fill(password);await page.locator('#login-form button').click();
   await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
   assert.equal(await page.locator('#api-key').textContent(),key);
-  assert.deepEqual(errors,[]);
+  await page.locator('#network-settings').evaluate(node=>node.open=true);
+  await page.locator('#copy-key').click();assert.equal(await page.evaluate(()=>window.copiedValue),key);
+  await page.locator('#device-name').fill('vr-room');await page.locator('#device-form button').click();
+  await page.waitForFunction(()=>document.getElementById('device-address').textContent.includes('vr-room.local'));
+  assert.equal(await page.locator('#setup-ssid').textContent(),'vr-room');
+  await page.locator('#configuration').evaluate(node=>node.open=true);
+  for(let i=0;i<12;i++)await page.locator('#add-station').click();
+  assert.equal(await page.locator('.config-slot').count(),16);assert.equal(await page.locator('#add-station').isDisabled(),true);
+  await page.locator('#language').selectOption('en');assert.equal(await page.locator('.config-slot').count(),16);
+  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelectorAll('#stations article').length===16);
+  assert.equal(stations[4].id,6);assert.equal(stations[15].id,17);
+  await page.locator('[data-remove="2"]').click();await page.locator('#save').click();
+  await page.waitForFunction(()=>!document.getElementById('card-2'));assert.equal(stations.some(s=>s.id===2),false);
+  await page.locator('#add-station').click();await page.locator('#save').click();
+  await page.waitForFunction(()=>document.getElementById('card-18'));assert.equal(stations.at(-1).id,18);
+  // Removing all entries is supported; empty state is not represented by fixed slots.
+  await page.locator('#configuration').evaluate(node=>node.open=true);
+  while(await page.locator('[data-remove]').count())await page.locator('[data-remove]').first().click();
+  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelectorAll('#stations article').length===0);
+  assert.equal(await page.locator('#all-on').isDisabled(),true);
+  // Exercise the actual browser multipart upload, header token, waiting and errors.
+  await page.locator('#ota-settings').evaluate(node=>node.open=true);
+  const file=Buffer.alloc(1064);file.write('LHBRIDGE-ESP32-OTA1');file.writeUInt32LE(1000,24);
+  await page.locator('#ota-file').setInputFiles({name:'test.lhota',mimeType:'application/octet-stream',buffer:file});
+  otaInvalid=true;await page.locator('#ota-update').click();
+  await page.waitForFunction(()=>document.getElementById('ota-status').textContent.includes('Invalid, damaged'));
+  assert.equal(otaInstalled,false);assert.equal(otaPrepared,false);
+  otaInvalid=false;await page.locator('#ota-update').click();
+  await page.waitForFunction(()=>document.getElementById('ota-status').textContent.includes('Update installed'));
+  assert.equal(otaInstalled,true);assert.deepEqual(errors,[]);
   console.log('Embedded UI passed: bootstrap-to-own-password, key separation, EN/DE, discovered assignments, real-vs-requested states, refresh without writes, stale readings, logout and relogin.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

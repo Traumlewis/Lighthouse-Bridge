@@ -5,6 +5,7 @@
 using namespace bridge;
 static StationState states[kStations];
 static bool configured[kStations] = {true, true, true, true};
+static uint32_t ids[kStations] = {};
 static unsigned queued = 0;
 static int lastSlot = -2;
 static Target lastTarget = Target::Sleep;
@@ -12,7 +13,7 @@ static Target lastTarget = Target::Sleep;
 static bool enqueue(int slot, Target target) {
   bool accepted = false;
   for (unsigned i = 0; i < kStations; ++i) {
-    if (configured[i] && (slot < 0 || slot == static_cast<int>(i))) {
+    if (configured[i] && (slot < 0 || slot == static_cast<int>(ids[i]))) {
       request(states[i], target);
       accepted = true;
     }
@@ -22,7 +23,7 @@ static bool enqueue(int slot, Target target) {
 }
 
 static std::string uri(uint32_t mac, unsigned slot) {
-  return "/api/test-user/lights/" + std::to_string((mac << 7) | slot);
+  return "/api/test-user/lights/" + std::to_string(hueKey(mac, slot));
 }
 
 static void errorIs(const HueWriteReply& reply, unsigned type) {
@@ -35,6 +36,7 @@ static void errorIs(const HueWriteReply& reply, unsigned type) {
 
 int main() {
   const uint32_t mac = 0x112233; // Synthetic bridge identity.
+  for (unsigned i=0;i<kStations;++i) { ids[i]=i<4?i+1:i+2; configured[i]=true; }
   assert(!parseHueLightRoute("/api/status", mac).matched);
   assert(!parseHueLightRoute("/api/test-user/config", mac).matched);
   assert(parseHueLightRoute("/api//lights", mac).matched);
@@ -44,13 +46,13 @@ int main() {
   assert(parseHueLightRoute("/api/test-user/lights/", mac).valid);
   errorIs(handleHueWrite(collection, "{\"on\":true}", enqueue), 3);
 
-  for (unsigned slot = 0; slot <= kStations; ++slot) {
+  for (uint32_t slot : ids) {
     const auto route = parseHueLightRoute((uri(mac, slot) + "/state").c_str(), mac);
     assert(route.valid && route.slot == static_cast<int>(slot) && route.stateOnly);
     for (bool on : {true, false}) {
       const auto reply = handleHueWrite(route, on ? "{\"on\":true}" : "{\"on\":false}", enqueue);
       assert(reply.accepted && reply.on == on);
-      assert(lastSlot == (slot == kStations ? -1 : static_cast<int>(slot)));
+      assert(lastSlot == static_cast<int>(slot));
       assert(lastTarget == (on ? Target::On : Target::Sleep));
       StaticJsonDocument<512> response;
       assert(!deserializeJson(response, reply.json));
@@ -63,7 +65,7 @@ int main() {
     }
   }
 
-  const auto route = parseHueLightRoute((uri(mac, 0) + "/state").c_str(), mac);
+  const auto route = parseHueLightRoute((uri(mac, 1) + "/state").c_str(), mac);
   unsigned before = queued;
   errorIs(handleHueWrite(route, "not JSON", enqueue), 2);
   errorIs(handleHueWrite(route, nullptr, enqueue), 2);
@@ -83,8 +85,8 @@ int main() {
   assert(response.size() == 2);
   assert(response[1]["error"]["type"].as<unsigned>() == 6);
 
-  for (const auto& bad : {uri(mac + 1, 0), uri(mac, 5), uri(mac, 0) + "x",
-                         uri(mac, 0) + "/state/extra", std::string("/api/u/lights/2147483648/state"),
+  for (const auto& bad : {uri(mac, 5), uri(mac, 1) + "x",
+                         uri(mac, 1) + "/state/extra", std::string("/api/u/lights/2147483648/state"),
                          std::string("/api/u/lights/-1/state"), std::string("/api/u/lights/999999999999999999999")}) {
     const auto invalid = parseHueLightRoute(bad.c_str(), mac);
     assert(invalid.matched && !invalid.valid);
@@ -95,10 +97,10 @@ int main() {
   errorIs(handleHueWrite(route, "{\"on\":true}", enqueue), 3);
   configured[0] = true;
 
-  // Group + individual requests in one Alexa operation must not restart work.
-  for (auto& item : states) item = StationState{};
-  const auto group = parseHueLightRoute((uri(mac, kStations) + "/state").c_str(), mac);
-  assert(handleHueWrite(group, "{\"on\":true}", enqueue).accepted);
+  // Retired group 5 is never a new station; repeated individual commands coalesce.
+  const auto group = parseHueLightRoute((uri(mac, 5) + "/state").c_str(), mac);
+  errorIs(handleHueWrite(group, "{\"on\":true}", enqueue), 3);
+  assert(handleHueWrite(route, "{\"on\":true}", enqueue).accepted);
   const auto generation = states[0].generation;
   states[0].pending = false; states[0].busy = true;
   assert(handleHueWrite(route, "{\"on\":true}", enqueue).accepted);
@@ -114,5 +116,5 @@ int main() {
   assert(states[0].observedMs == 1000);
   finish(states[0], states[0].generation, true, 9, 2000, "");
   assert(measuredOn(states[0]) && freshMeasurement(states[0], 2001));
-  std::cout << "Hue API passed: IDs, boolean ON/SLEEP ACKs, group queue, invalid requests and measured-state separation.\n";
+  std::cout << "Hue API passed: IDs, boolean ON/SLEEP ACKs, 16 individual devices, retired group, invalid requests and measured-state separation.\n";
 }

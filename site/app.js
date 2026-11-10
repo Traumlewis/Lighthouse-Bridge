@@ -1,6 +1,6 @@
-import { translations } from './translations.js?v=0.2.7';
-import { validUpdateParts } from './flash-layout.mjs?v=0.2.7';
-import { watchDeviceInfo } from './serial-info.mjs?v=0.2.7';
+import { translations } from './translations.js?v=0.3.0';
+import { validUpdateParts } from './flash-layout.mjs?v=0.3.0';
+import { watchDeviceInfo } from './serial-info.mjs?v=0.3.0';
 
 const installer = document.getElementById('installer');
 const install = document.getElementById('install');
@@ -70,7 +70,7 @@ async function loadFlasher() {
 async function checkFirmware() {
   try {
     const response = await fetch('manifest.json', {cache:'no-store'});
-    if (!response.ok) throw new Error('Manifest fehlt');
+    if (!response.ok) throw new Error('Manifest missing');
     const manifest = await response.json();
     const parts = manifest.builds?.find(build => build.chipFamily === 'ESP32')?.parts;
     if (!validUpdateParts(parts) || !manifest.version) throw new Error('Unsafe update manifest');
@@ -80,6 +80,7 @@ async function checkFirmware() {
     }));
     firmwareVersion = 'v' + manifest.version;
     document.getElementById('download').hidden = false;
+    const ota=document.getElementById('ota-download');ota.href='firmware/lighthouse-bridge-v'+manifest.version+'.lhota';ota.hidden=false;
     document.getElementById('checksum-link').hidden = false;
     firmwareReady = true;
     firmwareState = 'ready';
@@ -143,3 +144,12 @@ document.addEventListener('closed', event => {
   if (dialog.localName !== 'ewt-install-dialog' || !dialog.port) return;
   setTimeout(() => { if (!dialog.isConnected) startUsbInfo(dialog.port); },700);
 });
+
+async function copyKey(){
+ const value=usbInfo?.api_key;if(!value)return;
+ try{let done=false;if(navigator.clipboard&&window.isSecureContext){try{await navigator.clipboard.writeText(value);done=true;}catch(_){}}
+ if(!done){const input=document.createElement('textarea');input.value=value;input.style.position='fixed';input.style.opacity='0';document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();if(!ok)throw new Error();}
+ document.getElementById('copy-status').textContent=text('copied');
+ }catch(_){document.getElementById('copy-status').textContent=text('copy_failed');}
+}
+document.getElementById('copy-key').addEventListener('click',copyKey);

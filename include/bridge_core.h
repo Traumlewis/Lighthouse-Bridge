@@ -4,7 +4,26 @@
 #include <cctype>
 
 namespace bridge {
-constexpr unsigned kStations = 4;
+constexpr unsigned kStations = 16;
+constexpr uint32_t kRetiredGroupId = 5;
+constexpr uint32_t kMaxStationId = 0x7fffffffU;
+inline uint32_t hueKey(uint32_t mac24, uint32_t stationId) {
+  return ((mac24 << 7) + stationId - 1) & 0x7fffffffU;
+}
+inline uint32_t stationIdFromHue(uint32_t mac24, uint32_t key) {
+  const uint32_t id = ((key - (mac24 << 7)) & 0x7fffffffU) + 1;
+  return id == kRetiredGroupId || id > kMaxStationId ? 0 : id;
+}
+inline bool validDeviceName(const char* value) {
+  if (!value || !*value || std::strlen(value) > 32) return false;
+  const size_t length = std::strlen(value);
+  for (size_t i = 0; i < length; ++i) {
+    const char c = value[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+          (c == '-' && i && i + 1 < length))) return false;
+  }
+  return true;
+}
 constexpr char kService[] = "00001523-1212-efde-1523-785feabcd124";
 constexpr char kPower[] = "00001525-1212-efde-1523-785feabcd124";
 enum class Target : uint8_t { Sleep = 0x00, On = 0x01 };
@@ -53,9 +72,10 @@ inline bool validName(const char* name) {
 }
 
 struct StationConfig {
+  uint32_t id = 0;
   char name[41] = {};
   char mac[18] = {};
-  uint8_t addressType = 0;
+  uint8_t addressType = 1;
 };
 struct StationState {
   Target requested = Target::Sleep;
