@@ -1,4 +1,4 @@
-# Local API — 0.3.6
+# Local API — 0.3.7
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -35,9 +35,10 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, a dynamic list of up to 16
 entries, discovery state and results. `alexa_started` confirms only SSDP startup.
 Top-level fields include `max_stations:16`, `maintenance`, `setup_ssid`,
-`ota_supported` and `ota_product`. Station IDs are contiguous local numbers 1..N in the saved list order.
-They renumber after configuration changes; refresh status before controlling a
-station after a save/removal/reorder. Alexa identities remain separate and stable.
+`ota_supported` and `ota_product`. Station IDs are fixed local slots 1–16. New entries receive the lowest free ID.
+Deletion/reordering never renumbers survivors; IDs may have gaps. Responses are
+sorted by ID. A removed ID can be reused by a later new entry. Alexa identities
+remain separate and stable for retained entries.
 A station entry looks like this:
 
 ```json
@@ -150,10 +151,12 @@ Each entry contains `id`, `name`, `mac`:
 ```
 
 Keep the existing ID for edits/reordering. Omit `id` or use `0` for a new entry.
-The server numbers the saved entries 1..N, including ID 5. Existing IDs in the
-request identify the current (pre-save) entries; the response contains the new
-numbers after removal/reordering. Public API IDs are list positions, not permanent
-physical identities. Fetch status/saved results after configuration changes.
+The server preserves existing IDs and assigns new entries the lowest free ID
+from **1–16**, including ID 5. It reserves all retained IDs before allocating,
+regardless of request order. Leave an entry out to remove it and free its slot;
+reordering does not change IDs. Responses are sorted by ID and can contain gaps.
+Use `id:0`/omit ID for creation, then read the assigned ID from the response.
+An ID stays with that entry until removal; a later new entry can reuse it.
 A separate server-managed Hue identity preserves Alexa devices through renumbering;
 clients cannot assign it. Only that Hue identity space reserves 5 for the retired
 group. Old IDs 6–9 automatically become local 1–4 without changing Alexa keys.
@@ -165,7 +168,9 @@ All connections use Random (1); `address_type` input is ignored and status retur
 1 for compatibility. Names must be unique, 1–40 UTF-8 bytes, without control
 characters or `"`, `\`, `<`, `>`, `&`. Addresses must be unique and are normalized.
 Old four-slot records retain their original Alexa identities; empty legacy slots
-are discarded and local IDs compact. Local IDs, Hue identities and the next Hue
+are discarded while occupied legacy slot IDs are retained. Old pre-0.3.6 dynamic
+records without separate Hue IDs migrate to the lowest free slots; 0.3.6 records
+retain their saved local IDs. Local IDs, Hue identities and the next Hue
 identity counter persist atomically.
 
 Active commands/discovery or maintenance cause `409 BLE_BUSY`. Background reads
@@ -291,7 +296,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.6","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.7","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

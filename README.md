@@ -16,6 +16,15 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.7
+
+Station IDs are **16 fixed slots (1–16)**. A new entry gets the lowest free ID:
+first station 1, second 2. Deleting or reordering an entry leaves the other IDs
+unchanged, including after reboot. New entries can reuse freed slots. The cards,
+setup headers/default names, API and log all use those fixed IDs. Existing 0.3.6
+assignments and remaining Alexa identities are preserved. This supersedes the
+automatic renumbering introduced in 0.3.6.
+
 ## Version 0.3.6
 
 Station numbers now match the configured list everywhere: four entries have IDs

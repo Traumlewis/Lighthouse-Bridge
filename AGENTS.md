@@ -120,21 +120,23 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Dynamic list: 0–16 entries. UI supports explicit Add/Remove and one MAC input
   with discovered datalist suggestions. Empty added entries are disabled and
   count toward capacity. Legacy empty slots are discarded during migration.
-- Local/API station IDs are contiguous **1..N**, following saved list order, as
-  requested by the owner in 0.3.6. Renumber on load/save/removal/reorder, including
-  local ID 5. Cards use two-digit IDs 01..16; API and worker/Hue logs use the same
-  local numbers. Never merely change labels while leaving API IDs at 6–9.
+- Local/API station IDs are fixed slots **1..16**, clarified by the owner after
+  0.3.6. New entries get the lowest free slot; deleting/reordering never renumbers
+  survivors. Removed slots can be reused. Reserve retained IDs before allocating
+  new entries, regardless of payload order. Store/display entries sorted by ID.
+  Card labels, form headers/default names, API and logs use the actual fixed ID.
+  Pending unsaved entries preview the same lowest-free allocation.
 - `StationConfig.hueId` is a separate stable monotonic Alexa identity. Skip Hue 5
-  permanently and never reuse removed Hue identities. Old dynamic IDs 6–9 migrate
+  permanently and never reuse removed Hue identities. Pre-0.3.6 dynamic IDs 6–9 migrate
   to local 1–4 while preserving those Hue identities and encoded keys/unique IDs.
   Legacy four-slot records preserve original Hue identities; discard empty slots.
 - NVS atomically stores {next_id,stations:[{id,hue_id,name,mac}]}; next_id is the
   next Hue identity, retaining the existing record key. Public config omits
   hue_id; clients cannot replace it. Existing request IDs refer to pre-save local
-  IDs, new entries use 0, and the saved response returns newly compacted IDs.
+  IDs, new entries use 0, and the response returns assigned fixed-slot IDs.
   Browser power controls stay disabled during save until a fresh status is loaded;
-  ignore older in-flight status responses. Integrations must refresh IDs after configuration changes, not cache positions
-  as permanent physical identities. Hue PUT/GET translate via the stable identity.
+  ignore older in-flight status responses. Integrations must refresh after removal/replacement: a freed slot may later
+  refer to a new device. Do not interpret array positions as IDs. Hue PUT/GET translate via the stable identity.
 - Config saves may run during a background read but reject pending/active commands
   or scans. State/history follows unchanged Hue identity+MAC across reordering; generation
   at each destination index increments to invalidate old in-flight readings.
@@ -253,7 +255,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.6**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.7**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

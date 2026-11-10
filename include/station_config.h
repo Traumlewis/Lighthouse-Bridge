@@ -2,6 +2,7 @@
 #include "bridge_core.h"
 #include <ArduinoJson.h>
 #include <string>
+#include <algorithm>
 
 namespace bridge {
 inline int stationIndex(const StationConfig* stations, uint32_t id) {
@@ -23,6 +24,19 @@ inline bool parseStationList(JsonVariantConst input, StationConfig* out,
   for (unsigned i = 0; i < kStations; ++i) out[i] = StationConfig{};
   if (legacy && nextId < 6) nextId = 6;
   if (!nextId) nextId = 1;
+  // Reserve all retained slots before allocating new entries, regardless of input order.
+  bool used[kStations + 1]{};
+  unsigned sourcePosition = 0;
+  for (JsonVariantConst item : input.as<JsonArrayConst>()) {
+    ++sourcePosition;
+    if (legacy && item["mac"].is<const char*>() && !*item["mac"].as<const char*>()) continue;
+    if (!legacy && item.containsKey("id") && !item["id"].is<uint32_t>()) { error = "CONFIG_IDS"; return false; }
+    const uint32_t id = legacy ? sourcePosition : item["id"].as<uint32_t>();
+    const bool retain = restoring ? (legacy || item.containsKey("hue_id")) : id != 0;
+    if (!retain) continue;
+    if (!id || id > kStations || used[id] || (!restoring && stationIndex(current,id) < 0)) { error = "CONFIG_IDS"; return false; }
+    used[id] = true;
+  }
   uint32_t seenIds[kStations]{};
   unsigned count = 0, position = 0;
   for (JsonVariantConst item : input.as<JsonArrayConst>()) {
@@ -53,7 +67,12 @@ inline bool parseStationList(JsonVariantConst input, StationConfig* out,
     if (!hueId || hueId == kRetiredGroupId || hueId > kMaxStationId) { error = "CONFIG_IDS"; return false; }
     if (restoring && nextId <= hueId) nextId = hueId + 1;
     auto& value = out[count];
-    value.id = count + 1;
+    const bool retain = restoring ? (legacy || item.containsKey("hue_id")) : inputId != 0;
+    uint32_t localId = inputId;
+    if (!retain) { for (localId = 1; localId <= kStations && used[localId]; ++localId) {} }
+    if (!localId || localId > kStations) { error = "CONFIG_LIMIT"; return false; }
+    used[localId] = true;
+    value.id = localId;
     value.hueId = hueId;
     std::strcpy(value.name, item["name"].as<const char*>());
     if (*mac && !normalizeMac(mac, value.mac)) { error = "CONFIG_MAC"; return false; }
@@ -65,6 +84,7 @@ inline bool parseStationList(JsonVariantConst input, StationConfig* out,
     }
     seenIds[count++] = inputId;
   }
+  std::sort(out,out+count,[](const StationConfig& a,const StationConfig& b){return a.id<b.id;});
   return true;
 }
 // History follows stable Alexa identity + MAC; invalidate reads at the old index.

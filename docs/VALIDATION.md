@@ -1,4 +1,20 @@
-# Validation report — 0.3.6
+# Validation report — 0.3.7
+
+## Version 0.3.7 fixed reusable station slots
+
+The owner clarified that stations receive fixed IDs from a pool of 16 slots,
+not IDs that shift on removal. The lowest free ID is assigned on creation;
+remaining IDs survive removal/reordering and reboot. Retained slots are reserved
+before allocation, so a new entry earlier in a payload cannot steal an existing
+ID. Records/responses are sorted by ID, with gaps allowed. UI headers/default
+names preview the same slot selection. Stable Hue identities remain separate.
+
+Native checks cover deletion without renumbering, freed-slot reuse, reload with
+gaps, allocation before retained entries, all 16 slots, and previous migrations,
+identity/history preservation and generation checks. Browser checks cover retained
+card IDs after deletion, default name/header matching the freed ID, reuse, and
+commands sent to the fixed ID. Existing debug geometry/auth/language checks remain.
+Firmware/package/NVS checks apply; simulated tests do not use physical hardware.
 
 ## Version 0.3.6 contiguous local station IDs
 
