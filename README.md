@@ -12,7 +12,25 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.3
+## What's new in 0.2.4
+
+Upgrade the BLE host from NimBLE 1.4.3 to pinned **2.5.2**, which includes
+connection-establishment recovery for HCI 0x3e. Limit it explicitly to one
+internal retry per connection call, with a 3000 ms controller connection timeout.
+Existing worker limits remain two read attempts and three command/write attempts.
+Successful reads are now logged too, so a new log shows successes as well as
+failures. The owner confirms Random (1) was already configured correctly; do
+not switch these stations to Public (0), which causes connection timeouts.
+
+The dashboard distinguishes a queued read from an active read. Age now explicitly
+refers to the **last successful reading**. A recent measurement invalidated by
+repeated failures says unavailable; stale is reserved for readings at least
+60 seconds old. English remains default, with German selectable.
+
+Build/model/browser checks cannot confirm radio reliability on the actual board.
+This change still requires a hardware comparison; it does not prove a radio cause.
+
+## Scan filter corrected in 0.2.3
 
 Correct the recovery scan's connectability filter for classic ESP32. The pinned
 NimBLE 1.4.3 `isConnectable()` interprets legacy report types as extended bit

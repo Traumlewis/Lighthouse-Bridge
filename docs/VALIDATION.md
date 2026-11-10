@@ -1,4 +1,49 @@
-# Validation report — prototype 0.2.3
+# Validation report — prototype 0.2.4
+
+## BLE host upgrade and clearer read phases: 0.2.4
+
+The owner confirms all four stations were already configured with Random (1).
+The temporary Public (0) test produced NimBLE host timeout code 13; type 0 is
+not a remedy. The subsequent 0.2.3 log still finds connectable ADV_IND/type-1
+advertisements, with RSSI ranging from -55 to -85 dBm, alongside repeated 574
+failures and successful SLEEP reads. The UI reports transient read failure,
+unavailable measurements and reading in progress. A saved-type mismatch is no
+longer the working explanation. No specific RF or board cause is established.
+
+Version 0.2.4 migrates from NimBLE 1.4.3 to pinned 2.5.2. Upstream 2.5.0 added
+internal connection-establishment retries for HCI 0x3e; 2.5.2 includes subsequent
+fixes. The bridge explicitly sets one host retry, rather than relying on the
+library default of two. A controller attempt uses 3000 ms; two worker read
+attempts allow at most four controller starts, and three command/write attempts
+allow at most six. Recovery scans and worker priority checks remain. This does
+not increase the maximum number of power writes beyond three per command job.
+
+The API migration uses blocking `getResults(2000/5000, false)` for the original
+2/5 second scans, copies const result pointers before clearing, and uses the
+2.x millisecond connection timeout. BLE initialization is checked before claiming
+readiness. Since 2.x client deletion can be deferred, the worker waits for client
+cleanup before another scan/connection and keeps the physical BLE-active flag
+set meanwhile. It never dereferences a client after deletion is requested. A
+cleanup wait over five seconds logs a warning while HTTP continues; no overlapping
+radio work is forced and cleanup does not refresh measurement timestamps. Every successful read is logged, not only recovered reads; failed
+worker attempts include address type and host retry limit. Protocol, partition
+layout, Wi-Fi coexistence policy, saved settings and authentication are unchanged.
+
+Status preserves aggregate `reading` and adds `read_active` / `read_queued`.
+The dashboard distinguishes waiting from active work and calls the displayed age
+**last successful reading**. Recent measurements invalidated by failures say
+unavailable; only age of at least 60 seconds says stale. This does not loosen
+reachability or conceal connection errors. Native state tests and English/German
+browser cases cover failure/expiry and queued/active labels respectively.
+
+The final firmware build and native state tests passed. Seven Python
+translation/layout/NVS tests and the browser/USB suites passed locally. Browser
+regressions cover queued versus active reads in English/German, recent unavailable
+versus expired measurements, and explicit last-measurement age labels. These are
+mocked HTTP/USB checks, not measurements of BLE recovery on a board.
+
+**Hardware effectiveness is unconfirmed.** The upgrade exercises an upstream
+recovery path for this error; it does not establish the cause or guarantee a fix.
 
 ## Owner log from 0.2.3: advertising visible, connections still intermittent
 
@@ -16,9 +61,8 @@ scan diagnosis was misleading. It does not establish an RF, timing or board
 cause. A specific configuration check is now pending: compare the saved address
 types with the observed type 1. The worker copies the scan's type only into the
 current job; a wrong saved type would be reused by the next first attempt.
-Checking or correcting the four dropdowns uses the existing dashboard and does
-not require a firmware update. The log does not contain the saved types, so a
-mismatch is a hypothesis until the owner checks them.
+The owner subsequently confirmed all four were already set to type 1; the
+saved-type mismatch hypothesis was not supported.
 
 ## Legacy recovery scan correction: 0.2.3
 

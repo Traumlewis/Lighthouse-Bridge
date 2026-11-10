@@ -1,4 +1,4 @@
-# Local API — 0.2.3
+# Local API — 0.2.4
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -42,8 +42,15 @@ A station entry looks like this:
 measurement. Reads run at startup, after commands and periodically: target 15 s,
 starting state 2 s, unreachable state 30 s, subject to the BLE queue.
 
-`reading` includes queued read requests. A read cycle has up to two attempts with
-a six-second connection timeout. One failed cycle preserves a previously usable
+`reading` includes queued read requests for compatibility. `read_active` means
+a worker read is in progress; `read_queued` means a refresh is waiting. Both can
+be true if another refresh is requested during a read. The dashboard distinguishes
+queued from active and labels the measurement age separately.
+
+A read cycle has up to two worker attempts. NimBLE 2.5.2 allows one internal
+retry for HCI 0x3e per connection call, each controller attempt with a 3000 ms
+timeout (at most four controller starts per read job). One failed cycle preserves
+a previously usable
 measurement with `read_failures=1` and a dashboard warning, then retries after
 five seconds. Two failed cycles, no previous measurement, or age of at least 60 s
 means `reachable=false`. Failures never refresh the measurement timestamp.
@@ -56,7 +63,7 @@ never write power or replace the explicit discovery results. Serial output
 includes the actual failing phase, attempt and recovery scan signal information.
 The scan distinguishes an unseen address from a matching but non-connectable
 legacy report, with report type and RSSI. Legacy connectability is checked
-explicitly rather than using the pinned library's faulty `isConnectable()` path.
+explicitly, retaining the workaround for the previous 1.4.3 `isConnectable()` bug.
 `last_read_attempt_ms` is the end of the last read attempt; `read_failures` counts
 consecutive failed cycles and resets on success. `observed_raw=-1` means no
 measurement yet. Times are milliseconds since startup; calculate differences as
@@ -73,7 +80,8 @@ Use `{"station":"all","state":"sleep"}` or `{"station":2,"state":"on"}`.
 Only `on` and `sleep` are valid; `off` and `standby` are rejected.
 `202 {"accepted":true}` means queued, not measured. New targets replace pending
 requests for the same slot; an in-flight action may still finish. There are at
-most three write/connection attempts. Groups include only assigned slots;
+most three worker/write attempts. Each connection call allows one internal
+HCI 0x3e retry, so there can be up to six controller starts for a command job. Groups include only assigned slots;
 otherwise the endpoint returns `409 NO_STATION`.
 
 ```sh
@@ -123,7 +131,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.3","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.4","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

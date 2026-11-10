@@ -14,7 +14,7 @@ Pinned build dependencies:
 | --- | --- | --- |
 | PlatformIO espressif32 | 6.9.0 | [Platform](https://github.com/platformio/platform-espressif32), Apache-2.0 |
 | Arduino ESP32 | 2.0.17, selected by the platform | [Espressif](https://github.com/espressif/arduino-esp32), LGPL-2.1 |
-| NimBLE-Arduino | 1.4.3 | [h2zero](https://github.com/h2zero/NimBLE-Arduino), Apache-2.0 and embedded third-party components |
+| NimBLE-Arduino | 2.5.2 | [h2zero](https://github.com/h2zero/NimBLE-Arduino), Apache-2.0 and embedded third-party components |
 | WiFiManager | 2.0.17 | [tzapu](https://github.com/tzapu/WiFiManager), MIT |
 | ArduinoJson | 6.21.5 | [bblanchon](https://github.com/bblanchon/ArduinoJson), MIT |
 | Espalexa | 2.7.0 / commit `40bf53a0c2e73c25d66da9a66a70307f1d304314` | [Aircoookie](https://github.com/Aircoookie/Espalexa), MIT |
@@ -26,3 +26,10 @@ packages for additional notices; this table does not replace those notices.
 The Alexa implementation uses the unmodified Espalexa library. Its stated Echo
 compatibility is a project goal, not evidence of testing with an Echo Dot 5
 running current firmware.
+
+The host upgrade in 0.2.4 follows the upstream
+[2.5.0 connection-establishment retry addition](https://github.com/h2zero/NimBLE-Arduino/releases/tag/2.5.0),
+with the [2.5.2 fixes](https://github.com/h2zero/NimBLE-Arduino/releases/tag/2.5.2).
+The maintainer also recommends connection retries for persistent 0x3e failures
+in [issue 1180](https://github.com/h2zero/NimBLE-Arduino/issues/1180).
+This is a software recovery mechanism, not proof of a particular physical cause.

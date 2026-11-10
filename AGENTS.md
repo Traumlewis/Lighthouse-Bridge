@@ -31,10 +31,23 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Read on startup, after commands, and about every 15 seconds; booting states
   retry after 2 seconds, unreachable devices after 30 seconds. One radio means
   queue/connection delays can lengthen intervals. Manual refresh is read-only.
-- Read-only queries use a 6-second connection timeout and up to two attempts,
+- Pin NimBLE-Arduino **2.5.2** (Arduino ESP32 remains 2.0.17). Connection and
+  scan durations use **milliseconds** in the 2.x API: `setConnectTimeout(3000)`,
+  blocking `getResults(2000, false)` for recovery, `getResults(5000, false)` for
+  discovery. Results contain const device pointers; copy data before clearing.
+  `deleteClient()` can be asynchronous in 2.x: never touch the pointer afterward.
+  Wait for created-client count zero before any further scan/connection; keep
+  bleActive true during deferred cleanup to block the Wi-Fi portal. If cleanup
+  exceeds 5 seconds log once and keep the worker waiting (HTTP remains serviced).
+  Do not stamp a successful read later just because cleanup takes time.
+- Set `setConnectRetries(1)` explicitly: at most one internal retry of HCI 0x3e
+  per client connection call. Read-only queries use up to two worker attempts,
   with 350–650 ms between attempts. Yield to queued commands/reassignments before
-  and after retry scanning; command connection timeout stays 3 seconds. Allow
-  150 ms between jobs.
+  and after retry scanning. Each controller connection attempt has a 3-second
+  timeout. At most four controller starts per read job, six per command job,
+  with at most three write attempts. Do not silently multiply library defaults
+  and worker retries. Allow 150 ms between jobs. Internal retry/control-protocol
+  delays and GATT work can lengthen a job; do not promise a hard total deadline.
 - BLE code 574 = 0x023e = HCI 0x3e, connection establishment failed. On this
   error only, scan passively for 2 seconds before the next attempt. Match the
   assigned MAC, require connectable advertising and use its current address type
@@ -46,8 +59,8 @@ status change. Keep current facts, not a conversation log. User instructions win
   `isConnectableLegacyAdvertisement(getAdvType())`: only ADV_IND (0) and
   ADV_DIRECT_IND (1). **Do not use NimBLE 1.4.3 `isConnectable()`**: its
   non-extended path treats enum values as bit flags, rejects 0 and accepts 3/4.
-  Firmware static assertions bind enum values to upstream HCI constants; native
-  tests cover all five report types and an invalid value. Log a matched but
+  Retain explicit legacy classification on 2.5.2. Firmware static assertions
+  bind enum values to upstream HCI constants; native tests cover all five report types and an invalid value. Log a matched but
   non-connectable report separately from no matching address, with type/RSSI.
 - One failed read cycle retains a previously usable measurement, explicitly labeled
   last reading / retrying, without changing its timestamp. Retry after 5 seconds.
@@ -55,9 +68,15 @@ status change. Keep current facts, not a conversation log. User instructions win
   unreachable. Counters saturate and reset on a successful reading. Never grant
   this grace to an unconfirmed post-command state. Expose read_failures, ble_error
   and last_read_attempt_ms in status; log numeric BLE codes without device keys.
+  Log successful reads too, including worker attempt and raw state; error logs
+  include saved/used address type and the explicit host retry limit.
 - Reassignment may proceed during a background read. Check its generation before
   applying the result; never apply an old device reading to a new assignment.
   A separate physical BLE-active flag must still block starting the Wi-Fi portal.
+- Preserve API `reading` as active OR queued for compatibility, with separate
+  `read_active` and `read_queued`. UI must distinguish those phases and label age
+  as the last successful measurement's age, not an ongoing read's duration.
+  Recent unusable measurements say unavailable; only age >=60 s says stale.
 - Readings older than 60 seconds are stale. Raw 1/8/9 = booting, 11 = ON, 0 = SLEEP, 2 = STANDBY.
   Booting counts active for Hue; dashboard still says Starting.
 - Espalexa exposes four lights plus **`VR Basisstationen`**. Preserve existing
@@ -105,7 +124,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.3**. Web updates use exactly four files at offsets:
+- Current release **0.2.4**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -186,9 +205,12 @@ The owner's 0.2.3 log shows all 23 recovery scans finding connectable legacy
 ADV_IND (0), always address_type=1, RSSI -60..-76 dBm, but ongoing code 574.
 It includes recovered raw SLEEP/starting/ON reads and sent ON/SLEEP writes for
 all four stations. First-attempt successes are not logged: do not infer an
-overall failure rate. A check of saved address types is pending; job-local scan
-correction is discarded between jobs, so a saved type 0 would recur. Do not
-claim that mismatch is confirmed from a log containing only advertised types.
+overall failure rate. The owner confirms all saved address types were already 1. Testing Public (0)
+caused timeout code 13, so keep Random (1); a saved-type mismatch does not explain
+these failures. A later 0.2.3 log again finds connectable type-1 advertisements,
+RSSI -55..-85 dBm, successful SLEEP reads and persistent 574 failures. Version
+0.2.4 upgrades the BLE host for upstream establishment recovery and clarifies
+UI read/age states; effectiveness still needs a real-board retest.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

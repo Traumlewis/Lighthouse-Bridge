@@ -137,37 +137,52 @@ bool queueTarget(int slot, Target target) {
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
 // block the HTTP/SSDP loop. One connection at a time for all four stations.
+void waitForBleCleanup() {
+  // In NimBLE 2.x deleteClient() can defer destruction until disconnection.
+  // Never dereference that client again, or start another scan/connection yet.
+  const uint32_t started = millis();
+  bool warned = false;
+  while (NimBLEDevice::getCreatedClientCount() != 0) {
+    if (!warned && millis() - started >= 5000) {
+      Serial.println("BLE disconnect cleanup is still pending; worker waits before further radio work.");
+      warned = true;
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
 void refreshRetryAddress(StationConfig& config, unsigned slot) {
+  waitForBleCleanup();
   // A failed establishment (HCI 0x3e) needs a new radio opportunity, not a
   // longer GATT read timeout. Passive scanning avoids extra scan requests.
   auto* scan = NimBLEDevice::getScan();
   scan->setActiveScan(false);
   scan->setInterval(97);
   scan->setWindow(67);
-  auto results = scan->start(2, false);
+  auto results = scan->getResults(2000, false); // NimBLE 2.x durations are milliseconds.
   bool seen = false;
   bool matched = false;
   for (int i = 0; i < results.getCount(); ++i) {
-    auto device = results.getDevice(i);
+    const auto* device = results.getDevice(i);
     char mac[18]{};
-    normalizeMac(device.getAddress().toString().c_str(), mac);
+    normalizeMac(device->getAddress().toString().c_str(), mac);
     if (strcmp(mac, config.mac)) continue;
     matched = true;
-    const uint8_t eventType = device.getAdvType();
+    const uint8_t eventType = device->getAdvType();
     // NimBLE 1.4.3 isConnectable() treats legacy enum 0 (ADV_IND) as a
     // zero bitmask on classic ESP32, incorrectly rejecting normal advertising.
     static_assert(BLE_HCI_ADV_RPT_EVTYPE_ADV_IND == 0 && BLE_HCI_ADV_RPT_EVTYPE_DIR_IND == 1,
                   "Legacy advertising classification must match HCI constants");
     if (!isConnectableLegacyAdvertisement(eventType)) {
       Serial.printf("Station %u: retry scan: address seen, RSSI=%d dBm, adv_type=%u (not connectable)\n",
-                    slot + 1, device.getRSSI(), eventType);
+                    slot + 1, device->getRSSI(), eventType);
       continue;
     }
     // Use the actual advertised address type for this job, without changing
     // saved assignments or accepting a different device based on its name.
-    config.addressType = device.getAddressType();
+    config.addressType = device->getAddress().getType();
     Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=%u, adv_type=%u\n",
-                  slot + 1, device.getRSSI(), config.addressType, eventType);
+                  slot + 1, device->getRSSI(), config.addressType, eventType);
     seen = true;
     break;
   }
@@ -177,18 +192,23 @@ void refreshRetryAddress(StationConfig& config, unsigned slot) {
   scan->clearResults();
 }
 
-void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt) {
-  Serial.printf("Station %u: %s, BLE code=%d, attempt=%u%s\n", slot + 1,
-                error, code, attempt + 1,
+void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt, uint8_t addressType) {
+  Serial.printf("Station %u: %s, BLE code=%d, worker_attempt=%u, address_type=%u, host_retry_limit=1%s\n", slot + 1,
+                error, code, attempt + 1, addressType,
                 code == BLE_HS_HCI_ERR(BLE_ERR_CONN_ESTABLISHMENT)
-                  ? " (HCI 0x3e: connection establishment failed)" : "");
+                  ? " (HCI 0x3e: connection establishment failed)"
+                  : code == BLE_HS_ETIMEOUT ? " (connection timeout)" : "");
 }
 
 bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError) {
+  waitForBleCleanup();
   bleError = 0;
   NimBLEClient* client = NimBLEDevice::createClient();
   if (!client) { strcpy(error, "BLE_NO_CLIENT"); return false; }
-  client->setConnectTimeout(target ? 3 : 6);
+  // The host retries HCI 0x3e before exposing a failed connection to the worker.
+  // Explicitly bound nested retries; NimBLE 2.x expects milliseconds here.
+  client->setConnectTimeout(3000);
+  client->setConnectRetries(1);
   bool ok = false;
   if (!client->connect(NimBLEAddress(std::string(config.mac), config.addressType))) {
     strcpy(error, "BLE_CONNECT_FAILED");
@@ -206,8 +226,8 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
       }
       if (ok && power->canRead()) {
         if (target) vTaskDelay(pdMS_TO_TICKS(250));
-        const std::string value = power->readValue();
-        if (!value.empty()) observed = static_cast<uint8_t>(value[0]);
+        const auto value = power->readValue();
+        if (value.size() > 0) observed = static_cast<uint8_t>(value[0]);
       }
       if (ok && observed < 0) {
         strcpy(error, "BLE_READ_FAILED");
@@ -216,30 +236,30 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
     }
   }
   if (!ok || observed < 0) bleError = client->getLastError();
-  if (client->isConnected()) client->disconnect();
   NimBLEDevice::deleteClient(client);
   return ok;
 }
 
 void discoverStations() {
+  waitForBleCleanup();
   auto* scan = NimBLEDevice::getScan();
   scan->setActiveScan(true);
   scan->setInterval(97);
   scan->setWindow(67);
-  auto results = scan->start(5, false);
+  auto results = scan->getResults(5000, false);
   FoundStation next[16]{};
   unsigned count = 0;
   bool truncated = false;
   for (int i = 0; i < results.getCount(); ++i) {
-    auto device = results.getDevice(i);
-    const std::string name = device.getName();
+    const auto* device = results.getDevice(i);
+    const std::string name = device->getName();
     if (name.compare(0, 4, "LHB-") != 0) continue;
     if (count == 16) { truncated = true; continue; }
     auto& item = next[count++];
     strncpy(item.name, name.c_str(), sizeof(item.name) - 1);
-    normalizeMac(device.getAddress().toString().c_str(), item.mac);
-    item.type = device.getAddressType();
-    item.rssi = device.getRSSI();
+    normalizeMac(device->getAddress().toString().c_str(), item.mac);
+    item.type = device->getAddress().getType();
+    item.rssi = device->getRSSI();
   }
   scan->clearResults();
   {
@@ -255,6 +275,7 @@ void discoverStations() {
 void bleWorker(void*) {
   unsigned cursor = 0;
   for (;;) {
+    waitForBleCleanup();
     int selected = -1;
     StationConfig config;
     Target target = Target::Sleep;
@@ -323,11 +344,11 @@ void bleWorker(void*) {
           }
           error[0] = '\0';
           if (accessPower(config, nullptr, observed, error, bleError)) {
-            if (attempt) Serial.printf("Station %d: read recovered on attempt=%u, observed=%d\n",
-                                       selected + 1, attempt + 1, observed);
+            Serial.printf("Station %d: read OK, worker_attempt=%u, observed=%d\n",
+                          selected + 1, attempt + 1, observed);
             break;
           }
-          logBleFailure(selected, error, bleError, attempt);
+          logBleFailure(selected, error, bleError, attempt, config.addressType);
         }
         {
           Lock lock; finishRead(states[selected], generation, observed, millis(), error, bleError);
@@ -342,7 +363,7 @@ void bleWorker(void*) {
         error[0] = '\0';
         sent = accessPower(config, &target, observed, error, bleError);
         if (sent) break;
-        logBleFailure(selected, error, bleError, attempt);
+        logBleFailure(selected, error, bleError, attempt, config.addressType);
         if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1) + esp_random() % 301));
       }
       {
@@ -354,7 +375,7 @@ void bleWorker(void*) {
       }
       cursor = (selected + 1) % kStations;
     }
-    { Lock lock; bleActive = false; }
+    { Lock lock; bleActive = NimBLEDevice::getCreatedClientCount() != 0; }
     vTaskDelay(pdMS_TO_TICKS(selected >= 0 ? 150 : 20));
   }
 }
@@ -389,7 +410,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.3";
+  doc["version"] = "0.2.4";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -416,6 +437,8 @@ void statusRoute() {
       item["pending"] = state.pending;
       item["busy"] = state.busy;
       item["reading"] = state.reading || refreshRequested[i];
+      item["read_active"] = state.reading;
+      item["read_queued"] = refreshRequested[i];
       item["reachable"] = freshMeasurement(state, millis());
       item["read_failures"] = state.readFailures;
       item["ble_error"] = state.bleError;
@@ -650,7 +673,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.3";
+  doc["protocol"] = 1; doc["version"] = "0.2.4";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -703,8 +726,11 @@ void startServices() {
     else Serial.println("Saved station configuration is invalid; please assign the stations again.");
   }
   Serial.println("Initializing BLE ...");
-  NimBLEDevice::init("Lighthouse Bridge");
-  Serial.println("BLE ready.");
+  if (!NimBLEDevice::init("Lighthouse Bridge")) {
+    Serial.println("BLE initialization failed.");
+    while (true) delay(1000);
+  }
+  Serial.println("BLE ready (NimBLE 2.5.2, connect_timeout_ms=3000, establishment_retry_limit=1).");
   if (xTaskCreatePinnedToCore(bleWorker, "lighthouse-ble", 8192, nullptr, 1, nullptr, 0) != pdPASS) {
     Serial.println("Could not start BLE task"); while (true) delay(1000);
   }
@@ -755,7 +781,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.3");
+  Serial.println("\nLighthouse Bridge 0.2.4");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();
