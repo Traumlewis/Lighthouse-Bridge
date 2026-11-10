@@ -1,5 +1,29 @@
-# Prüfbericht — Prototyp 0.2.0
+# Prüfbericht — Prototyp 0.2.1
 
+
+
+## Sporadische BLE-Aussetzer — 0.2.1
+
+Der Besitzer meldet zeitweise fehlgeschlagene Verbindungen und eine als nicht
+erreichbar angezeigte vorherige Messung, auch ohne andere Steuerung. 0.2.0
+hatte nur einen Leseversuch mit drei Sekunden Timeout und markierte schon den
+ersten Fehler als nicht erreichbar. Eine konkrete Funk-/Hardwareursache ist
+damit noch nicht nachgewiesen.
+
+0.2.1 verwendet sechs Sekunden und zwei Versuche pro Lese-Runde mit kurzer Pause.
+Nach einem fehlgeschlagenen Zyklus wird nach fünf Sekunden erneut gelesen. Ein
+noch gültiger Messwert bleibt ausdrücklich als letzte Messung gekennzeichnet;
+sein Zeitstempel ändert sich nicht. Zwei fehlgeschlagene Zyklen, kein Messwert
+oder Alter ab 60 Sekunden bedeuten weiterhin nicht erreichbar. Zahlenwerte des
+BLE-Treiberfehlers werden für Diagnose ausgegeben. Befehle behalten Priorität.
+
+Native Regressionstests prüfen Einzelfehler, Wiederholung, doppelte Fehler,
+Erholung, Ablauf der Altersgrenze, Zählerüberlauf, fehlende Initialmessung,
+Millis-Überlauf und verworfene Ergebnisse nach Neuzuordnung. Browserprüfungen
+decken die zweisprachige Kennzeichnung als letzte Messung und den Übergang zu
+nicht erreichbar ab. Eine eigene BLE-Aktiv-Markierung verhindert Portalstart
+während eines alten, inzwischen neu zugeordneten Hintergrund-Leseauftrags.
+Die Wirkung auf die tatsächlichen Verbindungsaussetzer ist am Board zu prüfen.
 
 ## Rückmeldung zu 0.1.1 und Erweiterungen 0.2.0
 

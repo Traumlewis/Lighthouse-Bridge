@@ -31,6 +31,7 @@ bool loginBlocked = false;
 WiFiManager wifiManager;
 bool servicesStarted = false, manualPortal = false;
 bool blePaused = false;
+bool bleActive = false;
 bool portalRequested = false;
 bool alexaReady = false;
 bool scanPending = false, scanning = false;
@@ -116,9 +117,10 @@ bool readBody(JsonDocument& doc) {
   if (deserializeJson(doc, server.arg("plain"))) { fail(400, "JSON_INVALID"); return false; }
   return true;
 }
-bool occupied() { // Caller holds stateMutex.
+bool occupied(bool includeRead = true) { // Caller holds stateMutex.
   if (scanning || scanPending) return true;
-  for (auto& state : states) if (state.busy || state.pending || state.reading) return true;
+  if (includeRead && bleActive) return true;
+  for (auto& state : states) if (state.busy || state.pending || (includeRead && state.reading)) return true;
   return false;
 }
 bool queueTarget(int slot, Target target) {
@@ -135,10 +137,11 @@ bool queueTarget(int slot, Target target) {
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
 // block the HTTP/SSDP loop. One connection at a time for all four stations.
-bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error) {
+bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError) {
+  bleError = 0;
   NimBLEClient* client = NimBLEDevice::createClient();
   if (!client) { strcpy(error, "BLE_NO_CLIENT"); return false; }
-  client->setConnectTimeout(3);
+  client->setConnectTimeout(target ? 3 : 6);
   bool ok = false;
   if (!client->connect(NimBLEAddress(std::string(config.mac), config.addressType))) {
     strcpy(error, "BLE_CONNECT_FAILED");
@@ -159,9 +162,13 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
         const std::string value = power->readValue();
         if (!value.empty()) observed = static_cast<uint8_t>(value[0]);
       }
-      if (!target && observed < 0) { ok = false; strcpy(error, "BLE_READ_FAILED"); }
+      if (ok && observed < 0) {
+        strcpy(error, "BLE_READ_FAILED");
+        if (!target) ok = false;
+      }
     }
   }
+  if (!ok || observed < 0) bleError = client->getLastError();
   if (client->isConnected()) client->disconnect();
   NimBLEDevice::deleteClient(client);
   return ok;
@@ -230,42 +237,61 @@ void bleWorker(void*) {
         for (unsigned offset = 0; offset < kStations; ++offset) {
           const unsigned i = (cursor + offset) % kStations;
           const auto& state = states[i];
-          const uint32_t interval = !state.reachable ? 30000 :
-            (state.observed == 1 || state.observed == 8 || state.observed == 9 ? 2000 : 15000);
+          const uint32_t interval = readInterval(state);
           if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
               millis() - state.lastReadAttemptMs < interval)) continue;
           selected = i; config = configs[i]; readOnly = true;
+          generation = states[i].generation;
           refreshRequested[i] = false; states[i].reading = true;
           break;
         }
       }
       }
+      bleActive = selected >= 0 || doScan;
     }
     if (doScan) discoverStations();
     if (selected >= 0) {
       char error[96]{};
       int observed = -1;
       bool sent = false;
+      int bleError = 0;
       if (readOnly) {
-        accessPower(config, nullptr, observed, error);
-        Lock lock; recordRead(states[selected], observed, millis(), error);
+        // Retry one failed read without changing power. Yield to pending user
+        // commands between attempts, and let the device finish disconnecting.
+        for (unsigned attempt = 0; attempt < 2; ++attempt) {
+          if (attempt) {
+            bool urgent = false;
+            { Lock lock; for (auto& state : states) urgent |= state.pending;
+              urgent |= blePaused || states[selected].generation != generation; }
+            if (urgent) break;
+            vTaskDelay(pdMS_TO_TICKS(500));
+          }
+          error[0] = '\0';
+          if (accessPower(config, nullptr, observed, error, bleError)) break;
+        }
+        {
+          Lock lock; finishRead(states[selected], generation, observed, millis(), error, bleError);
+        }
+        if (observed < 0) Serial.printf("Station %d: READ_FAILED, BLE code=%d\n", selected + 1, bleError);
       } else {
       for (unsigned attempt = 0; attempt < 3; ++attempt) {
         { Lock lock; if (states[selected].generation != generation) break; }
         error[0] = '\0';
-        sent = accessPower(config, &target, observed, error);
+        sent = accessPower(config, &target, observed, error, bleError);
         if (sent) break;
         if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1)));
       }
       {
         Lock lock;
         finish(states[selected], generation, sent, observed, millis(), error);
+        states[selected].bleError = bleError;
       }
       Serial.printf("Station %d: %s, %s\n", selected + 1, targetName(target), sent ? "gesendet" : error);
       }
       cursor = (selected + 1) % kStations;
     }
-    vTaskDelay(pdMS_TO_TICKS(20));
+    { Lock lock; bleActive = false; }
+    vTaskDelay(pdMS_TO_TICKS(selected >= 0 ? 150 : 20));
   }
 }
 
@@ -299,7 +325,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.0";
+  doc["version"] = "0.2.1";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -327,6 +353,9 @@ void statusRoute() {
       item["busy"] = state.busy;
       item["reading"] = state.reading || refreshRequested[i];
       item["reachable"] = freshMeasurement(state, millis());
+      item["read_failures"] = state.readFailures;
+      item["ble_error"] = state.bleError;
+      item["last_read_attempt_ms"] = state.lastReadAttemptMs;
       item["command_sent"] = state.sent;
       item["last_sent_ms"] = state.lastSentMs;
       item["observed"] = observedName(state.observed);
@@ -378,7 +407,7 @@ bool serveHueMeasurements(const String& uri) {
       any = true; allOn &= measuredOn(states[i]);
       allReachable &= freshMeasurement(states[i], millis());
       if (!states[i].reading && !states[i].busy &&
-          millis() - states[i].lastReadAttemptMs >= 15000) refreshRequested[i] = true;
+          millis() - states[i].lastReadAttemptMs >= readInterval(states[i])) refreshRequested[i] = true;
     }
     for (unsigned i = 0; i <= kStations; ++i) {
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
@@ -500,13 +529,16 @@ void configureRoutes() {
     bool busy = false, persisted = false;
     {
       Lock lock;
-      busy = occupied();
+      busy = occupied(false);
       if (!busy) {
         persisted = prefs.putString("stations", saved) == saved.length();
         if (persisted) {
           for (unsigned i = 0; i < kStations; ++i) {
-            if (strcmp(configs[i].mac, next[i].mac) || configs[i].addressType != next[i].addressType)
+            if (strcmp(configs[i].mac, next[i].mac) || configs[i].addressType != next[i].addressType) {
+              const uint32_t nextGeneration = states[i].generation + 1;
               states[i] = StationState{};
+              states[i].generation = nextGeneration;
+            }
             configs[i] = next[i];
           }
         }
@@ -554,7 +586,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.0";
+  doc["protocol"] = 1; doc["version"] = "0.2.1";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -659,7 +691,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.0");
+  Serial.println("\nLighthouse Bridge 0.2.1");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

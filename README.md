@@ -9,7 +9,17 @@ STANDBY.** Keine zusätzliche Handy-Companion-App erforderlich.
 [Builds](https://github.com/Traumlewis/Lighthouse-Bridge/actions) ·
 [Prüfbericht](docs/VALIDATION.md)
 
-## Neu in 0.2.0
+## Neu in 0.2.1
+
+BLE-Leseabfragen bekommen bis zu zwei Verbindungsversuche mit sechs Sekunden
+Timeout. Eine einzelne erfolglose Abfragerunde lässt einen noch gültigen
+Messwert als **letzte Messung** stehen und startet nach fünf Sekunden erneut.
+Zwei erfolglose Runden oder ein über 60 Sekunden alter Wert gelten als nicht
+erreichbar. Der Zeitstempel wird dabei nie künstlich erneuert. Bei weiterem
+Fehler steht der BLE-Treibercode in der API und im seriellen READ_FAILED-Eintrag.
+Die Anpassung muss noch am Board bestätigt werden.
+
+## Funktionen seit 0.2.0
 
 - Der WebFlasher schreibt getrennte Flashbereiche und erhält NVS mit WLAN,
   Zuordnung und Passwörtern, wenn **Erase device abgewählt** ist.
@@ -85,9 +95,9 @@ Verbindungsversuche und andere Stationen können diese Intervalle verlängern.
 Eine manuelle Aktualisierung reiht reine Leseaufträge ein, ohne Schaltbefehl.
 
 `requested` ist ein Auftrag, **kein Messwert**. Webinterface und Hue-Antworten
-verwenden `observed`. Bei Lesefehlern bleibt der alte Wert mit Zeitstempel erhalten,
-gilt aber als nicht erreichbar. Messungen ab 60 Sekunden gelten ebenfalls als
-veraltet. Das Webinterface fragt den ESP32-Speicher alle 2,5 Sekunden ab.
+verwenden `observed`. Bei einer erfolglosen Lese-Runde bleibt ein aktueller vorheriger Wert mit
+Warnung erhalten; nach fünf Sekunden wird erneut geprüft. Zwei erfolglose
+Runden oder Messungen ab 60 Sekunden gelten als nicht erreichbar/veraltet. Das Webinterface fragt den ESP32-Speicher alle 2,5 Sekunden ab.
 
 Echo Dot und ESP32 müssen im selben Heimnetz sein, ohne Client-Isolation.
 „Alexa, suche Geräte“ findet vier einzelne Lampen und **„VR Basisstationen“**.

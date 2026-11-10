@@ -46,7 +46,15 @@ int main() {
   recordRead(state, 0x0b, 200, "");
   assert(measuredOn(state) && freshMeasurement(state, 210));
   recordRead(state, -1, 300, "BLE_CONNECT_FAILED");
-  assert(state.observed == 0x0b && !freshMeasurement(state, 301));
+  assert(state.observed == 0x0b && freshMeasurement(state, 301));
+  assert(state.observedMs == 200 && state.readFailures == 1);
+  assert(readInterval(state) == 5000);
+  recordRead(state, -1, 5300, "BLE_CONNECT_FAILED");
+  assert(!freshMeasurement(state, 5301) && state.readFailures == 2);
+  assert(state.observedMs == 200 && readInterval(state) == 30000);
+  recordRead(state, 0x0b, 5400, "");
+  assert(state.readFailures == 0 && !state.error[0] && freshMeasurement(state, 5401));
+  assert(readInterval(state) == 15000);
   recordRead(state, 0x02, 400, "");
   assert(!measuredOn(state));
   recordRead(state, 0x01, 500, "");
@@ -54,5 +62,23 @@ int main() {
   assert(!freshMeasurement(state, 60500));
   recordRead(state, 0x00, 0xfffffff0U, "");
   assert(freshMeasurement(state, 10)); // millis wraparound.
+  recordRead(state, -1, 20, "BLE_READ_FAILED");
+  assert(freshMeasurement(state, 21) && state.observedMs == 0xfffffff0U);
+  assert(!freshMeasurement(state, 60000)); // Grace never extends the reading's age.
+  StationState neverRead;
+  recordRead(neverRead, -1, 100, "BLE_CONNECT_FAILED");
+  assert(!freshMeasurement(neverRead, 101)); // No fake initial state.
+  for (unsigned i = 0; i < 300; ++i) recordRead(neverRead, -1, 200 + i, "BLE_CONNECT_FAILED");
+  assert(neverRead.readFailures == 255); // Saturate instead of reviving after overflow.
+  finish(state, state.generation, true, -1, 70000, "BLE_READ_FAILED");
+  assert(!freshMeasurement(state, 70001) && readInterval(state) == 5000);
+  StationState replaced;
+  replaced.reading = true;
+  const auto oldRead = replaced.generation;
+  ++replaced.generation; // Reassignment or a newer user command.
+  finishRead(replaced, oldRead, 0x0b, 100, "", 0);
+  assert(!replaced.reading && replaced.observed == -1);
+  finishRead(replaced, replaced.generation, 0x00, 200, "", 0);
+  assert(freshMeasurement(replaced, 201) && replaced.observed == 0);
   std::cout << "Core tests passed (ON/SLEEP, validation, superseded commands, failures).\n";
 }

@@ -1,4 +1,4 @@
-# Lokale API — 0.2.0
+# Lokale API — 0.2.1
 
 Basisadresse `http://<ESP32-IP>`. Für Integrationen gilt unverändert
 `X-API-Key: <Key>`. Der Webbrowser verwendet stattdessen eine HttpOnly-Session.
@@ -41,8 +41,14 @@ Pro Station beispielsweise:
 `requested` ist nur ein Ziel und nach Neustart `null`. `observed` ist die letzte
 BLE-Messung. Gelesen wird beim Start, nach Befehlen und regelmäßig (Ziel 15 s,
 Boot-Zustand 2 s, nicht erreichbar 30 s; Verzögerungen bei belegtem BLE möglich).
-`reading` schließt vorgemerkte Leseaufträge ein. Fehler lassen die alte Messung
-stehen, setzen aber `reachable=false`. Messungen ab 60 s gelten als veraltet.
+`reading` schließt vorgemerkte Leseaufträge ein. Jede Lese-Runde hat höchstens
+zwei Versuche mit sechs Sekunden Verbindungs-Timeout. Ein einzelner Fehlschlag
+erhält eine bisher gültige Messung, mit `read_failures=1` und Warnung im UI;
+Wiederholung nach fünf Sekunden. Zwei erfolglose Runden, kein Messwert oder Alter
+ab 60 s bedeuten `reachable=false`. Zeitstempel werden nie künstlich erneuert.
+`ble_error` ist der letzte numerische NimBLE-Fehler (0 falls keiner verfügbar),
+`last_read_attempt_ms` das Ende der letzten Abfrage, `read_failures` die Zahl
+aufeinanderfolgender fehlgeschlagener Runden. Erfolgreiche Messung setzt sie zurück.
 `observed_raw=-1` bedeutet noch keine Messung. Zeitangaben sind Millisekunden seit
 Start; Differenzen als unsigned 32 Bit berechnen. Status wird nicht persistiert.
 
@@ -78,8 +84,9 @@ Alle vier Plätze gemeinsam: `{"stations":[…]}` mit je
 Leere MAC deaktiviert einen Platz. Typ `0` öffentlich, `1` random, aus Suche
 übernehmen. Namen eindeutig, 1–40 UTF-8-Bytes, keine Steuerzeichen oder
 `"`, `\`, `<`, `>`, `&`; `VR Basisstationen` ist reserviert. MACs eindeutig und
-normalisiert. Erfolg `200 {"saved":true}`. Bei laufenden BLE-Aktionen/-Messungen
-`409 BLE_BUSY`; keine Teiländerung. Eine geänderte Adresse löscht alte Messwerte.
+normalisiert. Erfolg `200 {"saved":true}`. Bei laufenden Schaltaufträgen oder Suche
+`409 BLE_BUSY`; keine Teiländerung. Eine geänderte Adresse löscht alte Messwerte. Hintergrundmessungen blockieren
+das Speichern nicht; Ergebnisse der vorherigen Zuordnung werden verworfen.
 
 ## POST /api/wifi
 

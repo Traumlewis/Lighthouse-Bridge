@@ -59,6 +59,8 @@ struct StationState {
   bool sent = false;
   bool reading = false;
   bool reachable = false;
+  uint8_t readFailures = 0;
+  int bleError = 0;
   uint32_t lastReadAttemptMs = 0;
   uint32_t generation = 0;
   uint32_t lastSentMs = 0;
@@ -73,13 +75,32 @@ inline bool measuredOn(const StationState& state) {
 inline bool freshMeasurement(const StationState& state, uint32_t now) {
   return state.reachable && state.observed >= 0 && now - state.observedMs < 60000;
 }
+inline uint32_t readInterval(const StationState& state) {
+  if (state.readFailures == 1) return 5000; // Quickly verify a transient failure.
+  if (!state.reachable) return 30000;
+  return state.observed == 1 || state.observed == 8 || state.observed == 9 ? 2000 : 15000;
+}
 inline void recordRead(StationState& state, int observed, uint32_t now, const char* error) {
   state.reading = false;
   state.lastReadAttemptMs = now;
-  state.reachable = observed >= 0;
-  if (observed >= 0) { state.observed = observed; state.observedMs = now; }
+  if (observed >= 0) {
+    state.readFailures = 0; state.reachable = true;
+    state.observed = observed; state.observedMs = now;
+  } else {
+    if (state.readFailures < 255) ++state.readFailures;
+    // Keep a recent measurement usable after one failed read cycle, but never
+    // invent a measurement or refresh its timestamp. The UI labels this retry.
+    if (state.readFailures >= 2 || state.observed < 0) state.reachable = false;
+  }
   std::strncpy(state.error, error ? error : "", sizeof(state.error) - 1);
   state.error[sizeof(state.error) - 1] = '\0';
+}
+inline void finishRead(StationState& state, uint32_t generation, int observed,
+                       uint32_t now, const char* error, int bleError) {
+  state.reading = false;
+  if (state.generation != generation) return;
+  recordRead(state, observed, now, error);
+  state.bleError = bleError;
 }
 inline void request(StationState& state, Target target) {
   state.requested = target;
@@ -95,6 +116,7 @@ inline void finish(StationState& state, uint32_t generation, bool sent,
   state.busy = false;
   state.lastReadAttemptMs = now;
   state.reachable = observed >= 0;
+  state.readFailures = observed >= 0 ? 0 : (sent ? 1 : 2);
   if (observed >= 0) { state.observed = observed; state.observedMs = now; }
   if (generation != state.generation) return;
   state.sent = sent;
