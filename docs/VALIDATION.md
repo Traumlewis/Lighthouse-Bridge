@@ -1,5 +1,30 @@
 # Validation report — prototype 0.2.7
 
+## First 0.2.7 hardware confirmation run
+
+The owner reports further improvement and supplies approximately 3.5 minutes of
+0.2.7 station/Hue output. All eight shown power jobs reach their requested state:
+
+| Target | Station results | Observed confirmation |
+| --- | --- | --- |
+| ON | All four stations | Immediate reads show raw 8, follow-up reads raw 9, then raw 11 with `command target confirmed`. Confirmation follows the sent reports by about 15–16 seconds. |
+| SLEEP | All four stations | Each write report includes raw 0 and `confirmed=true`. |
+
+The excerpt contains 51 successful read reports and five failed worker-attempt
+reports with code 574. Station 2's initial exhausted read cycle recovers on later
+polling; other retry reads recover, and the last station-3 read failure is followed
+by a successful SLEEP job. **No shown power job ends in failure.** Worker report
+counts do not expose internal host retries or constitute a controlled estimate
+of physical-link reliability.
+
+Hue replies use `source=accepted_target` immediately after ON requests and
+`source=measurement` afterward. Later group queries show measured ON/SLEEP with
+reachable=true. This run confirms the new sent-versus-confirmed behavior on the
+owner's board and all four stations. It does not establish continuous reliability,
+all failure paths, Wi-Fi/NVS update retention or every Echo behavior. Raw boot
+output with credentials/device identifiers is not committed. Only this summary
+is retained; no firmware or retry changes are justified by this run alone.
+
 ## Follow-up after Alexa improvement: 0.2.7
 
 The owner reports improved Alexa behavior with 0.2.6. The follow-up log shows
@@ -33,10 +58,12 @@ The final firmware build and native core/Hue tests passed, followed by seven
 Python translation/layout/NVS checks and the browser/USB suites. Browser cases
 verify that last-command history can differ from the current measured badge
 without changing it. These are host/mocked checks, not an on-board confirmation
-of the new polling behavior.
+of physical-link behavior. The subsequent owner run above confirms the normal
+ON/SLEEP verification path on hardware; deadline/failure edge cases remain
+validated by host tests only.
 
 **These changes improve verification and reporting, not a proven fix for HCI
-0x3e.** The new verification behavior still needs an ESP32/board retest.
+0x3e.** Longer-running board/Echo tests remain open.
 
 ## Echo verification timing and approved target window: 0.2.6
 

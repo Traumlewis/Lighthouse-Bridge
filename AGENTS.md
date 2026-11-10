@@ -263,6 +263,15 @@ all shown ON/SLEEP actions are followed by raw 11/0, with intermittent 574 read
 failures and recoveries. Remaining connection reliability is still open.
 Version 0.2.7 adds explicit bounded read-only command confirmation; it does not
 claim to fix the physical cause of 574 or alter BLE connection/retry parameters.
+The owner's first 0.2.7 log (about 3.5 minutes) confirms all eight shown power
+jobs: four ON targets reach raw 11 about 15–16 seconds after their sent reports,
+and four SLEEP writes read raw 0 and confirmed=true immediately. It contains
+51 successful read reports and five failed worker-attempt reports (including
+read recovery and an interrupted read before a new SLEEP command). Do not count
+these as five failed commands or derive a physical-link failure rate: internal
+host retries are not logged individually. No shown power job fails. The new
+confirmation behavior is now observed on hardware; long-run reliability and
+other edge cases remain unverified. Keep 0.2.7 unchanged pending longer use.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force
