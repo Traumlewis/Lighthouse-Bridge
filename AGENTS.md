@@ -268,6 +268,15 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Do not change NVS/partition locations casually. Current two 1.875-MiB app slots
   and NVS remain unchanged; no filesystem upload is needed for the embedded UI.
 
+## Version history
+
+- Keep release notes in the root **VERSION.md**, newest release first, in English.
+  Add/update its entry when releasing firmware. README contains current features,
+  setup/use instructions and a link to VERSION.md, not a chronological changelog.
+- Documentation-only changes do not bump the firmware version. Keep the current
+  release in VERSION.md aligned with firmware/package metadata for real releases.
+- Package VERSION.md next to READ-ME-FIRST.md in release ZIPs as well as in source/.
+
 ## Languages and source layout
 
 - **Keep the GitHub repository in English:** README, project documentation,
