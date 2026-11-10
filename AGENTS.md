@@ -24,10 +24,18 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Service `00001523-1212-efde-1523-785feabcd124`, power characteristic
   `00001525-1212-efde-1523-785feabcd124`. Three command attempts maximum.
 - New queued commands replace older pending commands for the same station.
-  Old results must not clear newer requests. Preserve BLE address types and
-  reject duplicate station MACs/names.
-- `requested` is only a goal. **Dashboard and Hue GETs use the same `observed`
-  measurement**, not the last button pressed. Expose timestamps and reachability.
+  Old results must not clear newer requests. Identical pending/busy goals are
+  accepted without replacing the job, bumping its generation or acceptance time;
+  a new target supersedes it, and requests after completion can retry normally.
+  Preserve BLE address types and reject duplicate station MACs/names.
+- `requested` is only a goal. **Dashboard and local API always use `observed`
+  measurements**, with timestamps/reachability. The owner explicitly approved a
+  Hue-only target window after the 0.2.5 Echo retest: while an accepted command
+  is pending/busy, Hue `on` follows the target for at most 30000 ms from acceptance.
+  Completion (including unconfirmed writes), final error or expiry restores the
+  measured `on` immediately. Never extend the window on duplicate active requests.
+  `reachable` stays measured throughout; do not force it true or modify observed
+  values/timestamps. No window exists after reboot or without a command.
 - Read on startup, after commands, and about every 15 seconds; booting states
   retry after 2 seconds, unreachable devices after 30 seconds. One radio means
   queue/connection delays can lengthen intervals. Manual refresh is read-only.
@@ -80,8 +88,9 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Readings older than 60 seconds are stale. Raw 1/8/9 = booting, 11 = ON, 0 = SLEEP, 2 = STANDBY.
   Booting counts active for Hue; dashboard still says Starting.
 - Espalexa exposes four lights plus **`VR Basisstationen`**. Preserve existing
-  light IDs and that group name. Group ON/reachable requires all assigned stations
-  active/fresh. Hue GET responses include measured `on` and `reachable`.
+  light IDs and that group name. Group ON aggregates the individual Hue views
+  (bounded active targets, otherwise measurements); group reachability requires
+  fresh measurements for all assigned stations. Mixed targets remain consistent.
 - `include/hue_api.h` owns shared Hue light-route parsing and write response
   generation, tested against the same ArduinoJson dependency on the host. Strict
   `PUT /api/<username>/lights/<actual-id>/state` parses boolean `on` only and
@@ -91,15 +100,19 @@ status change. Keep current facts, not a conversation log. User instructions win
   routes. Errors use Hue error arrays; malformed IDs/JSON/values never enqueue.
   Unsupported properties receive error 6 without triggering power by themselves;
   valid `on` can be accepted independently. Bound bodies to 512 bytes/8 properties.
-- PUT acceptance does not imply the later BLE operation succeeded. Keep GET
-  measurements/reachability unchanged, including pending commands and failures.
-  Do not suppress Alexa warnings by fabricating ON or forcing reachable=true.
+- PUT acceptance does not imply the later BLE operation succeeded. Apply only
+  the owner-approved, bounded Hue `on` window above. Keep measurement data and
+  reachability unchanged; no permanent optimistic state or forced reachability.
+  Local API exposes requested_ms and alexa_target_pending without altering its
+  measured observed/observed_raw fields.
   Preserve encoded IDs, names and group membership; Espalexa still handles SSDP,
   description and username registration, not light PUTs or measured light GETs.
 - Serial `Hue PUT` / `Hue GET` diagnostics include station (0=group), target or
   measured value, acceptance/reachability and pending work. Collection GETs log
   configured/fresh counts. Log no usernames, raw URLs, bodies or access keys.
-  PUT handler_ms measures the handler only, not network/end-to-end latency.
+  GET source=accepted_target or source=measurement identifies the selected Hue
+  view (group source means at least one target contributed). PUT handler_ms
+  measures the handler only, not network/end-to-end latency.
 - **Local Hue emulation cannot push status into the Alexa app.** Alexa controls
   its own polling/cache. Do not promise immediate app-state synchronization.
 - Keep Wi-Fi modem sleep enabled (`WIFI_PS_MIN_MODEM`) before BLE starts and
@@ -142,7 +155,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.5**. Web updates use exactly four files at offsets:
+- Current release **0.2.6**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -221,10 +234,13 @@ has 69 successful read jobs, 38 failed worker attempts (reads and commands),
 24 sent command reports and one failed SLEEP command for station 4; it remained
 ON in later reads until another command. These are log counts, not a controlled
 failure-rate comparison. The log contains device credentials: never commit it.
-Version 0.2.5 fixes the proven generic/wrong Hue ACK shape and adds HTTP traces;
-Alexa's actual warning cause/effectiveness and remaining BLE reliability still
-need an Echo/board retest. Do not present ACK correction as a confirmed fix for
-every spoken warning or hide genuine failed commands.
+The 0.2.5 retest confirms the warning remains: accepted PUT handlers take 6–16 ms,
+then Echo immediately GETs the old opposite `on`, with reachable/pending true,
+before BLE completes seconds later. OFF also addresses the group plus all four
+individual lights. The owner chose temporary accepted targets for Alexa while
+keeping dashboard/API measurements real. Version 0.2.6 implements that bounded
+view and coalesces identical in-flight requests. Its effect on the actual spoken
+warning and remaining BLE reliability still need a real Echo/board retest.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

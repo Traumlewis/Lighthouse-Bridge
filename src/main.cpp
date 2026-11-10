@@ -129,7 +129,7 @@ bool queueTarget(int slot, Target target) {
   bool accepted = false;
   for (unsigned i = 0; i < kStations; ++i) {
     if ((slot < 0 || slot == static_cast<int>(i)) && configs[i].mac[0]) {
-      request(states[i], target);
+      request(states[i], target, millis());
       accepted = true;
     }
   }
@@ -411,7 +411,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.5";
+  doc["version"] = "0.2.6";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -444,6 +444,8 @@ void statusRoute() {
       item["read_failures"] = state.readFailures;
       item["ble_error"] = state.bleError;
       item["last_read_attempt_ms"] = state.lastReadAttemptMs;
+      item["requested_ms"] = state.requestedMs;
+      item["alexa_target_pending"] = hueTargetPending(state, millis());
       item["command_sent"] = state.sent;
       item["last_sent_ms"] = state.lastSentMs;
       item["observed"] = observedName(state.observed);
@@ -463,7 +465,8 @@ void statusRoute() {
   sendJson(200, doc);
 }
 
-// The Hue write acknowledgement means queued; GETs retain measured state.
+// Hue ACK means queued. GET ON temporarily follows an active accepted target;
+// measurements and reachability remain separate and never become optimistic.
 // Espalexa still owns SSDP, description and username registration.
 bool serveHueLights(const String& uri) {
   const uint32_t started = millis();
@@ -491,16 +494,17 @@ bool serveHueLights(const String& uri) {
   const int selected = route.slot;
   const bool stateOnly = route.stateOnly;
   unsigned configured = 0, fresh = 0;
-  bool traceOn = false, traceReachable = false, tracePending = false;
+  bool traceOn = false, traceReachable = false, tracePending = false, traceTarget = false;
   DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();
   {
     Lock lock;
     const uint32_t now = millis();
-    bool any = false, allOn = true, allReachable = true;
+    bool any = false, allOn = true, allReachable = true, anyTarget = false;
     for (unsigned i = 0; i < kStations; ++i) {
       if (!configs[i].mac[0]) continue;
-      any = true; ++configured; allOn &= measuredOn(states[i]);
+      any = true; ++configured; allOn &= hueOn(states[i], now);
+      anyTarget |= hueTargetPending(states[i], now);
       allReachable &= freshMeasurement(states[i], now);
       if (freshMeasurement(states[i], now)) ++fresh;
       if (!states[i].reading && !states[i].busy &&
@@ -511,10 +515,11 @@ bool serveHueLights(const String& uri) {
       const int32_t key = static_cast<int32_t>((mac24 << 7) | i);
       JsonObject light = selected < 0 ? root.createNestedObject(String(key)) : root;
       JsonObject state = stateOnly ? light : light.createNestedObject("state");
-      state["on"] = i < kStations ? measuredOn(states[i]) : any && allOn;
+      state["on"] = i < kStations ? hueOn(states[i], now) : any && allOn;
       state["reachable"] = i < kStations ? configs[i].mac[0] && freshMeasurement(states[i], now) : any && allReachable;
       traceOn = state["on"].as<bool>();
       traceReachable = state["reachable"].as<bool>();
+      traceTarget = i < kStations ? hueTargetPending(states[i], now) : anyTarget;
       tracePending = i < kStations ? states[i].pending || states[i].busy : false;
       if (i == kStations) for (auto& item : states) tracePending |= item.pending || item.busy;
       state["alert"] = "none";
@@ -523,16 +528,18 @@ bool serveHueLights(const String& uri) {
         light["type"] = "On/off light";
         light["name"] = i < kStations ? configs[i].name : "VR Basisstationen";
         light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
-        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.5";
+        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.6";
       }
     }
   }
   sendJson(200, doc);
-  if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, group_on=%s, pending=%s\n",
-                                 configured, fresh, traceOn ? "true" : "false", tracePending ? "true" : "false");
-  else Serial.printf("Hue GET: station=%d (0=group), on=%s, reachable=%s, pending=%s\n",
+  if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, group_on=%s, pending=%s, source=%s\n",
+                                 configured, fresh, traceOn ? "true" : "false", tracePending ? "true" : "false",
+                                 traceTarget ? "accepted_target" : "measurement");
+  else Serial.printf("Hue GET: station=%d (0=group), on=%s, reachable=%s, pending=%s, source=%s\n",
                      selected == static_cast<int>(kStations) ? 0 : selected + 1,
-                     traceOn ? "true" : "false", traceReachable ? "true" : "false", tracePending ? "true" : "false");
+                     traceOn ? "true" : "false", traceReachable ? "true" : "false", tracePending ? "true" : "false",
+                     traceTarget ? "accepted_target" : "measurement");
   return true;
 }
 
@@ -697,7 +704,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.5";
+  doc["protocol"] = 1; doc["version"] = "0.2.6";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -805,7 +812,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.5");
+  Serial.println("\nLighthouse Bridge 0.2.6");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

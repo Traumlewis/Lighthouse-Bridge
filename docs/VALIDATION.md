@@ -1,4 +1,39 @@
-# Validation report — prototype 0.2.5
+# Validation report — prototype 0.2.6
+
+## Echo verification timing and approved target window: 0.2.6
+
+The owner's 0.2.5 retest still produces the spoken warning. Logs show accepted
+PUTs with unsupported=0 and handler times of 6–16 ms. Echo immediately queries
+all addressed lights repeatedly, receiving the old opposite `on` value with
+reachable=true and pending=true. BLE completes seconds later. OFF addresses both
+the virtual group and the individual stations. The evidence points to immediate
+state verification rather than a missing command or slow handler; it does not
+expose Alexa's internal decision algorithm or full network latency.
+
+The owner explicitly chose temporary target reporting to Alexa, with measured
+states retained in the dashboard/local API. Version 0.2.6 reports the accepted
+ON/SLEEP goal in Hue `on` only while its command is pending/busy and within
+30000 ms of acceptance. Completion, final error or expiry restores measurements.
+Reachability is never forced true, observed data/timestamps are never changed by
+projection, and there is no projection after reboot or without a command. Group
+ON aggregates individual Hue views. Logs identify which view contributed.
+
+Identical pending/busy goals are coalesced without restarting a job, generation
+or acceptance time. Different goals supersede older ones; a new request after
+completion can retry. This avoids redundant group-plus-individual work without
+creating an indefinite target window. Native core/Hue tests cover both targets,
+active/queued work, expiry, completion without confirmation, failure, reversal,
+retries after completion, duplicate deadlines, millis wrap, missing measurements,
+measured reachability and the group/individual duplicate sequence.
+
+The firmware build, native core/Hue suites, seven Python translation/layout/NVS
+checks and browser/USB suites passed locally. Browser tests retain real measured
+badges when a target is pending and exercise English/German policy copy. No
+attached Echo or ESP32 was used for those checks.
+
+**This is an owner-approved reporting-policy change, not confirmation of physical
+switching.** The actual effect on Alexa's spoken warning still requires an
+Echo/board retest. BLE transport/retry settings remain those of 0.2.4.
 
 ## Owner improvement report and Alexa ACK correction: 0.2.5
 

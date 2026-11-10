@@ -68,6 +68,7 @@ struct StationState {
   uint8_t readFailures = 0;
   int bleError = 0;
   uint32_t lastReadAttemptMs = 0;
+  uint32_t requestedMs = 0;
   uint32_t generation = 0;
   uint32_t lastSentMs = 0;
   uint32_t observedMs = 0;
@@ -80,6 +81,16 @@ inline bool measuredOn(const StationState& state) {
 }
 inline bool freshMeasurement(const StationState& state, uint32_t now) {
   return state.reachable && state.observed >= 0 && now - state.observedMs < 60000;
+}
+constexpr uint32_t kHueTargetWindowMs = 30000;
+inline bool hueTargetPending(const StationState& state, uint32_t now) {
+  // Owner-approved Alexa compatibility window. Never change measured data or
+  // reachability; expiry/command completion immediately restores measured ON.
+  return state.hasRequest && (state.pending || state.busy) &&
+         now - state.requestedMs < kHueTargetWindowMs;
+}
+inline bool hueOn(const StationState& state, uint32_t now) {
+  return hueTargetPending(state, now) ? state.requested == Target::On : measuredOn(state);
 }
 inline uint32_t readInterval(const StationState& state) {
   if (state.readFailures == 1) return 5000; // Quickly verify a transient failure.
@@ -108,9 +119,13 @@ inline void finishRead(StationState& state, uint32_t generation, int observed,
   recordRead(state, observed, now, error);
   state.bleError = bleError;
 }
-inline void request(StationState& state, Target target) {
+inline void request(StationState& state, Target target, uint32_t now = 0) {
+  // Alexa may address both the virtual group and its individual stations.
+  // A duplicate of the active goal must not invalidate or repeat that work.
+  if (state.hasRequest && state.requested == target && (state.pending || state.busy)) return;
   state.requested = target;
   state.hasRequest = true;
+  state.requestedMs = now;
   state.pending = true;
   state.sent = false;
   state.error[0] = '\0';

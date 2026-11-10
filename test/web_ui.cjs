@@ -41,7 +41,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
    }else if(uri==='/api/power'){
     commands.push(body);status=202;result={accepted:true};
     // A command must not fabricate an observed state.
-    for(const s of stations)if(body.station==='all'||s.id===body.station)Object.assign(s,{requested:body.state,pending:true});
+    for(const s of stations)if(body.station==='all'||s.id===body.station)Object.assign(s,{requested:body.state,pending:true,alexa_target_pending:true,requested_ms:data.uptime_ms});
    }else if(uri==='/api/wifi'){status=202;result={accepted:true,setup_ssid:'Lighthouse-Setup-EXAMPLE'};}
    else{status=404;result={error:'unknown'};}
    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(result)});

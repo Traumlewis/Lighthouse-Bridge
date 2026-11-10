@@ -1,4 +1,4 @@
-# Local API — 0.2.5
+# Local API — 0.2.6
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -38,8 +38,10 @@ A station entry looks like this:
 }
 ```
 
-`requested` is only a target and is `null` after reboot. `observed` is the last BLE
-measurement. Reads run at startup, after commands and periodically: target 15 s,
+`requested` is only a target and is `null` after reboot. `requested_ms` is its
+acceptance time. `alexa_target_pending` indicates the bounded Hue target view;
+it never changes the local API's `observed`/`observed_raw` measurement.
+`observed` is the last BLE measurement. Reads run at startup, after commands and periodically: target 15 s,
 starting state 2 s, unreachable state 30 s, subject to the BLE queue.
 
 `reading` includes queued read requests for compatibility. `read_active` means
@@ -78,8 +80,10 @@ It sends **no power writes**. Follow progress in status.
 
 Use `{"station":"all","state":"sleep"}` or `{"station":2,"state":"on"}`.
 Only `on` and `sleep` are valid; `off` and `standby` are rejected.
-`202 {"accepted":true}` means queued, not measured. New targets replace pending
-requests for the same slot; an in-flight action may still finish. There are at
+`202 {"accepted":true}` means accepted, not measured. Identical goals already
+pending/busy share the active work, generation and original acceptance time.
+Opposite targets replace pending requests; an in-flight action may still finish.
+A request after completion can queue a new attempt. There are at
 most three worker/write attempts. Each connection call allows one internal
 HCI 0x3e retry, so there can be up to six controller starts for a command job. Groups include only assigned slots;
 otherwise the endpoint returns `409 NO_STATION`.
@@ -118,10 +122,17 @@ timeout. The key and assignments stay unchanged; USB information remains availab
 ## Alexa / Hue queries
 
 `/description.xml`, `/api` and `/api/<username>/lights[/<id>[/state]]` are available
-to the local Echo without login. GETs return **the same BLE measurements** as
-status; `reachable` accounts for failed cycles and measurement age. Light IDs
-remain compatible with the previous Espalexa scheme. Group ON requires all
-assigned slots to be active; group reachability requires usable readings for all.
+to the local Echo without login. GET `on` normally comes from BLE measurements.
+While an accepted power command is pending or running, it reports that target
+for at most 30000 ms from acceptance. Completion, final error or expiry restores
+the measured value; duplicates do not extend the deadline. `reachable` always
+uses measured health, including failed cycles and measurement age. Dashboard and
+local API measurements are unchanged. This policy was explicitly chosen by the
+owner after Echo queried the opposite old value immediately after accepting PUT.
+Light IDs
+remain compatible with the previous Espalexa scheme. Group ON requires every
+assigned slot's Hue view to be ON (active target or measured); group reachability
+requires usable readings for all.
 Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
 There is no state push into the Alexa app: Alexa decides when to query again.
 
@@ -137,8 +148,9 @@ response has the Hue shape (replace `<id>` with the actual requested ID):
 ```
 
 `false` acknowledges an accepted SLEEP target; `true` acknowledges ON. This is
-queue acceptance, not a measured result. Read GET/status afterward for measurements;
-no optimistic state or forced reachability is inserted. The old generic
+queue acceptance, not a measured result. Read local status for measurements.
+Hue GETs can temporarily project the accepted target as described above; no
+measurement or reachability is fabricated. The old generic
 `/lights/1/state/` response is no longer used for light state writes.
 
 Malformed JSON, non-boolean `on`, unavailable IDs and unsupported methods return
@@ -148,7 +160,9 @@ Brightness/color/transition operations are not implemented. Bodies are limited
 to 512 bytes/eight properties. Existing API-key/web-session endpoint rules remain.
 
 USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
-`Hue GET` (measured on/reachable, pending work; collection configured/fresh counts).
+`Hue GET` (reported on, measured reachability, pending work; collection
+configured/fresh counts). `source=accepted_target` identifies the bounded target
+view; `source=measurement` identifies the measured value.
 `station=0` means the virtual group, 1–4 the individual slots. These diagnostics
 omit usernames, raw request paths/bodies and credentials. Handler time excludes
 network transfer/request parsing before dispatch. A correct ACK cannot guarantee
@@ -160,7 +174,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.5","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.6","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

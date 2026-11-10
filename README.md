@@ -12,7 +12,22 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.5
+## What's new in 0.2.6
+
+Alexa checks state immediately after accepting a command, while the four BLE
+stations finish switching seconds later. The owner approved this compatibility
+policy: **Hue `on` briefly follows an accepted target while its job is pending or
+running, for at most 30 seconds**. After completion, failure or expiry it returns
+to the measured value. Reachability remains measured. The dashboard and local API
+always show measured states; timestamps are never advanced by a target.
+
+Duplicate active goals from Alexa's group and individual requests share the same
+work and do not restart the 30-second window. Opposite targets still replace older
+ones. Hue logs identify `source=accepted_target` versus `source=measurement`.
+The 0.2.5 retest established the state-check timing; this change still needs an
+Echo/board retest to confirm the effect on Alexa's spoken warning.
+
+## Hue acknowledgements corrected in 0.2.5
 
 Correct Hue write acknowledgements sent to Alexa. The previous Espalexa fallback
 always returned a generic light-1 response. The bridge now validates the actual

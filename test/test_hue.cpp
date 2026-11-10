@@ -95,12 +95,22 @@ int main() {
   errorIs(handleHueWrite(route, "{\"on\":true}", enqueue), 3);
   configured[0] = true;
 
+  // Group + individual requests in one Alexa operation must not restart work.
+  for (auto& item : states) item = StationState{};
+  const auto group = parseHueLightRoute((uri(mac, kStations) + "/state").c_str(), mac);
+  assert(handleHueWrite(group, "{\"on\":true}", enqueue).accepted);
+  const auto generation = states[0].generation;
+  states[0].pending = false; states[0].busy = true;
+  assert(handleHueWrite(route, "{\"on\":true}", enqueue).accepted);
+  assert(states[0].generation == generation && !states[0].pending && states[0].busy);
+
   // A prompt acceptance is independent from the measured result of BLE work.
   states[0] = StationState{};
   recordRead(states[0], 0, 1000, "");
   const auto accepted = handleHueWrite(route, "{\"on\":true}", enqueue);
   assert(accepted.accepted && states[0].pending);
   assert(!measuredOn(states[0]) && freshMeasurement(states[0], 1001));
+  assert(hueOn(states[0], 1001) && hueTargetPending(states[0], 1001));
   assert(states[0].observedMs == 1000);
   finish(states[0], states[0].generation, true, 9, 2000, "");
   assert(measuredOn(states[0]) && freshMeasurement(states[0], 2001));

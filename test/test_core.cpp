@@ -4,6 +4,42 @@
 
 int main() {
   using namespace bridge;
+  // Alexa may briefly expose an accepted in-flight goal; measurements stay real.
+  StationState hue;
+  recordRead(hue, 0, 100, "");
+  assert(!hueTargetPending(hue, 150) && !hueOn(hue, 150));
+  request(hue, Target::On, 200);
+  const auto firstGeneration = hue.generation;
+  assert(hueTargetPending(hue, 201) && hueOn(hue, 201));
+  assert(!measuredOn(hue) && hue.observedMs == 100 && freshMeasurement(hue, 201));
+  request(hue, Target::On, 10000);
+  assert(hue.requestedMs == 200 && hue.generation == firstGeneration);
+  assert(hueTargetPending(hue, 30199) && !hueTargetPending(hue, 30200));
+  assert(!hueOn(hue, 30200)); // No indefinite target if worker is delayed/stuck.
+  hue.pending = false; hue.busy = true;
+  assert(hueOn(hue, 300));
+  finish(hue, hue.generation, true, 0, 400, "");
+  assert(!hueTargetPending(hue, 401) && !hueOn(hue, 401));
+  request(hue, Target::On, 500); // A new request after completion can retry.
+  assert(hue.generation != firstGeneration && hue.requestedMs == 500);
+  hue.pending = false; hue.busy = true;
+  finish(hue, hue.generation, false, -1, 600, "BLE_CONNECT_FAILED");
+  assert(!hueTargetPending(hue, 601) && !freshMeasurement(hue, 601));
+  recordRead(hue, 11, 700, "");
+  request(hue, Target::Sleep, 800);
+  assert(measuredOn(hue) && !hueOn(hue, 801));
+  const auto sleepGeneration = hue.generation;
+  request(hue, Target::On, 900);
+  assert(hue.generation != sleepGeneration && hueOn(hue, 901));
+  hue.pending = false; hue.busy = true;
+  finish(hue, hue.generation, true, 9, 1000, "");
+  assert(!hueTargetPending(hue, 1001) && hueOn(hue, 1001));
+  request(hue, Target::Sleep, 0xfffffff0U);
+  assert(hueTargetPending(hue, 0x20) && !hueOn(hue, 0x20));
+  assert(!hueTargetPending(hue, static_cast<uint32_t>(0xfffffff0U + 30000U)));
+  StationState noMeasurement;
+  request(noMeasurement, Target::On, 10);
+  assert(hueOn(noMeasurement, 11) && !freshMeasurement(noMeasurement, 11));
   // Legacy HCI report types are enum values. A bitmask test rejects normal
   // connectable ADV_IND (0) and accepts non-connectable types 3 and 4.
   assert(isConnectableLegacyAdvertisement(0)); // ADV_IND
@@ -33,8 +69,12 @@ int main() {
   assert(!state.hasRequest && !state.pending); // Boot never sends SLEEP.
   request(state, Target::On);
   auto old = state.generation;
+  request(state, Target::On);
+  assert(state.generation == old && state.pending);
   state.pending = false;
   state.busy = true;
+  request(state, Target::On);
+  assert(state.generation == old && !state.pending && state.busy);
   request(state, Target::Sleep);
   finish(state, old, true, 0x08, 10, "");
   assert(state.pending && !state.sent && state.requested == Target::Sleep);

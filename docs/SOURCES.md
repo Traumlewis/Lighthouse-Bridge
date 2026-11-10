@@ -24,8 +24,10 @@ firmware ZIP under `third-party-licenses/`. Refer to the respective source
 packages for additional notices; this table does not replace those notices.
 
 The Alexa implementation uses unmodified Espalexa for discovery, bridge metadata
-and username registration. The bridge handles measured light GETs and validated
-light PUTs itself, with tested per-ID acknowledgements. Its stated Echo
+and username registration. The bridge handles light GETs and validated light
+PUTs itself, with tested per-ID acknowledgements. Since 0.2.6, Hue ON can briefly
+follow an accepted in-flight target under the owner-approved 30-second limit;
+dashboard/API data and all reachability remain measured. Its stated Echo
 compatibility is a project goal, not evidence of testing with an Echo Dot 5
 running current firmware.
 
