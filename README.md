@@ -16,6 +16,13 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.1
+
+The API key in the ESP32 dashboard now uses the same plain clickable text styling
+as the WebFlasher: no visible button background, border or padding. Click or press
+Enter to copy. Install the 0.3.1 .lhota package through the dashboard's firmware
+update section, or update by USB with Erase device unchecked.
+
 ## Version 0.3.0
 
 - Dynamic station list: add/remove up to 16 entries, with stable IDs. Existing

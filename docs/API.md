@@ -1,4 +1,4 @@
-# Local API — 0.3.0
+# Local API — 0.3.1
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -269,7 +269,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.0","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.1","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

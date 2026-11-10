@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from ota_package import package, unpack, PRODUCT, CAPACITY
+from package_release import VERSION
 
 class OtaTests(unittest.TestCase):
  def image(self):
@@ -19,6 +20,6 @@ class OtaTests(unittest.TestCase):
   for bad in [image[:12]+b'\x05'+image[13:],image.replace(PRODUCT,b'X'*len(PRODUCT)),b'\xff'*0x10000+image,image+bytes(CAPACITY)]:
    with self.assertRaises(ValueError):package(bad)
  def test_published_payload_when_available(self):
-  root=Path(__file__).resolve().parents[1];path=root/'_site/firmware/lighthouse-bridge-v0.3.0.lhota'
+  root=Path(__file__).resolve().parents[1];path=root/f'_site/firmware/lighthouse-bridge-v{VERSION}.lhota'
   if not path.exists():self.skipTest('Generated Pages not built yet')
   self.assertEqual(unpack(path.read_bytes()),(root/'_site/firmware/lighthouse-bridge-app.bin').read_bytes())

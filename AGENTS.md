@@ -187,7 +187,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 ## Device naming, copy and OTA
 
 - Click-to-copy API key in the USB WebFlasher panel and authenticated dashboard.
-  The owner wants the WebFlasher key to look like plain clickable text: no visible
+  The owner wants both WebFlasher and dashboard keys to look like plain clickable text: no visible
   button background, border or padding. Keep native button semantics/keyboard
   support but override generic button styling; accent-on-accent made it unreadable.
   Check contrast against the panel with a visible key, not only before connection.
@@ -218,7 +218,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.0**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.1**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

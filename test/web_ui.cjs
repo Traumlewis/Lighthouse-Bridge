@@ -154,7 +154,15 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
   assert.equal(await page.locator('#api-key').textContent(),key);
   await page.locator('#network-settings').evaluate(node=>node.open=true);
+  assert.deepEqual(await page.locator('#copy-key').evaluate(node=>{const s=getComputedStyle(node);return [s.backgroundColor,s.borderWidth,s.padding];}),['rgba(0, 0, 0, 0)','0px','0px'],'API key is plain clickable text without a button box');
+  const keyContrast=await page.locator('#api-key').evaluate(node=>{
+   const luminance=color=>{const [r,g,b]=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;});return .2126*r+.7152*g+.0722*b;};
+   let backdrop=node;while(backdrop&&getComputedStyle(backdrop).backgroundColor==='rgba(0, 0, 0, 0)')backdrop=backdrop.parentElement;
+   const fg=luminance(getComputedStyle(node).color),bg=luminance(getComputedStyle(backdrop).backgroundColor);return (Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05);
+  });assert.ok(keyContrast>=4.5,'API key contrast must remain readable');
   await page.locator('#copy-key').click();assert.equal(await page.evaluate(()=>window.copiedValue),key);
+  await page.evaluate(()=>{window.copiedValue='';});await page.locator('#copy-key').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>window.copiedValue),key);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'plain key fits the mobile dashboard');
   await page.locator('#device-name').fill('vr-room');await page.locator('#device-form button').click();
   await page.waitForFunction(()=>document.getElementById('device-address').textContent.includes('vr-room.local'));
   assert.equal(await page.locator('#setup-ssid').textContent(),'vr-room');

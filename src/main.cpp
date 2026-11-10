@@ -404,7 +404,7 @@ void bleWorker(void*) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
-  doc["version"] = "0.3.0";
+  doc["version"] = "0.3.1";
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -528,7 +528,7 @@ bool serveHueLights(const String& uri) {
         if (configs[i].id <= 4) snprintf(unique, sizeof(unique), "%s-%02X-00:11", mac.c_str(), configs[i].id);
         light["type"] = "On/off light"; light["name"] = configs[i].name;
         light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
-        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.3.0";
+        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.3.1";
       }
     }
   }
@@ -830,7 +830,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.3.0";
+  doc["protocol"] = 1; doc["version"] = "0.3.1";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -937,7 +937,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.3.0");
+  Serial.println("\nLighthouse Bridge 0.3.1");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

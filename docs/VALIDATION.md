@@ -1,4 +1,13 @@
-# Validation report — 0.3.0
+# Validation report — 0.3.1
+
+## Version 0.3.1 embedded key styling
+
+The dashboard now matches the public WebFlasher's plain clickable API-key text,
+with no visible button background, border or padding. Browser checks cover those
+computed styles, >=4.5:1 contrast, local-HTTP click and keyboard copy fallback,
+and mobile width with the key visible. Firmware, embedded footer, USB/Hue version
+and update packages are 0.3.1. No BLE, authentication or flash-layout behavior changes.
+The styling checks use a simulated authenticated device; no physical ESP32 is attached.
 
 ## WebFlasher key contrast correction
 
