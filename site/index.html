@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Lighthouse Bridge auf einen ESP32 installieren. Vier Valve Lighthouse V2 über Alexa, Webinterface und lokale API steuern.">
+  <title>Lighthouse Bridge · WebFlasher</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header><a class="brand" href="./"><span class="mark" aria-hidden="true">◈</span> Lighthouse Bridge</a><a class="repo" href="https://github.com/Traumlewis/Lighthouse-Bridge">GitHub ↗</a></header>
+    <section class="hero">
+      <div><p class="eyebrow">ESP32 · WebFlasher</p><h1>Dein VR-Raum.<br>Ein kleiner Helfer.</h1><p class="lead">Installiere Lighthouse Bridge direkt per USB. Dein ESP32 steuert vier Valve Lighthouse V2 – über Alexa und ein lokales Webinterface.</p><div class="tags"><span>ON &amp; SLEEP</span><span>4 Basisstationen</span><span>Ohne Companion-App</span></div></div>
+      <div class="board" aria-hidden="true"><div class="rays"></div><div class="chip"><span>LIGHTHOUSE<br>BRIDGE</span><small>ESP-WROOM-32</small><div class="led"></div></div><div class="usb"></div><span class="board-label">WLAN ↔ BLE</span></div>
+    </section>
+    <section class="install-panel" aria-labelledby="install-title">
+      <div class="install-heading"><div><p class="eyebrow">Firmware installieren</p><h2 id="install-title">ESP32 anschließen. Loslegen.</h2></div><span id="version" class="version">Lade Firmware …</span></div>
+      <p>Für den klassischen <strong>ESP-WROOM-32 / ESP-32S</strong> mit mindestens <strong>4 MB Flash</strong>, beispielsweise dein CH340-Board mit USB-C. Nicht für S2, S3 oder C3.</p>
+      <label class="check"><input id="board-confirm" type="checkbox"><span>Ich habe das passende Board per USB-Datenkabel angeschlossen.</span></label>
+      <div class="install-actions">
+        <esp-web-install-button id="installer" manifest="manifest.json" hidden>
+          <button id="install" slot="activate" disabled>Verbinden &amp; installieren <span aria-hidden="true">→</span></button>
+          <span slot="unsupported">Zum Flashen Chrome oder Edge am Rechner verwenden. Dieser Browser bietet hier keinen Web-Serial-Zugriff.</span>
+          <span slot="not-allowed">Der Flasher benötigt HTTPS oder localhost.</span>
+        </esp-web-install-button>
+        <a id="download" class="download" href="firmware/lighthouse-bridge-esp32-merged.bin" download hidden>Firmware als BIN ↓</a>
+      </div>
+      <p id="load-status" class="hint" role="status">Firmware wird geprüft. Noch kein Zugriff auf deinen USB-Port.</p>
+      <p id="module-error" class="error" hidden>Der Flasher konnte nicht geladen werden. Bitte die Seite neu laden; alternativ die Firmware herunterladen.</p>
+      <details class="erase-note"><summary>Erstinstallation oder Update?</summary><p>Bei einer Erstinstallation auf einem bereits benutzten Board empfiehlt sich das Löschen des Flash-Speichers. <strong>Dabei gehen vorhandene Einstellungen verloren.</strong> Bei einem Bridge-Update die Löschoption abwählen, um WLAN, Zugangsschlüssel und Stationszuordnung zu erhalten. Der Flasher fragt nach deiner Auswahl.</p></details>
+    </section>
+    <section class="next" aria-labelledby="next-title"><p class="eyebrow">Nach der Installation</p><h2 id="next-title">Drei Schritte bis zum ersten SLEEP.</h2>
+      <ol class="steps">
+        <li><span class="number">01</span><div><h3>Zugangsschlüssel ablesen</h3><p>Öffne die serielle Konsole / „Logs &amp; Console“ im Flasher mit 115200 Baud und drücke kurz <strong>EN/RESET</strong>. Der ESP32 gibt sein Setup-WLAN und den individuellen 24-stelligen Schlüssel aus. Er ist dein Setup- und Web-Passwort.</p></div></li>
+        <li><span class="number">02</span><div><h3>Mit deinem WLAN verbinden</h3><p>Verbinde dich mit <strong>Lighthouse-Setup-XXXXXX</strong>, Passwort: dein Schlüssel. Öffne <strong>http://192.168.4.1</strong>, wähle dein 2,4-GHz-Heim-WLAN und speichere. Das WLAN-Setup läuft auf dem ESP32.</p></div></li>
+        <li><span class="number">03</span><div><h3>Vier Stationen zuordnen</h3><p>Zurück im Heim-WLAN öffnest du die IP-Adresse aus der seriellen Konsole. Melde dich mit <strong>admin</strong> und deinem Schlüssel an. Suche die vier LHB-Geräte, ordne sie zu und speichere. Danach kannst du Alexa nach Geräten suchen lassen.</p></div></li>
+      </ol>
+    </section>
+    <aside class="prototype"><span class="dot" aria-hidden="true"></span><div><strong>Prototyp · Hardwaretest steht aus</strong><p>Die Firmware ist kompiliert und die Oberfläche mit simulierten Daten geprüft. BLE und die Hue-Emulation am Echo Dot 5 müssen an echten Geräten getestet werden. „Aus“ sendet immer SLEEP, niemals STANDBY.</p></div></aside>
+    <section class="help"><h2>Wenn es hakt</h2>
+      <details><summary>Mein Board erscheint nicht als USB-Port</summary><p>Ein USB-Datenkabel verwenden und andere serielle Programme schließen. Falls nötig den CH340-Treiber installieren. Browser auf einem Rechner verwenden; Smartphones sind für diesen Flasher nicht vorgesehen.</p></details>
+      <details><summary>Die Verbindung zum ESP32 kommt nicht zustande</summary><p>BOOT gedrückt halten, kurz EN/RESET drücken und BOOT loslassen, sobald sich der Flasher verbindet. Für einen normalen Neustart nur EN/RESET drücken.</p></details>
+      <details><summary>Kann ich mein WLAN direkt im Flasher eingeben?</summary><p>Diese Firmware nutzt das eigene WLAN-Setup-Portal. Eine Einrichtung über Improv Serial ist derzeit nicht implementiert. Zugangsschlüssel in der Konsole lesen, dann mit dem Setup-WLAN verbinden.</p></details>
+      <details><summary>Kann ich später per Pebble schalten?</summary><p>Der ESP32 bietet bereits eine lokale API. Ein passendes Pebble-Plugin kann später darauf zugreifen; es gehört noch nicht zu diesem Prototyp.</p></details>
+    </section>
+    <footer><span>Deine Bridge bleibt im Heimnetz.</span><a href="https://github.com/Traumlewis/Lighthouse-Bridge#readme">Anleitung</a><a href="https://github.com/Traumlewis/Lighthouse-Bridge/actions">Builds</a><a id="checksum-link" href="firmware/SHA256SUMS" hidden>SHA-256</a><span id="build-info"></span></footer>
+  </main>
+</body>
+</html>

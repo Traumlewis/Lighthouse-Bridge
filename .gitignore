@@ -1,0 +1,7 @@
+.pio/
+.venv/
+__pycache__/
+dist/
+_site/
+node_modules/
+

@@ -1,0 +1,6 @@
+{
+  "name": "lighthouse-bridge-tests",
+  "private": true,
+  "scripts": { "test": "node test/web_ui.cjs" },
+  "devDependencies": { "playwright": "1.62.1" }
+}

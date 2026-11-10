@@ -1,0 +1,163 @@
+{
+  "package": "esp-web-tools",
+  "version": "10.4.0",
+  "source": "https://github.com/esphome/esp-web-tools",
+  "files": [
+    {
+      "path": "/dist/web/esp32-DNPRK0Ay.js",
+      "size": 3416,
+      "type": "text/javascript",
+      "integrity": "sha256-7C3U/KW0apZVsVMxLS0Rg7Kn+67EBzlVg5pKBDLfBNA="
+    },
+    {
+      "path": "/dist/web/esp32c2-CQ3ns5Nm.js",
+      "size": 2166,
+      "type": "text/javascript",
+      "integrity": "sha256-RtqlYzoQiONbEYXwRuH6BhLxYzkfK+n08rpR0k7h564="
+    },
+    {
+      "path": "/dist/web/esp32c3-2tchr35W.js",
+      "size": 2752,
+      "type": "text/javascript",
+      "integrity": "sha256-gUr6E2yQ0mRekJTQpKt43QDMvWIuXmNcI42GAjgY0As="
+    },
+    {
+      "path": "/dist/web/esp32c5-CeCSizBL.js",
+      "size": 5319,
+      "type": "text/javascript",
+      "integrity": "sha256-eWoaQQuL//76YGiy94/dVHVC2bjUXRM4v7ESW7gE45U="
+    },
+    {
+      "path": "/dist/web/esp32c6-DolpfL0e.js",
+      "size": 2021,
+      "type": "text/javascript",
+      "integrity": "sha256-rI24brQsIj/kfT505dA0IuuaRcxU0x3xiluy84woBI4="
+    },
+    {
+      "path": "/dist/web/esp32c61-C8HktcOt.js",
+      "size": 3065,
+      "type": "text/javascript",
+      "integrity": "sha256-wQkNzi7QrGkJlF7Bzfc+4ZmCG1kunHSPKMCwKbrxzGA="
+    },
+    {
+      "path": "/dist/web/esp32h2-L0n5WuSo.js",
+      "size": 2425,
+      "type": "text/javascript",
+      "integrity": "sha256-58O+HAcZL6Z4pG7qbUgOjFpzCYwczqpAl+88RAUulZQ="
+    },
+    {
+      "path": "/dist/web/esp32p4-MR0ikcda.js",
+      "size": 8892,
+      "type": "text/javascript",
+      "integrity": "sha256-dkipPY7c+ziYqtB5nIEDyPhV8Ii3yy09wUFaFDkvPSk="
+    },
+    {
+      "path": "/dist/web/esp32s2-w9SUkb7o.js",
+      "size": 5596,
+      "type": "text/javascript",
+      "integrity": "sha256-WwxcpDGBCWwETOYoD8nPYW4WHlZjkLoQmXxabMl9U8Q="
+    },
+    {
+      "path": "/dist/web/esp32s3-DQt_R3ZE.js",
+      "size": 3868,
+      "type": "text/javascript",
+      "integrity": "sha256-aodNmOd9ulYCEAZgwcDPHTs+bAvHsHzjlZ13xhBs72Y="
+    },
+    {
+      "path": "/dist/web/index-Dt9w-IG1.js",
+      "size": 6163,
+      "type": "text/javascript",
+      "integrity": "sha256-GWfw73bUksmCKEwVxI9cUCKjcTd4a8FqHi0BLPaaIWY="
+    },
+    {
+      "path": "/dist/web/install-button.js",
+      "size": 2815,
+      "type": "text/javascript",
+      "integrity": "sha256-RhKOAwrfRs44dqwoyiED7oQsxQUm5JQJ6EMOO0x5X3k="
+    },
+    {
+      "path": "/dist/web/install-dialog-im156JnI.js",
+      "size": 310659,
+      "type": "text/javascript",
+      "integrity": "sha256-bc/DD7S78Y4ZoUHF65ppTtr8XUSAtFdiwiEXP0fv/bU="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32-BLbsWvxO.js",
+      "size": 5150,
+      "type": "text/javascript",
+      "integrity": "sha256-V1gbBBgTFlmVlKy1ALejYxbphh8kRQj7PJ7+DMrZ8n4="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32c2-wLQhZItC.js",
+      "size": 4954,
+      "type": "text/javascript",
+      "integrity": "sha256-2uILULxLXVSYIgT9hveqzkLI4qCVOTjg/jUW/FRKTNI="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32c3-DmSvHQKL.js",
+      "size": 5606,
+      "type": "text/javascript",
+      "integrity": "sha256-Pzf1AZQlcv3sWMjMNVCtVYyTGpRps+ZfuIybAWwaOac="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32c5-D1WK4DyB.js",
+      "size": 7014,
+      "type": "text/javascript",
+      "integrity": "sha256-Ih+l/7FQlMQ57k3LUxV7P3zR3sc4MpemGFsdG1zWCp8="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32c6-ZuxjUVr4.js",
+      "size": 5502,
+      "type": "text/javascript",
+      "integrity": "sha256-jJNnZ6r7guXh5hzJZazjEfiRgrEzVzfxzTvyrHVz8BQ="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32c61-DeKkw9vN.js",
+      "size": 5502,
+      "type": "text/javascript",
+      "integrity": "sha256-dyDYuD5pZSD6gORoKbDlqm6ohZbe5tRIpbHY2P71VxU="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32h2-CZ4EIL3w.js",
+      "size": 5502,
+      "type": "text/javascript",
+      "integrity": "sha256-pnJPyTHgu5FTybEEz+Eotmqw5x5AXBDVKZUd67MTh9g="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32p4-CpHBYEwI.js",
+      "size": 7678,
+      "type": "text/javascript",
+      "integrity": "sha256-/PTLIxdSX9lCIQ34voQGS2Mf/iCPEa7IG1PIzLbjWeI="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32p4rc1-DyGqUAeZ.js",
+      "size": 7470,
+      "type": "text/javascript",
+      "integrity": "sha256-0DLYK0GIhn3SlRsfAr1bz4p2aeFhhLvah7Z7dX1+w1I="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32s2-CrsP1231.js",
+      "size": 6374,
+      "type": "text/javascript",
+      "integrity": "sha256-Yb9cBpMxhABwULufpsk9BXfkIgi1ISzafoBqxhSw4Uo="
+    },
+    {
+      "path": "/dist/web/stub_flasher_32s3-CiJyd6Fk.js",
+      "size": 7622,
+      "type": "text/javascript",
+      "integrity": "sha256-fAXLHcddqOvKUZnlPeR04Df4LOW/GXgzCjU1TkDodJQ="
+    },
+    {
+      "path": "/dist/web/stub_flasher_8266-CQFcqJ_a.js",
+      "size": 12254,
+      "type": "text/javascript",
+      "integrity": "sha256-fKIUvpCKrP83/ZNxiPVQQsmurorzDacUHWNO9od4/Hk="
+    },
+    {
+      "path": "/dist/web/styles-sT2V1cOw.js",
+      "size": 59522,
+      "type": "text/javascript",
+      "integrity": "sha256-rTK0GthQeu1PckEXjZpHJFc1Xs8CgvqqZV3j6jeAnJo="
+    }
+  ]
+}
