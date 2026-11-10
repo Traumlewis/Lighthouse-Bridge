@@ -19,6 +19,19 @@ class Links(HTMLParser):
 
 
 class PagesTests(unittest.TestCase):
+    def test_complete_english_and_german_page_translations(self):
+        source = (SITE / 'translations.js').read_text().split('export const translations =', 1)[1].strip()
+        translations = json.loads(source.removesuffix(';'))
+        self.assertEqual(set(translations), {'en', 'de'})
+        self.assertEqual(set(translations['en']), set(translations['de']))
+        html = (SITE / 'index.html').read_text()
+        self.assertIn('<html lang="en">', html)
+        keys = re.findall(r'data-i18n(?:-content|-aria-label)?="([^"]+)"', html)
+        for language, entries in translations.items():
+            for key in keys + ['ready', 'unavailable', 'unavailable_version', 'build']:
+                with self.subTest(language=language, key=key):
+                    self.assertTrue(entries.get(key), 'Every displayed key needs a translation')
+
     def test_manifest_only_classic_esp32_and_merged_offset_zero(self):
         manifest = json.loads((SITE / 'manifest.json').read_text())
         self.assertEqual(len(manifest['builds']), 1)

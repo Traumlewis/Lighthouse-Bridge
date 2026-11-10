@@ -6,6 +6,8 @@ Firmware-Prototyp für **4 × Valve Lighthouse V2** und **Echo Dot (5. Generatio
 [Build-Status](https://github.com/Traumlewis/Lighthouse-Bridge/actions/workflows/firmware-pages.yml)
 
 In Chrome oder Edge auf einem Rechner kannst du den ESP32 direkt per USB flashen.
+Die Flasher-Seite ist standardmäßig Englisch; Deutsch lässt sich im Sprachschalter
+auswählen oder direkt [mit diesem Link](https://traumlewis.github.io/Lighthouse-Bridge/?lang=de) öffnen.
 Die Webseite bietet auch die serielle Konsole für deinen Zugangsschlüssel.
 Das WLAN richtest du anschließend über den Setup-Zugangspunkt des ESP32 ein.
 Die vollständige Anleitung zum Veröffentlichen steht unter

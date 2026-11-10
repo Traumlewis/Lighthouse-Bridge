@@ -27,6 +27,10 @@
   war dabei simuliert; kein echtes USB-Gerät wurde angesprochen. Ein fehlendes
   Firmwareimage deaktiviert Installation und Download. Desktop und mobile Ansicht
   wurden geprüft; Screenshots unter `docs/webflasher-*.png`.
+- Zweisprachiger WebFlasher: englische Standardansicht, deutscher Sprachwechsel,
+  gespeicherte Präferenz, Vorrang von `?lang=en`, übersetzte Fehler-/Lademeldungen
+  und Beschreibungs-Metadaten geprüft. Die Installationsbestätigung bleibt beim
+  Wechsel erhalten; beide Sprachfassungen passen in die mobile Ansicht.
 
 ## Noch an echter Hardware zu prüfen
 

@@ -6,6 +6,26 @@ Die Seite basiert auf [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
 10.4.0. Die Module liegen mit veröffentlichten SHA-256-Integritätswerten im
 Repository unter `site/vendor/`; zur Laufzeit ist kein CDN nötig.
 
+## Sprachen
+
+Englisch ist die Standardsprache, Deutsch ist über den Sprachschalter verfügbar.
+Die Auswahl wird unter `lighthouse-bridge.language` im lokalen Browserspeicher
+gesichert; falls dieser gesperrt ist, bleibt der Schalter trotzdem nutzbar.
+`?lang=en` oder `?lang=de` überschreibt beim Öffnen eine gespeicherte Auswahl.
+Ohne gültige Link- oder gespeicherte Auswahl wird Englisch verwendet, unabhängig
+von der Browsersprache. Beispiel: https://traumlewis.github.io/Lighthouse-Bridge/?lang=de
+
+Seitentexte liegen in `site/translations.js`; das HTML enthält eine vollständige
+englische Ausgangsfassung. Statusmeldungen, Hinweise, Metadaten und zugängliche
+Beschriftungen wechseln ebenfalls die Sprache. Übersetztes Markup darf nur aus
+dieser lokalen Datei stammen. Sprachwechsel dürfen Checkbox, USB-Bedienung und
+geöffnete Hilfebereiche nicht zurücksetzen.
+
+Der unveränderte ESP-Web-Tools-Dialog und die USB-Port-Auswahl des Browsers
+verwenden eigene Spracheinstellungen und können Englisch bleiben. Das lokale
+Webinterface der Firmware ist weiterhin Deutsch. Diese Erweiterung betrifft
+die öffentliche Flasher-Seite, nicht die Firmware.
+
 ## Benutzung
 
 1. Die Seite in Chrome oder Edge am Rechner öffnen, ESP32 per USB-Datenkabel
