@@ -194,10 +194,12 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Dashboard debug details
 
-- Default view is quiet: current measured ON/SLEEP/Starting/Unknown, unavailability,
-  first-reading wait and queued/sending power targets remain visible. Hide detailed
-  read failures/retries, background read phases, ages, last-reading suffix and
-  last-command history behind debug mode. Do not fabricate fresh measurements.
+- Only warning diagnostics are behind debug: hide the per-station BLE error/retry
+  message and orange warning styling while off. Regular read/queued phases,
+  last-command history, measurement ages and last-reading suffix stay visible in
+  both modes. Unavailability/staleness remains visible as ordinary status text.
+  The owner clarified this after 0.3.3 hid too much. Do not suppress normal status
+  details or fabricate fresh measurements.
 - Three version-button activations within 1200 ms toggle debug; another triple
   disables it. Keep native keyboard support and EN/DE indicator/accessible labels.
   Single/double/slow unrelated clicks must not toggle it. No network mutations.
@@ -238,7 +240,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.3**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.4**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

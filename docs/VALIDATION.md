@@ -1,4 +1,19 @@
-# Validation report — 0.3.3
+# Validation report — 0.3.4
+
+## Version 0.3.4 warning-only debug filtering
+
+The owner clarified that only the orange warnings should be hidden, rather than
+all status details. The dashboard now hides BLE error/retry text and orange
+warning styling while debug is off. Regular background-read/queued phases,
+last-command results, measured-state badges, last-reading suffix, ages and
+unavailable/stale text stay visible. The triple-click toggle/reset behavior and
+all underlying API/BLE/Hue behavior are unchanged.
+
+Browser checks cover normal mode retaining ages, command-confirmation history
+and background-read phases while suppressing read errors and orange styling;
+debug mode restores warnings. Unavailable stations remain explicitly labeled in
+normal mode. Existing toggle timing, keyboard, language and reset checks remain.
+Build/package/NVS checks apply; the browser backend and radio are simulated.
 
 ## Version 0.3.3 dashboard debug presentation
 

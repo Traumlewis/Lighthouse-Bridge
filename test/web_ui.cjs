@@ -96,9 +96,11 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('state-1').textContent==='SLEEP');
   const before=commands.length;await page.locator('#refresh').click();assert.equal(commands.length,before);assert.ok(refreshes>=2);
   Object.assign(stations[1],{observed:'on',observed_raw:11,observed_ms:88000,reachable:true,read_failures:1,error:'BLE_READ_FAILED'});
-  await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON');
+  await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON · letzte Messung');
   assert.equal(await page.locator('#debug-indicator').isHidden(),true);
-  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Wiederholung|nicht gelesen|Letzte erfolgreiche/);
+  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Wiederholung|nicht gelesen/);
+  assert.match(await page.locator('#status-2').textContent(),/Letzte erfolgreiche Messung/);
+  assert.equal(await page.locator('#status-2').evaluate(node=>node.classList.contains('warning')),false);
   const commandCount=commands.length,refreshCount=refreshes;
   await page.locator('#version-toggle').click();assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false');
   await page.waitForTimeout(1300); // Expired first click must not contribute.
@@ -117,7 +119,9 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/veraltet/,'recent failed readings are unavailable, not expired');
   await page.locator('#version-toggle').click({clickCount:3});
-  assert.equal(await page.locator('#status-2').textContent(),'nicht erreichbar');
+  assert.match(await page.locator('#status-2').textContent(),/Letzte erfolgreiche Messung.*nicht erreichbar/);
+  assert.doesNotMatch(await page.locator('#status-2').textContent(),/nicht gelesen/);
+  assert.equal(await page.locator('#status-2').evaluate(node=>node.classList.contains('warning')),false);
   assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
   assert.equal(await page.locator('#debug-indicator').isHidden(),true);
   await page.locator('#version-toggle').click({clickCount:3});
@@ -133,7 +137,8 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('target state confirmed'));
   assert.equal(await page.locator('#state-4').textContent(),'ON');
   await page.locator('#version-toggle').click({clickCount:3});
-  assert.doesNotMatch(await page.locator('#status-4').textContent(),/Last command|confirmed|reading/);
+  assert.match(await page.locator('#status-4').textContent(),/Last command: ON.*target state confirmed.*Last successful reading/);
+  assert.equal(await page.locator('#status-4').evaluate(node=>node.classList.contains('warning')),false);
   assert.equal(await page.locator('#state-4').textContent(),'ON');
   await page.locator('#version-toggle').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.keyboard.press('Enter');
   assert.match(await page.locator('#status-4').textContent(),/target state confirmed/);
@@ -146,6 +151,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   Object.assign(stations[3],{command_sent:false,command_status:'failed'});
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('Befehl konnte nicht gesendet'));
   Object.assign(stations[3],{requested:null,command_status:'none'});
+  await page.locator('#version-toggle').click({clickCount:3});
   Object.assign(stations[2],{reading:true,read_active:false,read_queued:true});
   await page.waitForFunction(()=>document.getElementById('status-3').textContent.includes('Abfrage vorgemerkt'));
   assert.doesNotMatch(await page.locator('#status-3').textContent(),/Lese über Bluetooth/);
@@ -160,7 +166,8 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   assert.equal(await page.locator('#wifi').isEnabled(),true,'background reads must not flicker the Wi-Fi button');
   Object.assign(stations[2],{reading:false,read_active:false,read_queued:false});
   await page.locator('#language').selectOption('en');
-  assert.match(await page.locator('#status-2').textContent(),/Could not read/);
+  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Could not read/);
+  assert.match(await page.locator('#status-2').textContent(),/Last successful reading/);
   assert.match(await page.locator('#message').textContent(),/State reads queued/);
   await page.locator('#configuration summary').click();
   await page.screenshot({path:path.join(root,'docs/webinterface-desktop.png'),fullPage:true});

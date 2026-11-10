@@ -16,6 +16,14 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.4
+
+The debug toggle now hides only per-station BLE error/retry messages and orange
+warning highlighting. Regular read phases, last-command results, measurement ages
+and unavailable/stale status remain visible. Triple-click the firmware version
+to toggle warnings, as before. This corrects the overly broad filtering in 0.3.3;
+BLE, Alexa and API behavior are unchanged.
+
 ## Version 0.3.3
 
 The dashboard hides detailed read/retry errors, measurement ages and last-command
