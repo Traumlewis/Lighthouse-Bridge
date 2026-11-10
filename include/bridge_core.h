@@ -63,6 +63,7 @@ struct StationState {
   bool pending = false;
   bool busy = false;
   bool sent = false;
+  bool commandConfirmed = false;
   bool reading = false;
   bool reachable = false;
   uint8_t readFailures = 0;
@@ -92,7 +93,24 @@ inline bool hueTargetPending(const StationState& state, uint32_t now) {
 inline bool hueOn(const StationState& state, uint32_t now) {
   return hueTargetPending(state, now) ? state.requested == Target::On : measuredOn(state);
 }
-inline uint32_t readInterval(const StationState& state) {
+constexpr uint32_t kCommandConfirmationWindowMs = 30000;
+inline bool matchesTarget(Target target, int observed) {
+  return observed == (target == Target::On ? 0x0b : 0x00);
+}
+inline bool awaitingConfirmation(const StationState& state, uint32_t now) {
+  return state.hasRequest && state.sent && !state.commandConfirmed &&
+         !state.pending && !state.busy && now - state.lastSentMs < kCommandConfirmationWindowMs;
+}
+inline const char* commandStatus(const StationState& state, uint32_t now) {
+  if (!state.hasRequest) return "none";
+  if (state.pending) return "queued";
+  if (state.busy) return "sending";
+  if (!state.sent) return "failed";
+  if (state.commandConfirmed) return "confirmed";
+  return awaitingConfirmation(state, now) ? "verifying" : "unconfirmed";
+}
+inline uint32_t readInterval(const StationState& state, uint32_t now) {
+  if (awaitingConfirmation(state, now)) return 2000; // Read-only, never resend power.
   if (state.readFailures == 1) return 5000; // Quickly verify a transient failure.
   if (!state.reachable) return 30000;
   return state.observed == 1 || state.observed == 8 || state.observed == 9 ? 2000 : 15000;
@@ -101,6 +119,8 @@ inline void recordRead(StationState& state, int observed, uint32_t now, const ch
   state.reading = false;
   state.lastReadAttemptMs = now;
   if (observed >= 0) {
+    if (awaitingConfirmation(state, now) && matchesTarget(state.requested, observed))
+      state.commandConfirmed = true;
     state.readFailures = 0; state.reachable = true;
     state.observed = observed; state.observedMs = now;
   } else {
@@ -128,6 +148,7 @@ inline void request(StationState& state, Target target, uint32_t now = 0) {
   state.requestedMs = now;
   state.pending = true;
   state.sent = false;
+  state.commandConfirmed = false;
   state.error[0] = '\0';
   ++state.generation;
 }
@@ -141,6 +162,7 @@ inline void finish(StationState& state, uint32_t generation, bool sent,
   if (observed >= 0) { state.observed = observed; state.observedMs = now; }
   if (generation != state.generation) return;
   state.sent = sent;
+  state.commandConfirmed = sent && matchesTarget(state.requested, observed);
   if (sent) state.lastSentMs = now;
   std::strncpy(state.error, error ? error : "", sizeof(state.error) - 1);
   state.error[sizeof(state.error) - 1] = '\0';

@@ -1,4 +1,4 @@
-# Local API — 0.2.6
+# Local API — 0.2.7
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -33,7 +33,8 @@ A station entry looks like this:
 {
   "id":1,"name":"Base station 1","mac":"AA:BB:CC:DD:EE:01","address_type":0,
   "configured":true,"requested":"on","pending":false,"busy":false,
-  "reading":false,"reachable":true,"command_sent":true,"last_sent_ms":35000,
+  "reading":false,"reachable":true,"command_sent":true,"command_confirmed":true,
+  "command_status":"confirmed","last_sent_ms":35000,
   "observed":"on","observed_raw":11,"observed_ms":39000,"error":""
 }
 ```
@@ -70,6 +71,34 @@ explicitly, retaining the workaround for the previous 1.4.3 `isConnectable()` bu
 consecutive failed cycles and resets on success. `observed_raw=-1` means no
 measurement yet. Times are milliseconds since startup; calculate differences as
 unsigned 32-bit values. Runtime state is not persisted across reboots.
+
+### Command acceptance and confirmation
+
+`command_sent` means the power write returned success; it is not proof of the
+physical target. `command_confirmed` means a post-write read observed the target
+within its confirmation window: raw 11 for ON, raw 0 for SLEEP. Booting values
+1/8/9 do not confirm steady ON, and STANDBY (2) does not confirm SLEEP.
+
+`command_status` is one of:
+
+| Value | Meaning |
+| --- | --- |
+| `none` | No command since boot/reassignment. |
+| `queued` | Accepted work is waiting. |
+| `sending` | Its worker command attempt is active. |
+| `failed` | The bounded write attempts failed. |
+| `verifying` | Write accepted, but target not yet confirmed. |
+| `confirmed` | Target was read within the window. |
+| `unconfirmed` | No target confirmation within 30 seconds after the write. |
+
+An unconfirmed successful write gets read-only checks about every two seconds
+for at most 30000 ms from `last_sent_ms`, subject to pending commands and radio
+work. No power writes are added. After expiry normal polling continues. A later
+measurement still updates physical state, but does not rewrite the expired
+command's result. A confirmed result is historical and remains confirmed if an
+external controller later changes the station; use `observed` for current state.
+New commands reset their confirmation record. Failed writes do not enter this
+window. This verification does not prolong the separate Hue accepted-target view.
 
 ## POST /api/refresh
 
@@ -174,7 +203,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.6","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.7","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

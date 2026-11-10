@@ -4,6 +4,53 @@
 
 int main() {
   using namespace bridge;
+  assert(!matchesTarget(Target::Sleep, 2)); // STANDBY never confirms SLEEP.
+  assert(!matchesTarget(Target::On, 1)); // Starting never confirms steady ON.
+  // Writing without response is not a physical-state confirmation.
+  StationState verification;
+  assert(std::strcmp(commandStatus(verification, 0), "none") == 0);
+  request(verification, Target::On, 100);
+  assert(std::strcmp(commandStatus(verification, 101), "queued") == 0);
+  verification.pending = false; verification.busy = true;
+  assert(std::strcmp(commandStatus(verification, 102), "sending") == 0);
+  finish(verification, verification.generation, true, 0, 200, "");
+  assert(verification.sent && !verification.commandConfirmed);
+  assert(std::strcmp(commandStatus(verification, 201), "verifying") == 0);
+  assert(readInterval(verification, 201) == 2000 && !hueTargetPending(verification, 201));
+  assert(!hueOn(verification, 201)); // Do not extend the approved Alexa window.
+  finishRead(verification, verification.generation, 9, 1000, "", 0);
+  assert(!verification.commandConfirmed && measuredOn(verification)); // Starting is not steady ON.
+  finishRead(verification, verification.generation, 11, 2000, "", 0);
+  assert(verification.commandConfirmed && !awaitingConfirmation(verification, 2001));
+  assert(readInterval(verification, 2001) == 15000);
+  assert(std::strcmp(commandStatus(verification, 2001), "confirmed") == 0);
+  recordRead(verification, 0, 3000, ""); // Later external switching does not rewrite command history.
+  assert(verification.commandConfirmed && !measuredOn(verification));
+  request(verification, Target::Sleep, 4000);
+  assert(!verification.commandConfirmed);
+  verification.pending = false; verification.busy = true;
+  finish(verification, verification.generation, true, 0, 4100, "");
+  assert(verification.commandConfirmed && std::strcmp(commandStatus(verification, 4101), "confirmed") == 0);
+  request(verification, Target::On, 5000);
+  verification.pending = false; verification.busy = true;
+  finish(verification, verification.generation, true, -1, 5100, "BLE_READ_FAILED");
+  assert(awaitingConfirmation(verification, 5101) && !freshMeasurement(verification, 5101));
+  assert(readInterval(verification, 5101) == 2000);
+  assert(awaitingConfirmation(verification, 35099) && !awaitingConfirmation(verification, 35100));
+  finishRead(verification, verification.generation, 11, 35100, "", 0);
+  assert(!verification.commandConfirmed && std::strcmp(commandStatus(verification, 35101), "unconfirmed") == 0);
+  assert(measuredOn(verification) && freshMeasurement(verification, 35101));
+  request(verification, Target::Sleep, 36000);
+  verification.pending = false; verification.busy = true;
+  finish(verification, verification.generation, false, -1, 36100, "BLE_CONNECT_FAILED");
+  assert(std::strcmp(commandStatus(verification, 36101), "failed") == 0);
+  assert(!awaitingConfirmation(verification, 36101));
+  request(verification, Target::On, 0xffffff00U);
+  verification.pending = false; verification.busy = true;
+  finish(verification, verification.generation, true, 9, 0xfffffff0U, "");
+  assert(awaitingConfirmation(verification, 0x20));
+  finishRead(verification, verification.generation, 11, 0x20, "", 0);
+  assert(verification.commandConfirmed);
   // Alexa may briefly expose an accepted in-flight goal; measurements stay real.
   StationState hue;
   recordRead(hue, 0, 100, "");
@@ -78,6 +125,7 @@ int main() {
   request(state, Target::Sleep);
   finish(state, old, true, 0x08, 10, "");
   assert(state.pending && !state.sent && state.requested == Target::Sleep);
+  assert(!state.commandConfirmed);
   state.pending = false;
   finish(state, state.generation, false, -1, 20, "No connection");
   assert(!state.sent && std::strcmp(state.error, "No connection") == 0);
@@ -86,7 +134,7 @@ int main() {
   state.pending = false;
   finish(state, state.generation, true, 0x00, 30, "");
   assert(state.sent && state.lastSentMs == 30 && state.observedMs == 30);
-  // Background measurements, rather than a previous requested target, drive Hue.
+  // Background measurements stay separate from requested targets.
   request(state, Target::On);
   recordRead(state, 0x00, 100, "");
   assert(!measuredOn(state));
@@ -96,13 +144,13 @@ int main() {
   recordRead(state, -1, 300, "BLE_CONNECT_FAILED");
   assert(state.observed == 0x0b && freshMeasurement(state, 301));
   assert(state.observedMs == 200 && state.readFailures == 1);
-  assert(readInterval(state) == 5000);
+  assert(readInterval(state, 301) == 5000);
   recordRead(state, -1, 5300, "BLE_CONNECT_FAILED");
   assert(!freshMeasurement(state, 5301) && state.readFailures == 2);
-  assert(state.observedMs == 200 && readInterval(state) == 30000);
+  assert(state.observedMs == 200 && readInterval(state, 5301) == 30000);
   recordRead(state, 0x0b, 5400, "");
   assert(state.readFailures == 0 && !state.error[0] && freshMeasurement(state, 5401));
-  assert(readInterval(state) == 15000);
+  assert(readInterval(state, 5401) == 15000);
   recordRead(state, 0x02, 400, "");
   assert(!measuredOn(state));
   recordRead(state, 0x01, 500, "");
@@ -118,8 +166,9 @@ int main() {
   assert(!freshMeasurement(neverRead, 101)); // No fake initial state.
   for (unsigned i = 0; i < 300; ++i) recordRead(neverRead, -1, 200 + i, "BLE_CONNECT_FAILED");
   assert(neverRead.readFailures == 255); // Saturate instead of reviving after overflow.
+  state.pending = false; state.busy = true;
   finish(state, state.generation, true, -1, 70000, "BLE_READ_FAILED");
-  assert(!freshMeasurement(state, 70001) && readInterval(state) == 5000);
+  assert(!freshMeasurement(state, 70001) && !state.commandConfirmed && readInterval(state, 70001) == 2000);
   StationState replaced;
   replaced.reading = true;
   const auto oldRead = replaced.generation;

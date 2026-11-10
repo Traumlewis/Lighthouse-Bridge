@@ -12,7 +12,22 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.6
+## What's new in 0.2.7
+
+Distinguish **command sent** from **target state confirmed**. After a successful
+write, steady ON (raw 11) or SLEEP (raw 0) confirms the requested target. Starting
+states are still shown as Starting, without claiming steady ON confirmation.
+If the first read is missing or differs, the bridge checks by reading about
+every two seconds for up to 30 seconds after the write. It sends no additional
+power commands. The dashboard/API report verifying, confirmed, failed or not
+confirmed within the deadline, separately from current measured state.
+
+The owner reports improved Alexa behavior on 0.2.6, with successful ON/SLEEP
+readbacks and intermittent BLE connection failures. This release makes those
+outcomes explicit; it does not claim to eliminate HCI 0x3e. The approved temporary
+Alexa target view, BLE transport limits and settings-preserving layout remain.
+
+## Alexa target window introduced in 0.2.6
 
 Alexa checks state immediately after accepting a command, while the four BLE
 stations finish switching seconds later. The owner approved this compatibility

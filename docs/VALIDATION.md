@@ -1,4 +1,42 @@
-# Validation report — prototype 0.2.6
+# Validation report — prototype 0.2.7
+
+## Follow-up after Alexa improvement: 0.2.7
+
+The owner reports improved Alexa behavior with 0.2.6. The follow-up log shows
+accepted-target Hue replies during work and measured replies afterward. The
+shown ON operations progress through raw 9 to steady 11, and SLEEP operations
+are followed by raw 0 on all four stations. Intermittent 574 connection/read
+failures remain, including exhausted read cycles that recover on later polling.
+No physical cause or complete BLE reliability is established by that excerpt.
+
+Code inspection found that a successful Write Without Response could be called
+sent even if its immediate read was missing or still showed a different state.
+Version 0.2.7 makes confirmation explicit. Successful writes confirm only on
+raw 11 for ON or raw 0 for SLEEP. Otherwise the worker uses existing pure reads
+about every two seconds for up to 30 seconds after sending, yielding to queued
+commands. No retry limits or transport parameters change, and no extra power
+writes occur. A failed write does not open verification. Deadline expiry marks
+history unconfirmed; later polling still updates measured physical state.
+
+Confirmation latches for the last command, independently from later external
+changes. New commands reset it; mismatched-generation readings cannot confirm
+them. The existing Hue target view still ends on command-worker completion;
+verification does not extend optimistic reporting. API/UI expose the last-command
+phase separately from current measured badges. Status time is captured under
+the state lock to keep measurement ages coherent during concurrent worker updates.
+
+Native tests cover immediate/later confirmation, steady ON versus booting,
+SLEEP versus STANDBY, missing reads, failures, deadline boundaries, late matches,
+external changes, superseded results and millis wrap. Browser cases cover
+English/German verification/history labels without inventing an ON measurement.
+The final firmware build and native core/Hue tests passed, followed by seven
+Python translation/layout/NVS checks and the browser/USB suites. Browser cases
+verify that last-command history can differ from the current measured badge
+without changing it. These are host/mocked checks, not an on-board confirmation
+of the new polling behavior.
+
+**These changes improve verification and reporting, not a proven fix for HCI
+0x3e.** The new verification behavior still needs an ESP32/board retest.
 
 ## Echo verification timing and approved target window: 0.2.6
 
@@ -32,8 +70,9 @@ badges when a target is pending and exercise English/German policy copy. No
 attached Echo or ESP32 was used for those checks.
 
 **This is an owner-approved reporting-policy change, not confirmation of physical
-switching.** The actual effect on Alexa's spoken warning still requires an
-Echo/board retest. BLE transport/retry settings remain those of 0.2.4.
+switching.** The owner subsequently reports improved Alexa behavior; the follow-up
+log above shows the two sources transitioning as intended. This is not complete
+validation of every Echo/board condition. BLE transport/retry settings remain those of 0.2.4.
 
 ## Owner improvement report and Alexa ACK correction: 0.2.5
 

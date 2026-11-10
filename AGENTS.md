@@ -36,6 +36,22 @@ status change. Keep current facts, not a conversation log. User instructions win
   measured `on` immediately. Never extend the window on duplicate active requests.
   `reachable` stays measured throughout; do not force it true or modify observed
   values/timestamps. No window exists after reboot or without a command.
+- Keep `command_sent` separate from `command_confirmed`. After a successful
+  power write, only observed steady ON (11) confirms ON, and only SLEEP (0)
+  confirms SLEEP; booting 1/8/9 and STANDBY (2) do not confirm those targets.
+  If the immediate read does not confirm, use read-only checks about every 2 s
+  for at most 30000 ms from last_sent_ms. These yield to queued commands and use
+  existing bounded read attempts; never add automatic power resends.
+- Last command status is none/queued/sending/failed/verifying/confirmed/unconfirmed.
+  A confirmation latches for that command; later external state changes do not
+  rewrite its history. New accepted work resets it. Matching observations outside
+  the verification deadline update measured state but do not confirm that old
+  command. Failed writes do not open a verification window. Old-generation reads
+  cannot confirm a newer target. `readInterval(state, now)` needs current millis.
+  The UI labels this as last-command history beside current measured state.
+  Verification never extends the separate owner-approved Hue target window.
+- Capture status uptime/age/health under the same state lock so a newly recorded
+  measurement cannot have a timestamp newer than the returned uptime snapshot.
 - Read on startup, after commands, and about every 15 seconds; booting states
   retry after 2 seconds, unreachable devices after 30 seconds. One radio means
   queue/connection delays can lengthen intervals. Manual refresh is read-only.
@@ -74,7 +90,8 @@ status change. Keep current facts, not a conversation log. User instructions win
   last reading / retrying, without changing its timestamp. Retry after 5 seconds.
   Two consecutive failed cycles, no prior reading, or age >=60 seconds means
   unreachable. Counters saturate and reset on a successful reading. Never grant
-  this grace to an unconfirmed post-command state. Expose read_failures, ble_error
+  this grace to a write with no post-write measurement: that starts unreachable,
+  regardless of the older cache. Verification polling takes precedence over normal failure backoff while its read-only window is open. Expose read_failures, ble_error
   and last_read_attempt_ms in status; log numeric BLE codes without device keys.
   Log successful reads too, including worker attempt and raw state; error logs
   include saved/used address type and the explicit host retry limit.
@@ -155,7 +172,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.6**. Web updates use exactly four files at offsets:
+- Current release **0.2.7**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -239,8 +256,13 @@ then Echo immediately GETs the old opposite `on`, with reachable/pending true,
 before BLE completes seconds later. OFF also addresses the group plus all four
 individual lights. The owner chose temporary accepted targets for Alexa while
 keeping dashboard/API measurements real. Version 0.2.6 implements that bounded
-view and coalesces identical in-flight requests. Its effect on the actual spoken
-warning and remaining BLE reliability still need a real Echo/board retest.
+view and coalesces identical in-flight requests. The owner subsequently reports
+that Alexa is happier (improved response, not a full validation claim). A later
+0.2.6 excerpt shows source=accepted_target during commands, then measurement;
+all shown ON/SLEEP actions are followed by raw 11/0, with intermittent 574 read
+failures and recoveries. Remaining connection reliability is still open.
+Version 0.2.7 adds explicit bounded read-only command confirmation; it does not
+claim to fix the physical cause of 574 or alter BLE connection/retry parameters.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

@@ -306,7 +306,7 @@ void bleWorker(void*) {
         for (unsigned offset = 0; offset < kStations; ++offset) {
           const unsigned i = (cursor + offset) % kStations;
           const auto& state = states[i];
-          const uint32_t interval = readInterval(state);
+          const uint32_t interval = readInterval(state, millis());
           if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
               millis() - state.lastReadAttemptMs < interval)) continue;
           selected = i; config = configs[i]; readOnly = true;
@@ -351,9 +351,14 @@ void bleWorker(void*) {
           }
           logBleFailure(selected, error, bleError, attempt, config.addressType);
         }
+        bool becameConfirmed = false;
         {
-          Lock lock; finishRead(states[selected], generation, observed, millis(), error, bleError);
+          Lock lock;
+          const bool wasConfirmed = states[selected].commandConfirmed;
+          finishRead(states[selected], generation, observed, millis(), error, bleError);
+          becameConfirmed = !wasConfirmed && states[selected].commandConfirmed;
         }
+        if (becameConfirmed) Serial.printf("Station %d: command target confirmed, observed=%d\n", selected + 1, observed);
       } else {
       for (unsigned attempt = 0; attempt < 3; ++attempt) {
         { Lock lock; if (states[selected].generation != generation) break; }
@@ -367,12 +372,15 @@ void bleWorker(void*) {
         logBleFailure(selected, error, bleError, attempt, config.addressType);
         if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1) + esp_random() % 301));
       }
+      bool confirmed = false;
       {
         Lock lock;
         finish(states[selected], generation, sent, observed, millis(), error);
         states[selected].bleError = bleError;
+        confirmed = states[selected].commandConfirmed && states[selected].generation == generation;
       }
-      Serial.printf("Station %d: %s, %s\n", selected + 1, targetName(target), sent ? "sent" : error);
+      Serial.printf("Station %d: %s, %s, observed=%d, confirmed=%s\n", selected + 1,
+                    targetName(target), sent ? "sent" : error, observed, confirmed ? "true" : "false");
       }
       cursor = (selected + 1) % kStations;
     }
@@ -411,16 +419,17 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.6";
+  doc["version"] = "0.2.7";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["alexa_started"] = alexaReady;
-  doc["uptime_ms"] = millis();
   doc["free_heap"] = ESP.getFreeHeap();
   {
     Lock lock;
+    const uint32_t now = millis();
+    doc["uptime_ms"] = now;
     doc["scanning"] = scanning || scanPending;
     doc["scan_finished_ms"] = scanFinishedMs;
     doc["scan_truncated"] = foundTruncated;
@@ -440,13 +449,15 @@ void statusRoute() {
       item["reading"] = state.reading || refreshRequested[i];
       item["read_active"] = state.reading;
       item["read_queued"] = refreshRequested[i];
-      item["reachable"] = freshMeasurement(state, millis());
+      item["reachable"] = freshMeasurement(state, now);
       item["read_failures"] = state.readFailures;
       item["ble_error"] = state.bleError;
       item["last_read_attempt_ms"] = state.lastReadAttemptMs;
       item["requested_ms"] = state.requestedMs;
-      item["alexa_target_pending"] = hueTargetPending(state, millis());
+      item["alexa_target_pending"] = hueTargetPending(state, now);
       item["command_sent"] = state.sent;
+      item["command_confirmed"] = state.commandConfirmed;
+      item["command_status"] = commandStatus(state, now);
       item["last_sent_ms"] = state.lastSentMs;
       item["observed"] = observedName(state.observed);
       item["observed_raw"] = state.observed;
@@ -508,7 +519,7 @@ bool serveHueLights(const String& uri) {
       allReachable &= freshMeasurement(states[i], now);
       if (freshMeasurement(states[i], now)) ++fresh;
       if (!states[i].reading && !states[i].busy &&
-          now - states[i].lastReadAttemptMs >= readInterval(states[i])) refreshRequested[i] = true;
+          now - states[i].lastReadAttemptMs >= readInterval(states[i], now)) refreshRequested[i] = true;
     }
     for (unsigned i = 0; i <= kStations; ++i) {
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
@@ -528,7 +539,7 @@ bool serveHueLights(const String& uri) {
         light["type"] = "On/off light";
         light["name"] = i < kStations ? configs[i].name : "VR Basisstationen";
         light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
-        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.6";
+        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.7";
       }
     }
   }
@@ -704,7 +715,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.6";
+  doc["protocol"] = 1; doc["version"] = "0.2.7";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -812,7 +823,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.6");
+  Serial.println("\nLighthouse Bridge 0.2.7");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();
