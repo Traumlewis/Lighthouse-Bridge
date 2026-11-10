@@ -146,20 +146,34 @@ void refreshRetryAddress(StationConfig& config, unsigned slot) {
   scan->setWindow(67);
   auto results = scan->start(2, false);
   bool seen = false;
+  bool matched = false;
   for (int i = 0; i < results.getCount(); ++i) {
     auto device = results.getDevice(i);
     char mac[18]{};
     normalizeMac(device.getAddress().toString().c_str(), mac);
-    if (strcmp(mac, config.mac) || !device.isConnectable()) continue;
+    if (strcmp(mac, config.mac)) continue;
+    matched = true;
+    const uint8_t eventType = device.getAdvType();
+    // NimBLE 1.4.3 isConnectable() treats legacy enum 0 (ADV_IND) as a
+    // zero bitmask on classic ESP32, incorrectly rejecting normal advertising.
+    static_assert(BLE_HCI_ADV_RPT_EVTYPE_ADV_IND == 0 && BLE_HCI_ADV_RPT_EVTYPE_DIR_IND == 1,
+                  "Legacy advertising classification must match HCI constants");
+    if (!isConnectableLegacyAdvertisement(eventType)) {
+      Serial.printf("Station %u: retry scan: address seen, RSSI=%d dBm, adv_type=%u (not connectable)\n",
+                    slot + 1, device.getRSSI(), eventType);
+      continue;
+    }
     // Use the actual advertised address type for this job, without changing
     // saved assignments or accepting a different device based on its name.
     config.addressType = device.getAddressType();
-    Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=%u\n",
-                  slot + 1, device.getRSSI(), config.addressType);
+    Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=%u, adv_type=%u\n",
+                  slot + 1, device.getRSSI(), config.addressType, eventType);
     seen = true;
     break;
   }
-  if (!seen) Serial.printf("Station %u: retry scan: no connectable advertisement within 2 seconds\n", slot + 1);
+  if (!seen) Serial.printf("Station %u: retry scan: %s within 2 seconds; devices_seen=%d\n", slot + 1,
+                          matched ? "address seen without connectable advertisement" : "assigned address not seen",
+                          results.getCount());
   scan->clearResults();
 }
 
@@ -375,7 +389,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.2";
+  doc["version"] = "0.2.3";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -636,7 +650,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.2";
+  doc["protocol"] = 1; doc["version"] = "0.2.3";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -741,7 +755,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.2");
+  Serial.println("\nLighthouse Bridge 0.2.3");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

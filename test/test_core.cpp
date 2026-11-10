@@ -4,6 +4,14 @@
 
 int main() {
   using namespace bridge;
+  // Legacy HCI report types are enum values. A bitmask test rejects normal
+  // connectable ADV_IND (0) and accepts non-connectable types 3 and 4.
+  assert(isConnectableLegacyAdvertisement(0)); // ADV_IND
+  assert(isConnectableLegacyAdvertisement(1)); // ADV_DIRECT_IND
+  assert(!isConnectableLegacyAdvertisement(2)); // ADV_SCAN_IND
+  assert(!isConnectableLegacyAdvertisement(3)); // ADV_NONCONN_IND
+  assert(!isConnectableLegacyAdvertisement(4)); // SCAN_RSP
+  assert(!isConnectableLegacyAdvertisement(255));
   Target target = Target::On;
   assert(parseTarget("sleep", target) && static_cast<uint8_t>(target) == 0x00);
   assert(parseTarget("on", target) && static_cast<uint8_t>(target) == 0x01);

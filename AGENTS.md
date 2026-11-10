@@ -42,6 +42,13 @@ status change. Keep current facts, not a conversation log. User instructions win
   If unseen, retry the saved address anyway (a short scan is not proof of absence).
   Log the actual phase/code/attempt and recovery RSSI/type or lack of advertising.
   Recovery scans never write power and do not replace the user discovery results.
+- On classic ESP32, classify legacy advertising using
+  `isConnectableLegacyAdvertisement(getAdvType())`: only ADV_IND (0) and
+  ADV_DIRECT_IND (1). **Do not use NimBLE 1.4.3 `isConnectable()`**: its
+  non-extended path treats enum values as bit flags, rejects 0 and accepts 3/4.
+  Firmware static assertions bind enum values to upstream HCI constants; native
+  tests cover all five report types and an invalid value. Log a matched but
+  non-connectable report separately from no matching address, with type/RSSI.
 - One failed read cycle retains a previously usable measurement, explicitly labeled
   last reading / retrying, without changing its timestamp. Retry after 5 seconds.
   Two consecutive failed cycles, no prior reading, or age >=60 seconds means
@@ -98,7 +105,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.2**. Web updates use exactly four files at offsets:
+- Current release **0.2.3**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -168,8 +175,13 @@ Owner reports **0.1.1 starts and basic operation works**, but settings were lost
 on update and status was not synchronized. The 0.2.0 extensions have passed local
 build/model/browser checks; **the owner reports intermittent BLE connection failures also without another
 controller. The owner subsequently reports repeated code 574 on all four stations.
-Version 0.2.2 adds scan-assisted recovery and precise phase/attempt diagnostics;
-the radio cause and effectiveness still require an actual hardware retest**.
+The 0.2.2 board log confirms some successful SLEEP reads (raw 0), but repeated
+574 failures and misleading negative recovery scan messages. The owner reports
+about 1.60 m distance, with failures both ON (green LED) and SLEEP (blue LED).
+Version 0.2.3 fixes
+the proven legacy scan-filter bug and adds regression coverage. This does not
+prove the source of the ongoing 574 connection failures or resolve them on
+hardware; use corrected advertising/RSSI evidence for the next diagnosis**.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

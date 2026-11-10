@@ -1,4 +1,4 @@
-# Local API — 0.2.2
+# Local API — 0.2.3
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -54,6 +54,9 @@ GATT read error. Before retrying this code, a two-second passive scan checks the
 assigned MAC and refreshes its address type for that job only. Recovery scans
 never write power or replace the explicit discovery results. Serial output
 includes the actual failing phase, attempt and recovery scan signal information.
+The scan distinguishes an unseen address from a matching but non-connectable
+legacy report, with report type and RSSI. Legacy connectability is checked
+explicitly rather than using the pinned library's faulty `isConnectable()` path.
 `last_read_attempt_ms` is the end of the last read attempt; `read_failures` counts
 consecutive failed cycles and resets on success. `observed_raw=-1` means no
 measurement yet. Times are milliseconds since startup; calculate differences as
@@ -120,7 +123,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.2","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.3","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

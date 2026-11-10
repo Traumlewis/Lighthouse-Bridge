@@ -9,6 +9,12 @@ constexpr char kService[] = "00001523-1212-efde-1523-785feabcd124";
 constexpr char kPower[] = "00001525-1212-efde-1523-785feabcd124";
 enum class Target : uint8_t { Sleep = 0x00, On = 0x01 };
 
+inline bool isConnectableLegacyAdvertisement(uint8_t eventType) {
+  // Legacy HCI reports use enum values, not extended-advertising bit flags:
+  // ADV_IND = 0, ADV_DIRECT_IND = 1. Scan responses are not advertisements.
+  return eventType == 0 || eventType == 1;
+}
+
 inline bool parseTarget(const char* text, Target& out) {
   if (text && std::strcmp(text, "on") == 0) { out = Target::On; return true; }
   if (text && std::strcmp(text, "sleep") == 0) { out = Target::Sleep; return true; }

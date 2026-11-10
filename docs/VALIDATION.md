@@ -1,4 +1,40 @@
-# Validation report — prototype 0.2.2
+# Validation report — prototype 0.2.3
+
+## Legacy recovery scan correction: 0.2.3
+
+The owner's 0.2.2 log confirms intermittent successful reads with `observed=0`
+(SLEEP) on stations 1 and 2, alongside repeated 574 connection failures across
+all four stations. The owner reports about 1.60 m distance and failures both
+with green (ON) and blue (SLEEP) LEDs; the problem is not confined to SLEEP.
+Negative recovery scan messages precede both successful and
+failed retries. Recovery is therefore incomplete; no radio cause is established.
+
+Inspection of the pinned NimBLE 1.4.3 source reveals a deterministic bug in its
+classic ESP32 `isConnectable()` path: legacy report type enums are interpreted
+as extended-advertising bit flags. Ordinary connectable ADV_IND (0) is rejected;
+non-connectable ADV_NONCONN_IND (3) and SCAN_RSP (4) are accepted. The bridge's
+0.2.2 retry filter called that method. A host reproduction using the actual
+function extracted from the installed dependency confirms all three errors.
+Thus the previous negative scan message was not reliable evidence of absence.
+
+Version 0.2.3 uses explicit legacy report classification: only ADV_IND (0) and
+ADV_DIRECT_IND (1) are connectable. Firmware static assertions verify these
+values against the pinned HCI definitions. Native regression tests cover report
+types 0 through 4 and an invalid type. A scan now distinguishes no matching
+address from a matching non-connectable report, with report type, RSSI and total
+scan result count. Address matching, bounded retries and read-only recovery
+remain unchanged. The dependency and connection parameters are unchanged.
+
+The firmware build, native tests (including the new legacy report cases), seven
+Python layout/NVS/translation checks and USB/layout tests passed locally. The
+upstream bug was reproduced on the host from the installed source; no board is
+attached to the development environment.
+
+**This fixes the scan filter and diagnostics, not a proven cause of error 574.**
+The next hardware test must collect accurate advertisement visibility and RSSI;
+intermittent successful reads alone do not demonstrate reliable operation.
+
+Reference: [pinned upstream implementation](https://github.com/h2zero/NimBLE-Arduino/blob/1.4.3/src/NimBLEAdvertisedDevice.cpp).
 
 ## Connection establishment error 574: 0.2.2
 

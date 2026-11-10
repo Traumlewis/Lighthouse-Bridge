@@ -12,7 +12,20 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.2
+## What's new in 0.2.3
+
+Correct the recovery scan's connectability filter for classic ESP32. The pinned
+NimBLE 1.4.3 `isConnectable()` interprets legacy report types as extended bit
+flags: ordinary connectable `ADV_IND` (type 0) is rejected, while types 3 and 4
+can be incorrectly accepted. The bridge now checks the legacy report enum
+explicitly, with regression coverage. Scan logs distinguish an unseen address
+from a visible but non-connectable report and include report type and RSSI.
+
+The owner confirmed occasional successful SLEEP readings on 0.2.2 but persistent
+574 failures. **This corrects the scan filter and its misleading diagnosis; it
+does not establish or guarantee a fix for the underlying connection failures.**
+
+## Recovery introduced in 0.2.2
 
 BLE error **574 / 0x023e** means **connection establishment failed** (HCI 0x3e).
 It does not identify a specific interference, range or hardware cause. On this
