@@ -14,8 +14,19 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     let firmwareMissing=false;
     await page.addInitScript(()=>{
       window.serialRequests=0;
+      window.usbMode=false;
+      const info={protocol:1,version:'0.2.0',api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:false,url:null};
+      window.fakePort={
+        open:async function(){
+          this.readable=new ReadableStream({start(c){window.usbController=c;}});
+          this.writable=new WritableStream({write(bytes){
+            if(new TextDecoder().decode(bytes)==='LH_INFO\n')window.usbController.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify(info)+'\n'));
+          }});
+        },close:async()=>{}
+      };
+      window.sendWifiAddress=()=>window.usbController.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify({...info,wifi_connected:true,url:'http://192.168.1.42/'})+'\n'));
       Object.defineProperty(navigator,'serial',{configurable:true,value:{
-        requestPort:async()=>{window.serialRequests++;throw new DOMException('Test: no hardware selected','NotFoundError');},
+        requestPort:async()=>{window.serialRequests++;if(window.usbMode)return window.fakePort;throw new DOMException('Test: no hardware selected','NotFoundError');},
         getPorts:async()=>[],addEventListener:()=>{},removeEventListener:()=>{}
       }});
     });
@@ -25,7 +36,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
       const file=path.join(site,relative);
       if(!file.startsWith(site+path.sep)||!fs.existsSync(file)||(firmwareMissing&&relative.endsWith('.bin')))
         return route.fulfill({status:404,body:'missing'});
-      const type=relative.endsWith('.js')?'application/javascript':relative.endsWith('.css')?'text/css':relative.endsWith('.json')?'application/json':relative.endsWith('.html')?'text/html':'application/octet-stream';
+      const type=/\.m?js$/.test(relative)?'application/javascript':relative.endsWith('.css')?'text/css':relative.endsWith('.json')?'application/json':relative.endsWith('.html')?'text/html':'application/octet-stream';
       return route.fulfill({status:200,contentType:type,body:fs.readFileSync(file)});
     });
     await page.goto('https://flasher.test/Lighthouse-Bridge/');
@@ -61,8 +72,25 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     await page.locator('#language').selectOption('de');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'German mobile layout');
     await page.screenshot({path:path.join(root,'docs/webflasher-mobile.png'),fullPage:true});
+    await page.evaluate(()=>{window.usbMode=true;});
+    await page.locator('#usb-read').click();
+    await page.waitForFunction(()=>document.getElementById('usb-key').textContent==='1234567890abcdef12345678');
+    assert.equal(await page.locator('#install').isDisabled(),true,'USB reader owns the port');
+    assert.equal(await page.locator('#usb-url').isHidden(),true);
+    await page.evaluate(()=>window.sendWifiAddress());
+    await page.waitForFunction(()=>document.getElementById('usb-url').getAttribute('href')==='http://192.168.1.42/');
+    assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('1234567890abcdef12345678')),false);
+    await page.locator('#usb-stop').click();
+    await page.waitForFunction(()=>!document.getElementById('install').disabled);
+    // Closing the upstream installer reuses its granted port without another picker.
+    await page.evaluate(()=>{const dialog=document.createElement('ewt-install-dialog');dialog.port=window.fakePort;document.body.appendChild(dialog);dialog.dispatchEvent(new CustomEvent('closed',{bubbles:true}));dialog.remove();});
+    await page.waitForFunction(()=>!document.getElementById('usb-stop').hidden);
+    assert.equal(await page.evaluate(()=>window.serialRequests),1);
+    await page.locator('#usb-stop').click();
+    await page.waitForFunction(()=>!document.getElementById('install').disabled);
+    await page.evaluate(()=>{window.usbMode=false;});
     await page.locator('#install').click();
-    await page.waitForFunction(()=>window.serialRequests===1);
+    await page.waitForFunction(()=>window.serialRequests===2);
     // Actual upstream lazy imports run; requestPort is safely stubbed above.
     await page.waitForTimeout(1200);
     assert.deepEqual(errors,[]);
@@ -77,6 +105,6 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     assert.equal(await page.locator('#install').isDisabled(),true);
     assert.equal(await page.locator('#download').isHidden(),true);
     assert.equal(await page.evaluate(()=>window.serialRequests),0);
-    console.log('WebFlasher passed: English default, German switch, saved language, URL override, translated errors, real local modules, consent gate, USB picker invocation, both mobile layouts. No real serial port accessed.');
+    console.log('WebFlasher passed: English default, German switch, saved language, URL override, translated errors, real local modules, consent gate, USB picker invocation, both mobile layouts, USB key/address display and port handoff. No real serial port accessed.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

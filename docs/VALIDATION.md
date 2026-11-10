@@ -1,4 +1,37 @@
-# Prüfbericht — Prototyp 0.1.1
+# Prüfbericht — Prototyp 0.2.0
+
+
+## Rückmeldung zu 0.1.1 und Erweiterungen 0.2.0
+
+Der Besitzer bestätigt erfolgreichen Start und grundlegende Funktion mit 0.1.1.
+Gemeldet wurden verlorene WLAN-Einstellungen beim Update sowie nicht gemeinsam
+aktualisierte Zustände von Webinterface/Alexa. Die Ursache der Update-Verluste
+ist im Imageformat nachgewiesen: Das zusammengeführte Image enthält Füllbytes
+über NVS. Die frühere Empfehlung „nicht löschen“ reichte damit nicht aus.
+
+0.2.0 verwendet vier getrennte Flashteile. Ein Regressionstest simuliert die
+sektorweisen Erase-/Write-Operationen über bestehendem NVS-Inhalt und bestätigt,
+dass `0x9000..0xdfff` unverändert bleibt; das Factory-Image reproduziert die alte
+Überschreibung. Teilimages stimmen byteweise mit dem gepatchten Image überein.
+
+Die Firmware liest Zustände beim Start, regelmäßig und manuell ohne Schreibbefehl.
+Native Tests prüfen gemessene Werte statt Zielwerten, Fehler/Staleness und
+Millisekunden-Überlauf. Hue-GETs liefern dieselben Daten, aber können keinen
+Status-Push in die Alexa-App erzwingen.
+
+Browserprüfungen mit simuliertem Backend/USB bestanden: eigener Passwort-Login
+nach API-Key-Bootstrap, verpflichtende Passwortvergabe, API-Key nicht mehr als
+späteres Login, Key im angemeldeten Netzwerk-Reiter, Logout, EN/DE und mobile
+Ansichten, Zustand vor erstem Schaltbefehl, keine optimistische Messwert-Erfindung,
+aktualisierte und veraltete Messungen. USB-Tests prüfen echten Stream-Parser,
+geteilte Frames, ungültige URLs, WLAN-Adresswechsel, Trennen und Übergabe nach
+Schließen des Installationsdialogs. Schlüssel werden nicht gespeichert/übertragen.
+
+Build, native Tests, Python-Layout/Integritätsprüfungen und Node-USB-Tests bestanden.
+**Die erweiterten Funktionen müssen noch am realen Board und Echo geprüft werden.**
+Insbesondere sind Passwort-Hashing/Session-Routen im Gerät, WLAN-Portal mit
+USB-Abfragen, NVS-Erhalt nach echtem Flash, BLE-Dauerabfragen und Alexas Abfrage-
+/Cache-Verhalten nicht durch Browser-Mocks nachgewiesen.
 
 ## Hardware-Rückmeldung und Startkorrektur
 
@@ -23,7 +56,7 @@ Referenz: [Espressif, IDFGH-8094 / Issue 9595](https://github.com/espressif/esp-
 Die zusätzliche Meldung zur fehlenden Core-Dump-Partition ist ein separates
 Diagnoseproblem: Die bisherige Partitionstabelle enthält keine Core-Dump-Partition.
 Für dieses Update bleiben alle Partitionen und gespeicherten Einstellungen
-unverändert. Die Wiederholung des Hardwaretests mit **0.1.1** steht noch aus.
+unverändert. Der Besitzer hat den erfolgreichen Start mit **0.1.1** inzwischen bestätigt.
 
 ## In der Entwicklungsumgebung geprüft
 

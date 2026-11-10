@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const {pathToFileURL}=require('node:url');const path=require('node:path');
+(async()=>{
+ const {parseDeviceInfo,watchDeviceInfo}=await import(pathToFileURL(path.resolve(__dirname,'../site/serial-info.mjs')));
+ const {validUpdateParts}=await import(pathToFileURL(path.resolve(__dirname,'../site/flash-layout.mjs')));
+ const initial={protocol:1,version:'0.2.0',api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:false,url:null,password_set:false};
+ assert.deepEqual(parseDeviceInfo('LH_INFO '+JSON.stringify(initial)),initial);
+ for(const line of ['boot garbage','LH_INFO {','LH_INFO '+JSON.stringify({...initial,api_key:'<script>'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'javascript:alert(1)'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'http://example.com/'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'http://192.168.1.42/?key=secret'})])assert.equal(parseDeviceInfo(line),null);
+ const parts=['bootloader','partitions','boot-app0','app'].map((n,i)=>({path:'firmware/lighthouse-bridge-'+n+'.bin?sha='+'a'.repeat(64),offset:[0x1000,0x8000,0xe000,0x10000][i]}));
+ assert.ok(validUpdateParts(parts));assert.equal(validUpdateParts([{path:'firmware/merged.bin',offset:0}]),false);
+ assert.equal(validUpdateParts(parts.map((p,i)=>({...p,offset:i? p.offset:0}))),false);
+ assert.equal(validUpdateParts(parts.map((p,i)=>({...p,path:parts[(i+1)%4].path}))),false);
+ let controller,closed=false,queries='';const received=[];
+ const port={open:async()=>{},readable:new ReadableStream({start(c){controller=c;}}),writable:new WritableStream({write(bytes){queries+=new TextDecoder().decode(bytes);}}),close:async()=>{closed=true;}};
+ const watcher=await watchDeviceInfo(port,info=>received.push(info),()=>{});
+ const text='garbled boot\nLH_INFO '+JSON.stringify(initial)+'\r\n';
+ controller.enqueue(new TextEncoder().encode(text.slice(0,40)));controller.enqueue(new TextEncoder().encode(text.slice(40)));
+ const online={...initial,wifi_connected:true,url:'http://192.168.1.42/'};
+ controller.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify(online)+'\n'));
+ await new Promise(resolve=>setTimeout(resolve,30));
+ assert.deepEqual(received,[initial,online]);assert.equal(queries,'LH_INFO\n');
+ await watcher.stop();assert.ok(closed);
+ console.log('USB parser/watcher and safe update layout passed (stream chunks, Wi-Fi transition, bad URLs, clean disconnect, no key transmission).');
+})().catch(error=>{console.error(error);process.exitCode=1;});

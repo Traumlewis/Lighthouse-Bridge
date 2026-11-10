@@ -1,97 +1,102 @@
-# GitHub Pages / WebFlasher
+# GitHub Pages / WebFlasher — 0.2.0
 
-Öffentliche Adresse: **https://traumlewis.github.io/Lighthouse-Bridge/**
+**https://traumlewis.github.io/Lighthouse-Bridge/**
 
-Die Seite basiert auf [ESP Web Tools](https://esphome.github.io/esp-web-tools/)
-10.4.0. Die Module liegen mit veröffentlichten SHA-256-Integritätswerten im
-Repository unter `site/vendor/`; zur Laufzeit ist kein CDN nötig.
+ESP Web Tools 10.4.0 liegt unverändert unter `site/vendor/`, inklusive aller
+Lazy-Loading-Module und veröffentlichter Integritätswerte in `UPSTREAM.json`.
+Zur Laufzeit wird kein CDN benötigt. HTTPS kommt von GitHub Pages; lokal ist
+`http://localhost` zulässig. Chrome/Edge auf einem Rechner verwenden.
 
 ## Sprachen
 
-Englisch ist die Standardsprache, Deutsch ist über den Sprachschalter verfügbar.
-Die Auswahl wird unter `lighthouse-bridge.language` im lokalen Browserspeicher
-gesichert; falls dieser gesperrt ist, bleibt der Schalter trotzdem nutzbar.
-`?lang=en` oder `?lang=de` überschreibt beim Öffnen eine gespeicherte Auswahl.
-Ohne gültige Link- oder gespeicherte Auswahl wird Englisch verwendet, unabhängig
-von der Browsersprache. Beispiel: https://traumlewis.github.io/Lighthouse-Bridge/?lang=de
+Englisch ist Standard. Der Schalter bietet Deutsch; Auswahl unter
+`lighthouse-bridge.language` im lokalen Browserspeicher. `?lang=en` / `?lang=de`
+hat Vorrang vor der gespeicherten Auswahl, danach Standard Englisch. Gesperrter
+Browserspeicher verhindert den Sprachwechsel nicht. `site/translations.js`
+enthält Seitentexte, Status-/Fehlermeldungen, Metadaten und Beschriftungen.
+Sprachwechsel setzt keine Checkboxen oder USB-Verbindungen zurück.
 
-Seitentexte liegen in `site/translations.js`; das HTML enthält eine vollständige
-englische Ausgangsfassung. Statusmeldungen, Hinweise, Metadaten und zugängliche
-Beschriftungen wechseln ebenfalls die Sprache. Übersetztes Markup darf nur aus
-dieser lokalen Datei stammen. Sprachwechsel dürfen Checkbox, USB-Bedienung und
-geöffnete Hilfebereiche nicht zurücksetzen.
+Das ESP32-Webinterface ist nun ebenfalls EN/DE mit derselben Auswahlregel.
+Der unveränderte ESP-Web-Tools-Dialog und die USB-Port-Auswahl des Browsers haben
+weiterhin ihre eigenen Spracheinstellungen und können Englisch bleiben.
 
-Der unveränderte ESP-Web-Tools-Dialog und die USB-Port-Auswahl des Browsers
-verwenden eigene Spracheinstellungen und können Englisch bleiben. Das lokale
-Webinterface der Firmware ist weiterhin Deutsch. Diese Erweiterung betrifft
-die öffentliche Flasher-Seite, nicht die Firmware.
+## Updates mit erhaltenen Einstellungen
 
-## Benutzung
+**Ab 0.2.0 verwendet der Flasher vier getrennte Teile:**
 
-1. Die Seite in Chrome oder Edge am Rechner öffnen, ESP32 per USB-Datenkabel
-   anschließen und die Board-Bestätigung anklicken.
-2. „Verbinden & installieren“ wählen, seriellen USB-Port auswählen und im
-   ESP-Web-Tools-Dialog die Installation bestätigen.
-3. Bei einer Erstinstallation auf einem zuvor anders genutzten Board den
-   Flash-Speicher löschen lassen. Beim normalen Bridge-Update die Löschoption
-   **abwählen**, damit NVS und Einstellungen erhalten bleiben.
-4. Nach dem Flashen die serielle Konsole / „Logs & Console“ öffnen und
-   EN/RESET drücken. Setup-WLAN und individueller Schlüssel erscheinen bei
-   115200 Baud. Falls nötig den Flasher erneut verbinden, bevor die Konsole
-   geöffnet wird. Ein anderes serielles Programm muss währenddessen geschlossen
-   bleiben.
-5. Mit dem Setup-WLAN verbinden und `http://192.168.4.1` öffnen; danach der
-   [Hauptanleitung](../README.md) folgen.
+| Datei | Offset |
+| --- | --- |
+| `lighthouse-bridge-bootloader.bin` | `0x1000` |
+| `lighthouse-bridge-partitions.bin` | `0x8000` |
+| `lighthouse-bridge-boot-app0.bin` | `0xe000` |
+| `lighthouse-bridge-app.bin` | `0x10000` |
 
-Ein echter Flashvorgang ist nur mit einem angeschlossenen Board testbar.
-Die Firmware unterstützt derzeit kein Improv Serial. Deshalb wird die
-Improv-Erkennung im Manifest deaktiviert; das WLAN wird separat im ESP32-Portal
-konfiguriert. Es wird kein WLAN-Passwort an GitHub übermittelt.
+Der NVS-Bereich `0x9000..0xdfff` wird nicht geschrieben oder durch angrenzende
+Flashsektoren gelöscht. `Erase device` muss beim Update abgewählt bleiben.
+`new_install_prompt_erase: true` ermöglicht diese Auswahl.
 
-## Erstmalig GitHub Pages aktivieren
+**Fehler in 0.1.x:** Das damalige zusammengeführte Image an `0x0` schrieb seine
+Füllbytes über NVS. Die frühere Aussage, Erase abzuwählen reiche für dieses Image,
+war falsch. Der Factory-BIN-Download bleibt für Neuinstallationen verfügbar und
+ist entsprechend beschriftet. Für Updates den WebFlasher oder die vier Teile
+mit ihren jeweiligen Offsets verwenden. Die Speicheraufteilung bleibt gleich.
 
-Im Repository **Settings → Pages → Build and deployment → Source → GitHub Actions**
-wählen. Das Repository ist bereits öffentlich; seine Sichtbarkeit wird durch den
-Workflow nicht geändert. Anschließend bei Bedarf unter **Actions → Firmware &
-WebFlasher → Run workflow** den Workflow starten.
+`tools/package_release.py` erzeugt Factory-Image und sichere Teilimages und prüft
+sie gegeneinander. `tools/build_pages.py` kopiert diese Dateien nach `_site/`,
+erzeugt das Vier-Teile-Manifest und prüft, dass die Sektorbereiche NVS aussparen.
+`test/test_pages.py` simuliert die sektorweisen Erase-/Write-Operationen mit
+vorhandenem NVS-Inhalt. `site/flash-layout.mjs` lehnt unsichere Manifeste vor dem
+Freischalten des Installationsknopfs ab.
 
-Die Aktivierung braucht Administrationszugriff auf Pages. Ein Connector mit
-reinen Inhaltsrechten kann die Quelldateien hochladen, aber diese Einstellung
-nicht zwingend selbst setzen. Alle weiteren Deployments übernimmt der Workflow.
+Die Teilimage-URLs enthalten ihre SHA-256-Prüfsumme als Query, damit der Browser
+beim nächsten Update keine ältere Datei aus dem Cache verwendet.
 
-## Build und Deployment
+## Schlüssel und WLAN-Adresse über USB
 
-`.github/workflows/firmware-pages.yml` baut bei jedem Push auf `main`:
+1. Nach der Installation den ESP-Web-Tools-Dialog schließen.
+2. Die Seite übernimmt dessen bereits freigegebenen Port und startet den
+   USB-Infobereich. Alternativ „Read key & address“ drücken und den Port wählen.
+3. API-Key und Setup-WLAN erscheinen, sobald die Firmware antwortet. USB verbunden
+   lassen; nach der WLAN-Einrichtung erscheint auch die lokale Webadresse.
+4. Vor erneutem Flashen „Disconnect USB“ drücken. Ein serieller Port kann immer
+   nur von einem Leser genutzt werden. Andere Konsolen/Programme schließen.
 
-1. Native Tests der ON/SLEEP-Auftragslogik.
-2. Die Firmware per PlatformIO mit den festgelegten Abhängigkeiten.
-3. Ein zusammengeführtes ESP32-Image und das Quellcode-ZIP.
-4. Das statische Pages-Verzeichnis inklusive Manifest, Firmware und Prüfsumme.
-5. Prüfungen für relative Pfade, Lazy-Loading-Module und Firmware-Integrität.
-6. Ein Pages-Deployment über die offiziellen GitHub-Actions.
+Die aktuelle Firmware implementiert `LH_INFO\n` bei 115200 Baud. Solange der
+Leser aktiv ist, fragt `site/serial-info.mjs` alle zwei Sekunden Informationen ab.
+Die erste Antwort darf nach Boot/Verbindungsversuchen bis zu 45 Sekunden dauern.
+Die Firmware bearbeitet USB-Befehle auch während des nicht blockierenden
+WLAN-Setup-Portals. Alte Firmware ohne dieses Protokoll muss zuerst aktualisiert
+werden. Die Adresse wird validiert; nur eine einfache HTTP-IPv4-Adresse mit Pfad
+`/` wird als Link angeboten. Schlüssel werden weder in localStorage, URLs oder
+Cookies abgelegt noch an GitHub übertragen. Das eigene Web-Passwort erscheint
+weder in USB-Infos noch im WebFlasher.
 
-Pull Requests werden gebaut und geprüft, aber nicht veröffentlicht. Fertige
-Firmwarepakete stehen zusätzlich als Actions-Artefakt `lighthouse-bridge-firmware`
-bereit. Das Pages-Manifest enthält ausschließlich `chipFamily: ESP32`, ein
-zusammengeführtes Image mit `offset: 0` und die Lösch-Rückfrage. Eine neue
-Firmware wird nur nach einem erfolgreichen Build und den Prüfungen ausgerollt.
+Der ESP-Web-Tools-Dialog behält den Port bis zum Schließen. Deshalb übernimmt die
+Seite erst nach dessen `closed`-Ereignis; sie greift nicht während des Flashens in
+seinen Datenstrom ein. Nach dem Schließen kann man aufgeteilte Boot-Zeilen im
+USB-Leser empfangen; der Parser ignoriert andere Logs und ungültige Frames.
+Improv Serial ist weiterhin **nicht implementiert**. WLAN wird über das ESP32-
+Portal eingerichtet, nicht direkt im ESP-Web-Tools-Dialog.
 
-Lokaler Build (nach `pio run`):
+## Build und Veröffentlichung
+
+Pages ist bereits auf **GitHub Actions** eingestellt. Ein Push auf `main` führt
+native Tests, Firmware-Build, Paketierung, Seiten-/NVS- und USB-Prüfungen aus und
+veröffentlicht bei Erfolg. Pull Requests werden geprüft, nicht veröffentlicht.
+Artefakte: `lighthouse-bridge-firmware` und `lighthouse-bridge-debug` (ELF/map).
 
 ```sh
+pio run
 python tools/package_release.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_pages.py' -v
+node test/serial_info.cjs
+npm test
 python -m http.server 8080 --directory _site
 ```
 
-Unter `http://localhost:8080` ist Web Serial ebenfalls erlaubt. Für entfernte
-Seiten ist HTTPS erforderlich, das GitHub Pages bereitstellt. Das Verzeichnis
-`_site/` ist generiert und wird nicht eingecheckt; `site/` enthält die Quelldateien.
-Sämtliche URLs sind relativ, damit die Projekt-Unteradresse `/Lighthouse-Bridge/`
-funktioniert. Für eine andere Repository-Adresse die Links in README und Webseite
-entsprechend anpassen.
-
-Zur Versionierung aktuell `VERSION` in `tools/package_release.py` anpassen.
-Das Pages-Manifest und die Downloadpakete übernehmen diese Version automatisch;
-die Firmware-Version in `src/main.cpp` und `include/web_ui.h` ebenfalls mitziehen.
+`site/` ist Quelle, `_site/` generiert und nicht eingecheckt. Alle Pfade müssen
+unter `/Lighthouse-Bridge/` funktionieren. Browserprüfungen verwenden simulierte
+Geräte und ersetzen keinen echten Flashvorgang. Die Firmware-Version steht
+aktuell in `src/main.cpp`, `include/web_ui.h` und `tools/package_release.py`;
+Versionsänderungen dort und in Dokumentation/AGENTS gemeinsam durchführen.

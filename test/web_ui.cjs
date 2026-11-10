@@ -1,86 +1,111 @@
-// Exercises the HTML actually compiled into the firmware. API/radio are mocked.
-const { chromium } = require('playwright');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"LHHTML(')[1].split(')LHHTML"')[0];
-
-(async () => {
-  const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
-  try {
-    const page = await browser.newPage({viewport:{width:1280,height:1100}});
-    const pageErrors=[]; page.on('pageerror', error=>pageErrors.push(error.message));
-    const commands=[];
-    const stations=Array.from({length:4},(_,i)=>({id:i+1,name:'Basisstation '+(i+1),mac:'',address_type:0,configured:false,requested:null,pending:false,busy:false,command_sent:false,last_sent_ms:0,observed:'unknown',observed_raw:-1,observed_ms:0,error:''}));
-    const data={ip:'192.168.1.42',hostname:'lighthouse-a1b2c3',wifi_connected:true,alexa_started:true,uptime_ms:90000,scanning:false,scan_finished_ms:0,scan_truncated:false,stations,discovered:[]};
-    let saveFailure=false, offline=false;
-    await page.route('http://bridge.test/**',async route=>{
-      const request=route.request(), url=new URL(request.url());
-      if(url.pathname==='/') return route.fulfill({contentType:'text/html',body:html});
-      if(offline) return route.abort('connectionfailed');
-      const body=request.method()==='POST'?request.postDataJSON():null;
-      let status=200, response={};
-      if(url.pathname==='/api/status') response=data;
-      else if(url.pathname==='/api/scan') {
-        status=202; response={accepted:true}; data.scan_finished_ms=88000;
-        data.discovered=stations.map((s,i)=>({name:i===0?'LHB-<img src=x onerror=alert(1)>':'LHB-'+(i+1),mac:'AA:BB:CC:DD:EE:0'+(i+1),address_type:i%2,rssi:-40-i*5}));
-      } else if(url.pathname==='/api/config') {
-        if(saveFailure) {status=409;response={error:'BLE beschaeftigt; nach Abschluss erneut speichern'};}
-        else {body.stations.forEach((s,i)=>Object.assign(stations[i],s,{configured:Boolean(s.mac)}));response={saved:true};}
-      } else if(url.pathname==='/api/power') {
-        commands.push(body); status=202;response={accepted:true};
-        for(const s of stations) if(body.station==='all'||s.id===body.station) Object.assign(s,{requested:body.state,command_sent:true,observed:body.state,observed_raw:body.state==='on'?11:0,observed_ms:89000});
-      } else if(url.pathname==='/api/wifi') {status=202;response={accepted:true,setup_ssid:'Lighthouse-Setup-A1B2C3'};}
-      else {status=404;response={error:'unknown'};}
-      await route.fulfill({status,contentType:'application/json',body:JSON.stringify(response)});
-    });
-    await page.goto('http://bridge.test/');
-    await page.waitForFunction(()=>document.getElementById('connection').textContent==='Im Heimnetz');
-    assert.equal(await page.locator('.card').count(),4);
-    assert.equal(await page.locator('#all-on').isDisabled(),true);
-    assert.equal(await page.locator('#on-1').isDisabled(),true);
-    await page.locator('#configuration summary').click();
-    await page.locator('#scan').click();
-    await page.waitForFunction(()=>document.querySelectorAll('#scan-results li').length===4);
-    assert.equal(await page.locator('#scan-results img').count(),0,'scan names must be text, never HTML');
-    for(let i=1;i<=4;i++) await page.locator('#pick-'+i).selectOption('AA:BB:CC:DD:EE:0'+i);
-    assert.equal(await page.locator('#edit-type-2').inputValue(),'1','preserve random BLE address type');
-    await page.locator('#edit-name-1').fill('Raumecke links');
-    await page.waitForTimeout(2800); // Polling must not overwrite unsaved inputs.
-    assert.equal(await page.locator('#edit-name-1').inputValue(),'Raumecke links');
-    saveFailure=true; await page.locator('#save').click();
-    await page.waitForFunction(()=>document.getElementById('message').textContent.includes('BLE beschaeftigt'));
-    assert.equal(await page.locator('#edit-name-1').inputValue(),'Raumecke links');
-    saveFailure=false; await page.locator('#save').click();
-    await page.waitForFunction(()=>document.getElementById('name-1').textContent==='Raumecke links');
-    await page.locator('#all-on').click();
-    await page.waitForFunction(()=>document.getElementById('state-4').textContent==='ON');
-    assert.deepEqual(commands.at(-1),{station:'all',state:'on'});
-    await page.locator('#sleep-2').click();
-    await page.waitForFunction(()=>document.getElementById('state-2').textContent==='SLEEP');
-    assert.deepEqual(commands.at(-1),{station:2,state:'sleep'});
-    await page.locator('#all-sleep').click();
-    await page.waitForFunction(()=>document.getElementById('state-4').textContent==='SLEEP');
-    assert.deepEqual(commands.at(-1),{station:'all',state:'sleep'});
-    assert.ok(commands.every(c=>c.state==='on'||c.state==='sleep'));
-    await page.locator('#configuration summary').click();
-    await page.screenshot({path:path.join(root,'docs/webinterface-desktop.png'),fullPage:true});
-    await page.setViewportSize({width:390,height:844});
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile overflow');
-    await page.screenshot({path:path.join(root,'docs/webinterface-mobile.png'),fullPage:true});
-    stations[2].error='BLE-Verbindung fehlgeschlagen';stations[2].command_sent=false;
-    await page.waitForFunction(()=>document.getElementById('status-3').textContent.includes('BLE-Verbindung fehlgeschlagen'));
-    assert.equal(await page.locator('#status-3').evaluate(el=>el.classList.contains('warning')),true);
-    offline=true;
-    await page.waitForFunction(()=>document.getElementById('connection').textContent==='Nicht erreichbar');
-    offline=false;
-    await page.waitForFunction(()=>document.getElementById('connection').textContent==='Im Heimnetz');
-    await page.getByText('WLAN & lokale API',{exact:true}).click();
-    page.once('dialog',dialog=>dialog.accept());
-    await page.locator('#wifi').click();
-    await page.waitForFunction(()=>document.getElementById('message').textContent.includes('Lighthouse-Setup-A1B2C3'));
-    assert.deepEqual(pageErrors,[]);
-    console.log('Web UI passed: setup, 4 slots, MAC/type selection, form persistence, ON/SLEEP, errors, WiFi setup, mobile layout.');
-  } finally { await browser.close(); }
+// Embedded firmware HTML, with HTTP/serial/radio represented by a mock backend.
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"LHHTML(')[1].split(')LHHTML"')[0];
+(async()=>{
+ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ try{
+  const page=await browser.newPage({viewport:{width:1280,height:1100}}),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const key='1234567890abcdef12345678',password='my own bridge password';
+  let signedIn=false,passwordSet=false,saveFailure=false,offline=false,refreshes=0;
+  const commands=[];
+  const stations=Array.from({length:4},(_,i)=>({id:i+1,name:'Base station '+(i+1),mac:'',address_type:0,configured:false,requested:null,pending:false,busy:false,reading:false,reachable:false,command_sent:false,observed:'unknown',observed_raw:-1,observed_ms:0,error:''}));
+  const data={ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,scanning:false,scan_finished_ms:0,scan_truncated:false,stations,discovered:[]};
+  await page.route('http://bridge.test/**',async route=>{
+   const req=route.request(),uri=new URL(req.url()).pathname;
+   if(uri==='/')return route.fulfill({contentType:'text/html',body:html});
+   if(offline)return route.abort('connectionfailed');
+   const body=req.method()==='POST'?req.postDataJSON():null;
+   let status=200,result={};
+   if(uri==='/api/login'){
+    if(body.password===(passwordSet?password:key)){signedIn=true;result={password_required:!passwordSet};}
+    else{status=401;result={error:'LOGIN_FAILED'};}
+   }else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
+   else if(uri==='/api/account')result={password_required:!passwordSet,setup_ssid:'Lighthouse-Setup-EXAMPLE',...(passwordSet?{api_key:key}:{})};
+   else if(uri==='/api/password'){
+    if(body.password===key){status=400;result={error:'PASSWORD_MUST_DIFFER'};}
+    else{assert.equal(body.password,password);passwordSet=true;result={saved:true};}
+   }else if(uri==='/api/logout'){signedIn=false;result={logged_out:true};}
+   else if(!passwordSet){status=428;result={error:'PASSWORD_REQUIRED'};}
+   else if(uri==='/api/status')result=data;
+   else if(uri==='/api/refresh'){refreshes++;status=202;result={accepted:true};}
+   else if(uri==='/api/scan'){
+    status=202;result={accepted:true};data.scan_finished_ms=88000;
+    data.discovered=stations.map((s,i)=>({name:i===0?'LHB-<img src=x onerror=alert(1)>':'LHB-'+i,mac:'AA:BB:CC:DD:EE:0'+(i+1),address_type:i%2,rssi:-40-i*5}));
+   }else if(uri==='/api/config'){
+    if(saveFailure){status=409;result={error:'BLE_BUSY'};}
+    else{body.stations.forEach((s,i)=>Object.assign(stations[i],s,{configured:Boolean(s.mac)}));result={saved:true};}
+   }else if(uri==='/api/power'){
+    commands.push(body);status=202;result={accepted:true};
+    // A command must not fabricate an observed state.
+    for(const s of stations)if(body.station==='all'||s.id===body.station)Object.assign(s,{requested:body.state,pending:true});
+   }else if(uri==='/api/wifi'){status=202;result={accepted:true,setup_ssid:'Lighthouse-Setup-EXAMPLE'};}
+   else{status=404;result={error:'unknown'};}
+   await route.fulfill({status,contentType:'application/json',body:JSON.stringify(result)});
+  });
+  await page.goto('http://bridge.test/');
+  assert.equal(await page.locator('html').getAttribute('lang'),'en');
+  assert.equal(await page.locator('#dashboard').isHidden(),true);
+  assert.equal(await page.locator('#api-key').innerText(),'');
+  await page.locator('#login-password').fill(key);await page.locator('#login-form button').click();
+  await page.waitForFunction(()=>!document.getElementById('password-panel').hidden);
+  assert.equal(await page.locator('#dashboard').isHidden(),true);
+  assert.equal(await page.locator('#api-key').innerText(),'');
+  await page.locator('#new-password').fill(key);await page.locator('#confirm-password').fill(key);await page.locator('#password-form button[type=submit]').click();
+  await page.waitForFunction(()=>document.getElementById('message').textContent.includes('different from your API key'));
+  await page.locator('#new-password').fill(password);await page.locator('#confirm-password').fill(password);await page.locator('#password-form button[type=submit]').click();
+  await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
+  await page.waitForFunction(()=>document.getElementById('connection').textContent==='On home network');
+  assert.equal(await page.locator('#api-key').textContent(),key);
+  assert.ok(refreshes>=1,'read states immediately after sign-in');
+  assert.equal(await page.locator('#all-on').isDisabled(),true);
+  await page.locator('#configuration summary').click();await page.locator('#scan').click();
+  await page.waitForFunction(()=>document.querySelectorAll('#scan-results li').length===4);
+  assert.equal(await page.locator('#scan-results img').count(),0);
+  for(let i=1;i<=4;i++)await page.locator('#pick-'+i).selectOption('AA:BB:CC:DD:EE:0'+i);
+  assert.equal(await page.locator('#edit-type-2').inputValue(),'1');
+  await page.locator('#edit-name-1').fill('Left corner');
+  await page.locator('#language').selectOption('de');
+  assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');
+  await page.waitForTimeout(2800);assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');
+  saveFailure=true;await page.locator('#save').click();
+  await page.waitForFunction(()=>document.getElementById('message').textContent.includes('Bluetooth ist beschäftigt'));
+  saveFailure=false;await page.locator('#save').click();
+  await page.waitForFunction(()=>document.getElementById('name-1').textContent==='Left corner');
+  // External state change becomes visible before any button is pressed.
+  Object.assign(stations[0],{observed:'on',observed_raw:11,observed_ms:89000,reachable:true});
+  await page.waitForFunction(()=>document.getElementById('state-1').textContent==='ON');
+  assert.equal(commands.length,0);
+  await page.locator('#sleep-1').click();
+  await page.waitForFunction(()=>document.getElementById('status-1').textContent.includes('Vorgemerkt'));
+  assert.equal(await page.locator('#state-1').textContent(),'ON','requested SLEEP is not a measurement');
+  assert.deepEqual(commands.at(-1),{station:1,state:'sleep'});
+  Object.assign(stations[0],{pending:false,observed:'sleep',observed_raw:0,observed_ms:89500,reachable:true});
+  await page.waitForFunction(()=>document.getElementById('state-1').textContent==='SLEEP');
+  const before=commands.length;await page.locator('#refresh').click();assert.equal(commands.length,before);assert.ok(refreshes>=2);
+  Object.assign(stations[1],{observed:'on',observed_raw:11,observed_ms:88000,reachable:false,error:'BLE_READ_FAILED'});
+  await page.waitForFunction(()=>document.getElementById('status-2').textContent.includes('nicht gelesen'));
+  assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
+  await page.locator('#language').selectOption('en');
+  assert.match(await page.locator('#status-2').textContent(),/Could not read/);
+  assert.match(await page.locator('#message').textContent(),/State reads queued/);
+  await page.locator('#configuration summary').click();
+  await page.screenshot({path:path.join(root,'docs/webinterface-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.locator('#language').selectOption('de');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(root,'docs/webinterface-mobile.png'),fullPage:true});
+  await page.locator('#network-settings summary').click();assert.equal(await page.locator('#api-key').isVisible(),true);
+  await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);
+  assert.equal(await page.locator('#api-key').textContent(),'');
+  await page.locator('#login-password').fill(key);await page.locator('#login-form button').click();
+  await page.waitForFunction(()=>document.getElementById('message').textContent.includes('Passwort falsch'));
+  await page.locator('#login-password').fill(password);await page.locator('#login-form button').click();
+  await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
+  assert.equal(await page.locator('#api-key').textContent(),key);
+  assert.deepEqual(errors,[]);
+  console.log('Embedded UI passed: bootstrap-to-own-password, key separation, EN/DE, discovered assignments, real-vs-requested states, refresh without writes, stale readings, logout and relogin.');
+ }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

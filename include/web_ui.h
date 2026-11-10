@@ -1,145 +1,109 @@
 #pragma once
 #include <pgmspace.h>
 
-const char WEB_UI[] PROGMEM = R"LHHTML(<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark"><title>Lighthouse Bridge</title>
-<style>
+const char WEB_UI[] PROGMEM = R"LHHTML(<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Lighthouse Bridge</title><style>
 :root{color-scheme:dark;--bg:#101817;--card:#1b2624;--line:#33433f;--text:#edf5ef;--muted:#a3b9af;--accent:#c2f78c;--warn:#ffce95}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:980px;margin:auto;padding:36px 24px 70px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:42px}.brand{font-weight:700;letter-spacing:-.6px;font-size:20px}.mark{display:inline-grid;place-items:center;background:var(--accent);color:var(--bg);height:34px;width:34px;border-radius:10px;margin-right:10px}.pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 12px;border-radius:99px}h1{font-size:clamp(30px,5vw,46px);line-height:1.15;letter-spacing:-1.6px;margin:8px 0 14px}h2{font-size:18px;margin:0 0 8px}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:1.6px;text-transform:uppercase}.muted{color:var(--muted)}.intro{max-width:650px}.group{margin:30px 0;display:flex;flex-wrap:wrap;gap:10px}button{font:inherit;font-weight:600;border:1px solid var(--line);border-radius:10px;padding:11px 18px;background:transparent;color:var(--text);cursor:pointer}button.primary{background:var(--accent);color:#15210f;border-color:var(--accent)}button:hover{filter:brightness(1.12)}button:disabled{opacity:.4;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;min-width:0}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px}.slot{font:12px ui-monospace,monospace;color:var(--muted)}.state{font-size:12px;border-radius:99px;padding:3px 9px;background:#2c3b35;color:var(--accent)}.station-name{font-size:20px;margin:18px 0 3px;overflow-wrap:anywhere}.address{font:12px ui-monospace,monospace;color:var(--muted)}.status{font-size:13px;margin:18px 0 14px;min-height:40px;color:var(--muted);overflow-wrap:anywhere}.actions{display:flex;gap:8px}.actions button{flex:1}.note{font-size:13px;color:var(--muted);margin:24px 0 30px}.warning{color:var(--warn)}details{border:1px solid var(--line);border-radius:14px;margin-top:14px;padding:18px 22px}summary{font-weight:600;cursor:pointer}details p{font-size:14px;color:var(--muted)}.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}label{display:block;color:var(--muted);font-size:13px}input,select{width:100%;margin-top:6px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px;color:var(--text);font:14px system-ui}.config-slot{border-top:1px solid var(--line);margin:20px 0;padding-top:16px}.config-slot h3{font-size:15px;margin:0}.config-slot .fields{margin:10px 0}.hint{font-size:12px;color:var(--muted)}#message{border:1px solid var(--line);padding:12px 16px;border-radius:10px;margin:16px 0;white-space:pre-wrap}#message[hidden]{display:none}footer{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:36px;gap:12px;flex-wrap:wrap}code{font-size:13px;color:var(--accent)}.scan-list{padding:0;list-style:none;font-size:13px}.scan-list li{padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}@media(max-width:600px){main{padding:24px 16px 45px}header{margin-bottom:32px}.grid,.fields{grid-template-columns:1fr}.card{padding:18px}header .pill{max-width:135px;text-align:center}.group button{flex:1}details{padding:16px}.station-name{margin-top:12px}}
-</style>
-</head>
-<body><main>
-<header><div class="brand"><span class="mark" aria-hidden="true">◈</span>Lighthouse Bridge</div><span class="pill" id="connection" role="status">Verbinde …</span></header>
-<section class="intro"><div class="eyebrow">Dein VR-Raum</div><h1>Bereit, wenn du es bist.</h1><p class="muted">Vier Basisstationen. Eine Steuerung.<br>Schalte sie einzeln oder gemeinsam in ON und SLEEP.</p></section>
+
+[hidden]{display:none!important}.header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}header{flex-wrap:wrap}.header-actions select{width:auto;margin:0}.auth{max-width:610px;margin:20px auto}.auth label{margin:14px 0}.auth button{margin-top:12px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}#api-key{overflow-wrap:anywhere}
+</style></head><body><main>
+<header><div class="brand"><span class="mark" aria-hidden="true">◈</span>Lighthouse Bridge</div><div class="header-actions"><label><span class="sr-only" data-t="language">Language</span><select id="language"><option value="en">English</option><option value="de">Deutsch</option></select></label><span class="pill" id="connection" role="status">Sign in</span><button id="logout" hidden data-t="logout">Sign out</button></div></header>
 <div id="message" role="status" hidden></div>
-<div class="group"><button class="primary" id="all-on" disabled>Alle einschalten</button><button id="all-sleep" disabled>Alle in SLEEP</button></div>
-<section class="grid" id="stations" aria-label="Basisstationen"></section>
-<p class="note">„Aus“ bedeutet immer <strong>SLEEP</strong>. Nach dem Senden wird ein verfügbarer BLE-Zustand einmal gelesen. Die Anzeige ist keine laufende Überwachung.</p>
-<details id="configuration"><summary>Basisstationen einrichten</summary>
-<p>Suche nach eingeschalteten oder schlafenden Lighthouse-V2-Stationen in Reichweite. Ordne jede Station genau einem Platz zu und speichere die Auswahl.</p>
-<button id="scan">Bluetooth-Suche starten</button><p class="hint" id="scan-hint">Die Suche dauert etwa fünf Sekunden; laufende Schaltbefehle werden zuerst bearbeitet.</p>
-<ul id="scan-results" class="scan-list"></ul>
-<form id="config-form"><div id="config-fields"></div><button class="primary" id="save" type="submit">Zuordnung speichern</button></form>
-<p class="hint">Alexa-Namen können nach einer Umbenennung eine erneute Gerätesuche benötigen. Der gemeinsame Schalter heißt „VR Basisstationen“.</p>
-</details>
-<details><summary>Alexa verbinden</summary><p>ESP32 und Echo Dot müssen im selben Heimnetz sein. Starte nach der Zuordnung eine Gerätesuche in Alexa oder sage: „Alexa, suche Geräte.“</p><p>Es erscheinen vier einzelne Lampen und „VR Basisstationen“. Beispiel: „Alexa, schalte VR Basisstationen aus.“</p><p class="warning">Die Hue-Emulation ist experimentell und muss mit deinem Echo Dot der 5. Generation getestet werden. Alexas Schalter zeigt den angeforderten Zustand; BLE-Fehler siehst du hier.</p></details>
-<details><summary>WLAN &amp; lokale API</summary><p>Für einen WLAN-Wechsel startet der ESP32 einen geschützten Setup-Zugangspunkt. Währenddessen pausiert die normale Bedienung. Alternativ nach dem Start die BOOT-Taste fünf Sekunden halten.</p><button id="wifi">WLAN-Setup öffnen</button><p class="hint">Das Setup-Passwort wird über USB im seriellen Monitor ausgegeben. Es ist auch das Web-Passwort für „admin“ und der API-Key. Beim ersten Setup öffnest du 192.168.4.1.</p><p>Für die spätere Pebble-Anbindung: <code>POST /api/power</code> mit <code>{"station":"all","state":"sleep"}</code> und dem Header <code>X-API-Key</code>. Status: <code>GET /api/status</code>.</p></details>
-<footer><span id="device-address">Lokale Steuerung · ESP32</span><span>Valve Lighthouse V2 · Bridge 0.1.1</span></footer>
-</main>
-<script>
+<section id="login-panel" class="card auth"><h1 data-t="loginTitle">Welcome to your Bridge.</h1><p class="muted" data-t="loginHelp"></p><form id="login-form"><p data-t="username">Username: admin</p><label><span data-t="password">Password</span><input id="login-password" type="password" autocomplete="current-password" maxlength="128" required></label><button class="primary" type="submit" data-t="login">Sign in</button></form></section>
+<section id="password-panel" class="card auth" hidden><h2 data-t="choosePassword"></h2><p class="muted" data-t="passwordHelp"></p><form id="password-form"><label><span data-t="newPassword"></span><input id="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label><span data-t="confirmPassword"></span><input id="confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><button class="primary" type="submit" data-t="savePassword"></button><button type="button" id="cancel-password" data-t="cancel" hidden></button></form></section>
+<div id="dashboard" hidden><section class="intro"><div class="eyebrow" data-t="hero"></div><h1 data-t="title"></h1><p class="muted" data-t="intro"></p></section>
+<div class="group"><button class="primary" id="all-on" data-t="allOn" disabled></button><button id="all-sleep" data-t="allSleep" disabled></button><button id="refresh" data-t="refresh"></button></div><section class="grid" id="stations" aria-label="Base stations"></section><p class="note" data-t="note"></p>
+<details id="configuration"><summary data-t="configuration"></summary><p data-t="configHelp"></p><button id="scan" data-t="scan"></button><p id="scan-hint" class="hint" data-t="scanHelp"></p><ul id="scan-results" class="scan-list"></ul><form id="config-form"><div id="config-fields"></div><button class="primary" id="save" type="submit" data-t="saveConfig"></button></form></details>
+<details><summary data-t="alexa"></summary><p data-t="alexaHelp"></p><p data-t="alexaStatus"></p></details>
+<details id="network-settings"><summary data-t="network"></summary><p data-t="wifiHelp"></p><button id="wifi" data-t="wifiButton"></button><p class="hint" id="setup-ssid"></p><p><strong data-t="apiKey"></strong><br><code id="api-key"></code></p><p data-t="apiHelp"></p><p><code>POST /api/power</code> · <code>{"station":"all","state":"sleep"}</code> · <code>X-API-Key</code></p></details>
+<details><summary data-t="security"></summary><button id="change-password" data-t="changePassword"></button></details></div>
+<footer><span id="device-address">ESP32</span><span>Valve Lighthouse V2 · Bridge 0.2.0</span></footer></main><script>const T={"en": {"language": "Language", "login": "Sign in", "logout": "Sign out", "loginTitle": "Welcome to your Bridge.", "loginHelp": "First login: use the API key shown over USB. Then choose your own web password. Later logins use that password.", "password": "Password", "username": "Username: admin", "choosePassword": "Choose your web password", "passwordHelp": "Use 8–128 bytes and a password different from your API key. The API key and setup Wi-Fi password stay unchanged.", "newPassword": "New password", "confirmPassword": "Repeat password", "savePassword": "Save password", "cancel": "Cancel", "changePassword": "Change web password", "passwordMismatch": "The passwords do not match.", "passwordSaved": "Your web password has been saved.", "hero": "Your VR room", "title": "Ready when you are.", "intro": "Four base stations. One control. Actual BLE readings, shared with Alexa.", "allOn": "Turn all on", "allSleep": "All to SLEEP", "refresh": "Read current states", "note": "Off always means SLEEP. Stations are read on startup, after commands and about every 15 seconds. Starting stations are checked more frequently. Failed reads keep the previous reading marked as stale.", "on": "ON", "sleep": "SLEEP", "standby": "STANDBY (read only)", "booting": "Starting", "unknown": "Unknown", "turnOn": "Turn on", "station": "Station", "notAssigned": "Not assigned", "assignHint": "Assign a station in the settings.", "pending": "Queued; target", "sending": "Sending command; target", "reading": "Reading via Bluetooth …", "lastRead": "Last read", "stale": "stale / unavailable", "age": "seconds ago", "waiting": "Waiting for the first BLE reading.", "online": "On home network", "offline": "Not reachable", "wifiLost": "Wi-Fi disconnected", "requested": "Requested", "refreshQueued": "State reads queued. No power command was sent.", "configuration": "Set up base stations", "configHelp": "Discover nearby Lighthouse V2 devices, assign each to one slot and save. Saved device names remain as you chose them.", "scan": "Discover Bluetooth devices", "scanning": "Discovery queued / running …", "scanHelp": "Discovery takes about five seconds after any current command finishes.", "found": "devices found", "saveConfig": "Save assignments", "saved": "Assignments saved. Current states will be read automatically.", "slot": "Slot", "pick": "Discovered station", "manual": "Enter manually / keep selection", "name": "Name for Alexa", "mac": "Bluetooth address (empty = disabled)", "addressType": "Bluetooth address type", "public": "Public (0)", "random": "Random (1)", "alexa": "Alexa & shared status", "alexaHelp": "Keep Echo Dot and ESP32 on the same home network. Ask Alexa to discover devices after assigning the stations. The group light is named “VR Basisstationen”.", "alexaStatus": "Alexa receives the same measured states when it queries the emulated Hue bridge. This local protocol cannot push changes into the Alexa app: Alexa controls when its display refreshes. Unknown or old readings are reported as unreachable.", "network": "Wi-Fi & local API", "wifiHelp": "For a Wi-Fi change, open the protected setup access point. Normal control pauses until setup completes or times out. Alternatively hold BOOT for five seconds after startup.", "wifiButton": "Open Wi-Fi setup", "wifiConfirm": "Open Wi-Fi setup? Normal control will pause for up to three minutes.", "wifiStarted": "Connect to the setup Wi-Fi and open http://192.168.4.1. Use the API key as its password.", "apiKey": "Current API key / setup Wi-Fi password", "apiHelp": "Use X-API-Key for integrations. Your own web password is separate and never shown here. This key stays visible in this tab after sign-in.", "security": "Web password", "LOGIN_REQUIRED": "Please sign in.", "LOGIN_FAILED": "Password incorrect. On first login use the API key.", "LOGIN_THROTTLED": "Too many attempts. Wait 30 seconds.", "PASSWORD_REQUIRED": "Choose your own web password first.", "PASSWORD_LENGTH": "The password must contain 8–128 bytes.", "PASSWORD_MUST_DIFFER": "Choose a password different from your API key.", "PASSWORD_HASH_FAILED": "The password could not be processed.", "SAVE_FAILED": "Settings could not be saved.", "BLE_BUSY": "Bluetooth is busy. Try again after the current read or command.", "BLE_CONNECT_FAILED": "Bluetooth connection failed.", "BLE_READ_FAILED": "Could not read the station state.", "BLE_WRITE_FAILED": "The Bluetooth command failed.", "BLE_NO_CLIENT": "No Bluetooth client available.", "POWER_CHARACTERISTIC_MISSING": "Lighthouse V2 power characteristic missing.", "CONFIG_FOUR": "Exactly four slots are required.", "CONFIG_NAME": "Names must be unique, 1–40 bytes, without quotes, backslashes, control or XML characters.", "CONFIG_MAC": "Invalid or duplicate Bluetooth address.", "CONFIG_TYPE": "Bluetooth address type must be 0 or 1.", "CONFIG_GROUP_NAME": "VR Basisstationen is reserved for the group light.", "STATE_INVALID": "Only on and sleep are allowed.", "STATION_INVALID": "Choose station 1–4 or all.", "NO_STATION": "No configured station selected.", "JSON_INVALID": "Invalid JSON request.", "REQUEST_TOO_LARGE": "Request too large.", "JSON_REQUIRED": "A JSON request is required.", "ORIGIN_DENIED": "Request origin is not allowed.", "NETWORK_ERROR": "The Bridge could not be reached.", "NOT_FOUND": "The requested endpoint was not found."}, "de": {"language": "Sprache", "login": "Anmelden", "logout": "Abmelden", "loginTitle": "Willkommen bei deiner Bridge.", "loginHelp": "Erste Anmeldung: Nutze den über USB angezeigten API-Key. Danach legst du dein eigenes Web-Passwort fest. Später meldest du dich mit diesem Passwort an.", "password": "Passwort", "username": "Benutzername: admin", "choosePassword": "Web-Passwort festlegen", "passwordHelp": "Verwende 8–128 Bytes und ein anderes Passwort als den API-Key. API-Key und Setup-WLAN-Passwort bleiben unverändert.", "newPassword": "Neues Passwort", "confirmPassword": "Passwort wiederholen", "savePassword": "Passwort speichern", "cancel": "Abbrechen", "changePassword": "Web-Passwort ändern", "passwordMismatch": "Die Passwörter stimmen nicht überein.", "passwordSaved": "Dein Web-Passwort wurde gespeichert.", "hero": "Dein VR-Raum", "title": "Bereit, wenn du es bist.", "intro": "Vier Basisstationen. Eine Steuerung. Gelesene BLE-Zustände, gemeinsam mit Alexa.", "allOn": "Alle einschalten", "allSleep": "Alle in SLEEP", "refresh": "Aktuelle Zustände abfragen", "note": "Aus bedeutet immer SLEEP. Die Stationen werden beim Start, nach Befehlen und etwa alle 15 Sekunden abgefragt. Startende Stationen werden häufiger geprüft. Bei Lesefehlern bleibt die vorherige Messung als veraltet markiert.", "on": "ON", "sleep": "SLEEP", "standby": "STANDBY (nur gelesen)", "booting": "Startet", "unknown": "Unbekannt", "turnOn": "Einschalten", "station": "Station", "notAssigned": "Nicht zugeordnet", "assignHint": "Ordne in den Einstellungen eine Station zu.", "pending": "Vorgemerkt; Ziel", "sending": "Sende Befehl; Ziel", "reading": "Lese über Bluetooth …", "lastRead": "Zuletzt gelesen", "stale": "veraltet / nicht erreichbar", "age": "Sekunden alt", "waiting": "Warte auf die erste BLE-Messung.", "online": "Im Heimnetz", "offline": "Nicht erreichbar", "wifiLost": "WLAN getrennt", "requested": "Angefordert", "refreshQueued": "Zustandsabfragen vorgemerkt. Es wurde kein Schaltbefehl gesendet.", "configuration": "Basisstationen einrichten", "configHelp": "Suche Lighthouse-V2-Geräte in Reichweite, ordne jedes einem Platz zu und speichere. Gespeicherte Gerätenamen bleiben wie von dir gewählt.", "scan": "Bluetooth-Geräte suchen", "scanning": "Suche vorgemerkt / läuft …", "scanHelp": "Die Suche dauert nach laufenden Befehlen etwa fünf Sekunden.", "found": "Geräte gefunden", "saveConfig": "Zuordnung speichern", "saved": "Zuordnung gespeichert. Die aktuellen Zustände werden automatisch abgefragt.", "slot": "Platz", "pick": "Gefundene Station", "manual": "Manuell eingeben / Auswahl beibehalten", "name": "Name für Alexa", "mac": "Bluetooth-Adresse (leer = deaktiviert)", "addressType": "Bluetooth-Adresstyp", "public": "Öffentlich (0)", "random": "Zufällig (1)", "alexa": "Alexa & gemeinsamer Status", "alexaHelp": "Echo Dot und ESP32 müssen im selben Heimnetz sein. Lass Alexa nach der Zuordnung Geräte suchen. Der gemeinsame Schalter heißt „VR Basisstationen“.", "alexaStatus": "Alexa erhält bei Abfragen der emulierten Hue-Bridge dieselben Messwerte. Dieses lokale Protokoll kann Änderungen nicht aktiv in die Alexa-App senden: Alexa bestimmt, wann die Anzeige aktualisiert wird. Unbekannte oder alte Messwerte gelten als nicht erreichbar.", "network": "WLAN & lokale API", "wifiHelp": "Zum WLAN-Wechsel öffnest du den geschützten Setup-Zugangspunkt. Die Bedienung pausiert bis zum Abschluss oder Timeout. Alternativ hältst du nach dem Start BOOT fünf Sekunden gedrückt.", "wifiButton": "WLAN-Setup öffnen", "wifiConfirm": "WLAN-Setup öffnen? Die Bedienung pausiert für bis zu drei Minuten.", "wifiStarted": "Verbinde dich mit dem Setup-WLAN und öffne http://192.168.4.1. Das Passwort ist der API-Key.", "apiKey": "Aktueller API-Key / Setup-WLAN-Passwort", "apiHelp": "Für Integrationen verwendest du X-API-Key. Dein eigenes Web-Passwort ist davon getrennt und wird hier nie angezeigt. Dieser Key bleibt nach der Anmeldung in diesem Reiter sichtbar.", "security": "Web-Passwort", "LOGIN_REQUIRED": "Bitte melde dich an.", "LOGIN_FAILED": "Passwort falsch. Bei der ersten Anmeldung verwendest du den API-Key.", "LOGIN_THROTTLED": "Zu viele Versuche. Warte 30 Sekunden.", "PASSWORD_REQUIRED": "Lege zuerst dein eigenes Web-Passwort fest.", "PASSWORD_LENGTH": "Das Passwort muss 8–128 Bytes lang sein.", "PASSWORD_MUST_DIFFER": "Wähle ein anderes Passwort als den API-Key.", "PASSWORD_HASH_FAILED": "Das Passwort konnte nicht verarbeitet werden.", "SAVE_FAILED": "Einstellungen konnten nicht gespeichert werden.", "BLE_BUSY": "Bluetooth ist beschäftigt. Versuche es nach der laufenden Abfrage oder Aktion erneut.", "BLE_CONNECT_FAILED": "Bluetooth-Verbindung fehlgeschlagen.", "BLE_READ_FAILED": "Stationszustand konnte nicht gelesen werden.", "BLE_WRITE_FAILED": "Bluetooth-Befehl fehlgeschlagen.", "BLE_NO_CLIENT": "Kein Bluetooth-Client verfügbar.", "POWER_CHARACTERISTIC_MISSING": "Lighthouse-V2-Power-Characteristic fehlt.", "CONFIG_FOUR": "Genau vier Plätze sind erforderlich.", "CONFIG_NAME": "Namen müssen eindeutig und 1–40 Bytes lang sein, ohne Anführungs-, Backslash-, Steuer- oder XML-Zeichen.", "CONFIG_MAC": "Ungültige oder doppelte Bluetooth-Adresse.", "CONFIG_TYPE": "Bluetooth-Adresstyp muss 0 oder 1 sein.", "CONFIG_GROUP_NAME": "VR Basisstationen ist für den Gruppenschalter reserviert.", "STATE_INVALID": "Nur on und sleep sind erlaubt.", "STATION_INVALID": "Wähle Station 1–4 oder all.", "NO_STATION": "Keine konfigurierte Station ausgewählt.", "JSON_INVALID": "Ungültige JSON-Anfrage.", "REQUEST_TOO_LARGE": "Anfrage zu groß.", "JSON_REQUIRED": "Eine JSON-Anfrage ist erforderlich.", "ORIGIN_DENIED": "Anfrage-Ursprung ist nicht erlaubt.", "NETWORK_ERROR": "Die Bridge konnte nicht erreicht werden.", "NOT_FOUND": "Der angeforderte Endpunkt wurde nicht gefunden."}};
+
 'use strict';
-const $ = id => document.getElementById(id);
-let current = null, formInitialized = false, discoveredSignature = '', polling = false;
-const labels = {on:'ON',sleep:'SLEEP',standby:'STANDBY (gelesen)',booting:'Startet',unknown:'Unbekannt'};
-function message(text, error=false) { $('message').textContent=text; $('message').hidden=false; $('message').classList.toggle('warning',error); }
-async function api(path, data) {
-  const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),8000);
-  try {
-    const response = await fetch(path,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal:controller.signal});
-    let result; try { result=await response.json(); } catch(e) { throw new Error(response.status===401?'Bitte erneut mit admin anmelden.':'Ungültige Antwort vom ESP32.'); }
-    if(!response.ok) throw new Error(result.error || 'Anfrage fehlgeschlagen ('+response.status+').');
-    return result;
-  } finally { clearTimeout(timer); }
+const $=id=>document.getElementById(id);
+let language='en',current=null,account=null,loggedIn=false,polling=false,formInitialized=false,discoveredSignature='',notice=null;
+const t=key=>T[language][key]||key;
+const trans=(node,key)=>{node.dataset.t=key;node.textContent=t(key);return node;};
+function message(value,error=false){notice={value,error};$('message').textContent=typeof value==='function'?value():value;$('message').hidden=false;$('message').classList.toggle('warning',error);}
+function setLanguage(value,remember=false){
+ language=value==='de'?'de':'en';document.documentElement.lang=language;$('language').value=language;
+ document.querySelectorAll('[data-t]').forEach(node=>node.textContent=t(node.dataset.t));
+ if(remember){try{localStorage.setItem('lighthouse-bridge.language',language);}catch(_){}const url=new URL(location.href);url.searchParams.set('lang',language);history.replaceState(null,'',url);}
+ if(current)render(current);else $('connection').textContent=t('login');
+ if(notice&&!$('message').hidden)$('message').textContent=typeof notice.value==='function'?notice.value():notice.value;
 }
-function element(tag, cls, text) { const node=document.createElement(tag); if(cls) node.className=cls; if(text!==undefined) node.textContent=text; return node; }
-function createCard(id) {
-  const card=element('article','card'); card.id='card-'+id;
-  const top=element('div','topline'); top.append(element('span','slot','STATION 0'+id));
-  const badge=element('span','state','Unbekannt'); badge.id='state-'+id; top.append(badge); card.append(top);
-  const name=element('h2','station-name','Basisstation '+id); name.id='name-'+id; card.append(name);
-  const mac=element('div','address','Noch nicht zugeordnet'); mac.id='mac-'+id; card.append(mac);
-  const status=element('div','status','Warte auf Verbindung …'); status.id='status-'+id; card.append(status);
-  const actions=element('div','actions');
-  for(const [state,text] of [['on','Einschalten'],['sleep','SLEEP']]) {
-    const button=element('button',state==='on'?'primary':'',text); button.id=state+'-'+id; button.disabled=true;
-    button.addEventListener('click',()=>power(id,state)); actions.append(button);
-  }
-  card.append(actions); $('stations').append(card);
+let saved;try{saved=localStorage.getItem('lighthouse-bridge.language');}catch(_){}
+const requested=new URL(location.href).searchParams.get('lang');
+$('language').addEventListener('change',()=>setLanguage($('language').value,true));
+function showLogin(){$('message').hidden=true;loggedIn=false;account=null;current=null;formInitialized=false;discoveredSignature='';$('config-fields').replaceChildren();$('new-password').value=$('confirm-password').value='';$('api-key').textContent='';$('dashboard').hidden=true;$('password-panel').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;$('connection').textContent=t('login');}
+async function api(path,data){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+ try{
+  const response=await fetch(path,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal:controller.signal});
+  let result;try{result=await response.json();}catch(_){throw new Error(t('NETWORK_ERROR'));}
+  if(!response.ok){if(response.status===401&&path!=='/api/login')showLogin();const error=new Error(t(result.error||'NETWORK_ERROR'));error.status=response.status;error.code=result.error||'NETWORK_ERROR';throw error;}
+  return result;
+ }finally{clearTimeout(timer);}
 }
-function inputField(parent, text, id, value, maxLength) {
-  const label=element('label','',text), input=element('input'); input.id=id; input.value=value; input.maxLength=maxLength; label.append(input); parent.append(label); return input;
+function element(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
+function createCard(id){
+ const card=element('article','card');card.id='card-'+id;const top=element('div','topline');top.append(element('span','slot','STATION 0'+id));
+ const badge=element('span','state');badge.id='state-'+id;top.append(badge);card.append(top);
+ for(const [tag,cls,prefix]of[['h2','station-name','name-'],['div','address','mac-'],['div','status','status-']]){const node=element(tag,cls);node.id=prefix+id;card.append(node);}
+ const actions=element('div','actions');for(const[state,key]of[['on','turnOn'],['sleep','sleep']]){const button=trans(element('button',state==='on'?'primary':''),key);button.id=state+'-'+id;button.disabled=true;button.addEventListener('click',()=>power(id,state));actions.append(button);}card.append(actions);$('stations').append(card);
 }
-function initForm(stations) {
-  $('config-fields').replaceChildren();
-  for(const station of stations) {
-    const id=station.id, section=element('section','config-slot'); section.append(element('h3','','Platz '+id));
-    const pickLabel=element('label','','Gefundene Station'), picker=element('select'); picker.id='pick-'+id;
-    picker.append(new Option('Manuell eingeben oder Suche starten','')); pickLabel.append(picker); section.append(pickLabel);
-    const fields=element('div','fields');
-    inputField(fields,'Name für Alexa','edit-name-'+id,station.name,40);
-    const mac=inputField(fields,'Bluetooth-Adresse (leer = deaktiviert)','edit-mac-'+id,station.mac,17); mac.placeholder='AA:BB:CC:DD:EE:FF'; mac.autocomplete='off';
-    section.append(fields);
-    const typeLabel=element('label','','Bluetooth-Adresstyp'), type=element('select'); type.id='edit-type-'+id;
-    type.append(new Option('Öffentlich (0)','0'),new Option('Zufällig / Random (1)','1')); type.value=String(station.address_type); typeLabel.append(type); section.append(typeLabel);
-    picker.addEventListener('change',()=>{ const found=current?.discovered.find(item=>item.mac===picker.value); if(found){mac.value=found.mac;type.value=String(found.address_type);} });
-    $('config-fields').append(section);
-  }
-  formInitialized=true; discoveredSignature='';
+function field(parent,key,id,value,maxLength){const label=element('label');label.append(trans(element('span'),key));const input=element('input');input.id=id;input.value=value;input.maxLength=maxLength;label.append(input);parent.append(label);return input;}
+function initForm(stations){
+ $('config-fields').replaceChildren();for(const s of stations){const id=s.id,section=element('section','config-slot');const heading=element('h3');heading.append(trans(element('span'),'slot'),document.createTextNode(' '+id));section.append(heading);
+ const label=element('label');label.append(trans(element('span'),'pick'));const picker=element('select');picker.id='pick-'+id;label.append(picker);section.append(label);
+ const fields=element('div','fields');field(fields,'name','edit-name-'+id,s.name,40);const mac=field(fields,'mac','edit-mac-'+id,s.mac,17);mac.placeholder='AA:BB:CC:DD:EE:FF';mac.autocomplete='off';section.append(fields);
+ const typeLabel=element('label');typeLabel.append(trans(element('span'),'addressType'));const type=element('select');type.id='edit-type-'+id;type.append(trans(new Option('','0'),'public'),trans(new Option('','1'),'random'));type.value=String(s.address_type);typeLabel.append(type);section.append(typeLabel);
+ picker.addEventListener('change',()=>{const found=current?.discovered.find(item=>item.mac===picker.value);if(found){mac.value=found.mac;type.value=String(found.address_type);}});$('config-fields').append(section);
+ }formInitialized=true;discoveredSignature='';
 }
-function render(data) {
-  current=data;
-  $('connection').textContent=data.wifi_connected?'Im Heimnetz':'WLAN getrennt';
-  $('device-address').textContent=data.ip+' · '+data.hostname+'.local';
-  let configured=0, busy=data.scanning;
-  for(const s of data.stations) {
-    configured+=s.configured?1:0; busy ||= s.pending||s.busy;
-    $('name-'+s.id).textContent=s.name; $('mac-'+s.id).textContent=s.mac||'Noch nicht zugeordnet';
-    $('state-'+s.id).textContent=labels[s.observed]||'Unbekannt';
-    let text='In den Einstellungen eine Station zuordnen.';
-    if(s.configured) {
-      if(s.pending) text='Wartet: '+labels[s.requested];
-      else if(s.busy) text='Bluetooth-Verbindung · Ziel '+labels[s.requested];
-      else if(s.error) text=s.error;
-      else if(s.command_sent) text='Befehl '+labels[s.requested]+' gesendet. '+(s.observed_raw<0?'Keine Zustandsbestätigung.':'Zuletzt gelesen: '+labels[s.observed]+'.');
-      else text='Noch kein Befehl gesendet.';
-      if(s.observed_ms) text+=' Messung vor '+Math.floor(((data.uptime_ms-s.observed_ms)>>>0)/1000)+' s.';
-    }
-    $('status-'+s.id).textContent=text; $('status-'+s.id).classList.toggle('warning',Boolean(s.error));
-    $('on-'+s.id).disabled=$('sleep-'+s.id).disabled=!s.configured;
-  }
-  $('all-on').disabled=$('all-sleep').disabled=!configured;
-  $('save').disabled=Boolean(busy); $('wifi').disabled=Boolean(busy); $('scan').disabled=data.scanning;
-  $('scan').textContent=data.scanning?'Suche vorgemerkt / läuft …':'Bluetooth-Suche starten';
-  if(!formInitialized) initForm(data.stations);
-  const signature=JSON.stringify(data.discovered);
-  if(signature!==discoveredSignature) {
-    discoveredSignature=signature;
-    for(const s of data.stations) {
-      const picker=$('pick-'+s.id), previous=picker.value;
-      picker.replaceChildren(new Option('Manuell eingeben / Auswahl unverändert',''));
-      for(const found of data.discovered) picker.append(new Option(found.name+' · '+found.mac,found.mac));
-      if(data.discovered.some(item=>item.mac===previous)) picker.value=previous;
-    }
-    $('scan-results').replaceChildren();
-    for(const found of data.discovered) $('scan-results').append(element('li','',found.name+' · '+found.mac+' · '+found.rssi+' dBm'));
-  }
-  if(data.scan_finished_ms&&!data.scanning) $('scan-hint').textContent=data.discovered.length+' Station(en) gefunden.'+(data.scan_truncated?' Ergebnis auf 16 Geräte begrenzt.':'');
+function render(data){
+ current=data;$('connection').textContent=t(data.wifi_connected?'online':'wifiLost');$('device-address').textContent=data.ip+' · '+data.hostname+'.local';
+ let configured=0,busy=data.scanning;
+ for(const s of data.stations){configured+=s.configured?1:0;busy ||=s.pending||s.busy||s.reading;
+ $('name-'+s.id).textContent=s.name;$('mac-'+s.id).textContent=s.mac||t('notAssigned');$('state-'+s.id).textContent=t(s.reachable?s.observed:'unknown');
+ let value=t('assignHint');if(s.configured){
+  if(s.pending)value=t('pending')+' '+t(s.requested);
+  else if(s.busy)value=t('sending')+' '+t(s.requested);
+  else if(s.reading)value=t('reading');
+  else if(s.error)value=t(s.error);
+  else value=s.observed_raw>=0?t('lastRead')+': '+t(s.observed):t('waiting');
+  if(s.observed_ms)value+=' · '+Math.floor(((data.uptime_ms-s.observed_ms)>>>0)/1000)+' '+t('age');
+  if(!s.reachable&&s.observed_raw>=0)value+=' · '+t('stale');
+ }
+ $('status-'+s.id).textContent=value;$('status-'+s.id).classList.toggle('warning',Boolean(s.error)||s.configured&&!s.reachable);
+ $('on-'+s.id).disabled=$('sleep-'+s.id).disabled=!s.configured;
+ }
+ $('all-on').disabled=$('all-sleep').disabled=!configured;$('save').disabled=Boolean(busy);$('wifi').disabled=Boolean(busy);$('scan').disabled=data.scanning;$('scan').textContent=t(data.scanning?'scanning':'scan');
+ if(!formInitialized)initForm(data.stations);
+ const signature=JSON.stringify(data.discovered);if(signature!==discoveredSignature){discoveredSignature=signature;
+  for(const s of data.stations){const picker=$('pick-'+s.id),previous=picker.value;picker.replaceChildren(trans(new Option('',''),'manual'));for(const found of data.discovered)picker.append(new Option(found.name+' · '+found.mac,found.mac));if(data.discovered.some(item=>item.mac===previous))picker.value=previous;}
+  $('scan-results').replaceChildren();for(const found of data.discovered)$('scan-results').append(element('li','',found.name+' · '+found.mac+' · '+found.rssi+' dBm'));
+ }
+ if(data.scan_finished_ms&&!data.scanning)$('scan-hint').textContent=data.discovered.length+' '+t('found');
 }
-async function refresh() {
-  if(polling) return; polling=true;
-  try { render(await api('/api/status')); }
-  catch(e) { $('connection').textContent='Nicht erreichbar'; message(e.message,true); }
-  finally { polling=false; }
+async function refresh(){if(!loggedIn||account?.password_required||polling)return;polling=true;try{render(await api('/api/status'));}catch(e){if(e.status!==401){$('connection').textContent=t('offline');message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}}finally{polling=false;}}
+async function loadAccount(){
+ try{account=await api('/api/account');loggedIn=true;$('login-panel').hidden=true;$('logout').hidden=false;
+ $('password-panel').hidden=!account.password_required;$('dashboard').hidden=account.password_required;$('cancel-password').hidden=account.password_required;
+ if(!account.password_required){$('api-key').textContent=account.api_key;$('setup-ssid').textContent=account.setup_ssid;await refresh();await api('/api/refresh',{});}
+ }catch(e){if(e.status!==401)message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}
 }
-async function power(station,state) {
-  try { await api('/api/power',{station,state}); message((station==='all'?'Alle zugeordneten Stationen':'Station '+station)+': '+labels[state]+' angefordert.'); await refresh(); }
-  catch(e) { message(e.message,true); }
-}
-for(let i=1;i<=4;i++) createCard(i);
-$('all-on').addEventListener('click',()=>power('all','on'));
-$('all-sleep').addEventListener('click',()=>power('all','sleep'));
-$('scan').addEventListener('click',async()=>{try{await api('/api/scan',{});await refresh();}catch(e){message(e.message,true);}});
-$('config-form').addEventListener('submit',async event=>{
-  event.preventDefault();
-  const stations=[];
-  for(let i=1;i<=4;i++) stations.push({name:$('edit-name-'+i).value.trim(),mac:$('edit-mac-'+i).value.trim(),address_type:Number($('edit-type-'+i).value)});
-  try{await api('/api/config',{stations});message('Zuordnung gespeichert. Du kannst jetzt schalten oder Alexa nach Geräten suchen lassen.');await refresh();}catch(e){message(e.message,true);}
-});
-$('wifi').addEventListener('click',async()=>{
-  if(!confirm('WLAN-Setup starten? Die normale Bedienung pausiert für bis zu drei Minuten.'))return;
-  try{const result=await api('/api/wifi',{});message('Verbinde dich mit '+result.setup_ssid+' und öffne http://192.168.4.1. Das Passwort steht im seriellen Monitor.');clearInterval(pollTimer);}catch(e){message(e.message,true);}
-});
-refresh(); const pollTimer=setInterval(refresh,2500);
+async function power(station,state){try{await api('/api/power',{station,state});message(()=>t('requested')+': '+(station==='all'?t(state):t('station')+' '+station+' · '+t(state)));await refresh();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}}
+for(let i=1;i<=4;i++)createCard(i);
+$('login-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('/api/login',{password:$('login-password').value});$('login-password').value='';$('message').hidden=true;await loadAccount();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('password-form').addEventListener('submit',async event=>{event.preventDefault();if($('new-password').value!==$('confirm-password').value){message(()=>t('passwordMismatch'),true);return;}try{await api('/api/password',{password:$('new-password').value});$('new-password').value=$('confirm-password').value='';message(()=>t('passwordSaved'));await loadAccount();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('change-password').addEventListener('click',()=>{$('password-panel').hidden=false;$('cancel-password').hidden=false;$('new-password').focus();});
+$('cancel-password').addEventListener('click',()=>{$('password-panel').hidden=true;$('new-password').value=$('confirm-password').value='';});
+$('all-on').addEventListener('click',()=>power('all','on'));$('all-sleep').addEventListener('click',()=>power('all','sleep'));
+$('refresh').addEventListener('click',async()=>{try{await api('/api/refresh',{});message(()=>t('refreshQueued'));await refresh();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('scan').addEventListener('click',async()=>{try{await api('/api/scan',{});await refresh();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('config-form').addEventListener('submit',async event=>{event.preventDefault();const stations=[];for(let i=1;i<=4;i++)stations.push({name:$('edit-name-'+i).value.trim(),mac:$('edit-mac-'+i).value.trim(),address_type:Number($('edit-type-'+i).value)});try{await api('/api/config',{stations});message(()=>t('saved'));await refresh();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+$('wifi').addEventListener('click',async()=>{if(!confirm(t('wifiConfirm')))return;try{await api('/api/wifi',{});message(()=>t('wifiStarted'));clearInterval(pollTimer);}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}});
+setLanguage(requested==='en'||requested==='de'?requested:saved);
+loadAccount();const pollTimer=setInterval(refresh,2500);
 </script></body></html>)LHHTML";

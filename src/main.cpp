@@ -10,6 +10,7 @@
 #include <esp_wifi.h>
 #include "bridge_core.h"
 #include "web_ui.h"
+#include "password_hash.h"
 
 using namespace bridge;
 WebServer server(80);
@@ -21,9 +22,19 @@ StationState states[kStations];
 EspalexaDevice* lights[kStations]{};
 EspalexaDevice* groupLight = nullptr;
 String accessKey, apName, hostname;
+String webSalt, webHash;
+struct WebSession { String token; uint32_t seen = 0; bool bootstrap = false; };
+WebSession sessions[4];
+unsigned loginFailures = 0;
+uint32_t loginBlockedAt = 0;
+bool loginBlocked = false;
+WiFiManager wifiManager;
+bool servicesStarted = false, manualPortal = false;
+bool blePaused = false;
 bool portalRequested = false;
 bool alexaReady = false;
 bool scanPending = false, scanning = false;
+bool refreshRequested[kStations]{};
 uint32_t scanFinishedMs = 0;
 struct FoundStation { char name[48]; char mac[18]; uint8_t type; int rssi; };
 FoundStation found[16]{};
@@ -46,31 +57,68 @@ void fail(int code, const char* message) {
   doc["error"] = message;
   sendJson(code, doc);
 }
-bool authenticated() {
-  if (server.header("X-API-Key") == accessKey || server.authenticate("admin", accessKey.c_str()))
-    return true;
-  server.requestAuthentication(BASIC_AUTH, "Lighthouse Bridge");
-  return false;
+int sessionIndex() {
+  const String cookies = server.header("Cookie");
+  int position = 0;
+  while (position < static_cast<int>(cookies.length())) {
+    int end = cookies.indexOf(';', position);
+    if (end < 0) end = cookies.length();
+    String item = cookies.substring(position, end); item.trim();
+    if (item.startsWith("LHSESSION=")) {
+      const String token = item.substring(10);
+      for (unsigned i = 0; i < 4; ++i) {
+        if (sessions[i].token.length() && equalSecret(sessions[i].token, token) &&
+            millis() - sessions[i].seen < 12UL * 60 * 60 * 1000) {
+          sessions[i].seen = millis(); return i;
+        }
+      }
+    }
+    position = end + 1;
+  }
+  return -1;
 }
-bool mutationAllowed() {
-  if (!authenticated()) return false;
+void issueSession(bool bootstrap) {
+  unsigned selected = 0;
+  for (unsigned i = 0; i < 4; ++i) {
+    if (!sessions[i].token.length()) { selected = i; break; }
+    if (millis() - sessions[i].seen > millis() - sessions[selected].seen) selected = i;
+  }
+  sessions[selected].token = randomHex(24);
+  sessions[selected].seen = millis();
+  sessions[selected].bootstrap = bootstrap;
+  server.sendHeader("Set-Cookie", "LHSESSION=" + sessions[selected].token +
+                    "; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200");
+}
+bool authenticated(bool adminOnly = false, bool allowBootstrap = false) {
+  const int index = sessionIndex();
+  if (index >= 0) {
+    if (sessions[index].bootstrap && !allowBootstrap) { fail(428, "PASSWORD_REQUIRED"); return false; }
+    return true;
+  }
+  if (!adminOnly && accessKey.length() && equalSecret(server.header("X-API-Key"), accessKey)) return true;
+  fail(401, "LOGIN_REQUIRED"); return false;
+}
+bool sameOriginJson() {
   const String origin = server.header("Origin");
   if (origin.length() && origin != "http://" + server.hostHeader()) {
-    fail(403, "Fremder Ursprung nicht erlaubt"); return false;
+    fail(403, "ORIGIN_DENIED"); return false;
   }
   if (!server.header("Content-Type").startsWith("application/json")) {
-    fail(415, "Content-Type application/json erforderlich"); return false;
+    fail(415, "JSON_REQUIRED"); return false;
   }
   return true;
 }
+bool mutationAllowed() {
+  return authenticated() && sameOriginJson();
+}
 bool readBody(JsonDocument& doc) {
-  if (server.arg("plain").length() > 2400) { fail(413, "Anfrage zu gross"); return false; }
-  if (deserializeJson(doc, server.arg("plain"))) { fail(400, "Ungueltiges JSON"); return false; }
+  if (server.arg("plain").length() > 2400) { fail(413, "REQUEST_TOO_LARGE"); return false; }
+  if (deserializeJson(doc, server.arg("plain"))) { fail(400, "JSON_INVALID"); return false; }
   return true;
 }
 bool occupied() { // Caller holds stateMutex.
   if (scanning || scanPending) return true;
-  for (auto& state : states) if (state.busy || state.pending) return true;
+  for (auto& state : states) if (state.busy || state.pending || state.reading) return true;
   return false;
 }
 bool queueTarget(int slot, Target target) {
@@ -87,27 +135,31 @@ bool queueTarget(int slot, Target target) {
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
 // block the HTTP/SSDP loop. One connection at a time for all four stations.
-bool sendPower(const StationConfig& config, Target target, int& observed, char* error) {
+bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error) {
   NimBLEClient* client = NimBLEDevice::createClient();
-  if (!client) { strcpy(error, "Kein BLE-Client verfuegbar"); return false; }
-  client->setConnectTimeout(5);
+  if (!client) { strcpy(error, "BLE_NO_CLIENT"); return false; }
+  client->setConnectTimeout(3);
   bool ok = false;
   if (!client->connect(NimBLEAddress(std::string(config.mac), config.addressType))) {
-    strcpy(error, "BLE-Verbindung fehlgeschlagen");
+    strcpy(error, "BLE_CONNECT_FAILED");
   } else {
     auto* service = client->getService(kService);
     auto* power = service ? service->getCharacteristic(kPower) : nullptr;
-    if (!power || (!power->canWriteNoResponse() && !power->canWrite())) {
-      strcpy(error, "Lighthouse-V2-Power-Characteristic fehlt");
+    if (!power || (target && !power->canWriteNoResponse() && !power->canWrite())) {
+      strcpy(error, "POWER_CHARACTERISTIC_MISSING");
     } else {
-      const uint8_t command = static_cast<uint8_t>(target); // Only 0x00 / 0x01.
-      ok = power->writeValue(&command, 1, !power->canWriteNoResponse());
-      if (!ok) strcpy(error, "BLE-Schreibvorgang fehlgeschlagen");
+      ok = !target;
+      if (target) {
+        const uint8_t command = static_cast<uint8_t>(*target); // Only 0x00 / 0x01.
+        ok = power->writeValue(&command, 1, !power->canWriteNoResponse());
+        if (!ok) strcpy(error, "BLE_WRITE_FAILED");
+      }
       if (ok && power->canRead()) {
-        vTaskDelay(pdMS_TO_TICKS(250));
+        if (target) vTaskDelay(pdMS_TO_TICKS(250));
         const std::string value = power->readValue();
         if (!value.empty()) observed = static_cast<uint8_t>(value[0]);
       }
+      if (!target && observed < 0) { ok = false; strcpy(error, "BLE_READ_FAILED"); }
     }
   }
   if (client->isConnected()) client->disconnect();
@@ -154,8 +206,11 @@ void bleWorker(void*) {
     Target target = Target::Sleep;
     uint32_t generation = 0;
     bool doScan = false;
+    bool readOnly = false;
     {
       Lock lock;
+      if (blePaused) { /* Portal owns the radio; do not schedule new BLE work. */ }
+      else {
       for (unsigned offset = 0; offset < kStations; ++offset) {
         const unsigned i = (cursor + offset) % kStations;
         if (!states[i].pending) continue;
@@ -171,16 +226,34 @@ void bleWorker(void*) {
         scanPending = false;
         scanning = doScan = true;
       }
+      if (selected < 0 && !doScan) {
+        for (unsigned offset = 0; offset < kStations; ++offset) {
+          const unsigned i = (cursor + offset) % kStations;
+          const auto& state = states[i];
+          const uint32_t interval = !state.reachable ? 30000 :
+            (state.observed == 1 || state.observed == 8 || state.observed == 9 ? 2000 : 15000);
+          if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
+              millis() - state.lastReadAttemptMs < interval)) continue;
+          selected = i; config = configs[i]; readOnly = true;
+          refreshRequested[i] = false; states[i].reading = true;
+          break;
+        }
+      }
+      }
     }
     if (doScan) discoverStations();
     if (selected >= 0) {
       char error[96]{};
       int observed = -1;
       bool sent = false;
+      if (readOnly) {
+        accessPower(config, nullptr, observed, error);
+        Lock lock; recordRead(states[selected], observed, millis(), error);
+      } else {
       for (unsigned attempt = 0; attempt < 3; ++attempt) {
         { Lock lock; if (states[selected].generation != generation) break; }
         error[0] = '\0';
-        sent = sendPower(config, target, observed, error);
+        sent = accessPower(config, &target, observed, error);
         if (sent) break;
         if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1)));
       }
@@ -189,6 +262,7 @@ void bleWorker(void*) {
         finish(states[selected], generation, sent, observed, millis(), error);
       }
       Serial.printf("Station %d: %s, %s\n", selected + 1, targetName(target), sent ? "gesendet" : error);
+      }
       cursor = (selected + 1) % kStations;
     }
     vTaskDelay(pdMS_TO_TICKS(20));
@@ -197,27 +271,27 @@ void bleWorker(void*) {
 
 bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
   if (!input.is<JsonArrayConst>() || input.size() != kStations) {
-    error = "Genau vier Stationen erforderlich"; return false;
+    error = "CONFIG_FOUR"; return false;
   }
   for (unsigned i = 0; i < kStations; ++i) {
     const auto item = input[i];
     if (!item["name"].is<const char*>() || !validName(item["name"].as<const char*>())) {
-      error = "Name: 1-40 Bytes, keine Anfuehrungs-, Steuer- oder XML-Zeichen"; return false;
+      error = "CONFIG_NAME"; return false;
     }
     if (!item["mac"].is<const char*>() || !item["address_type"].is<int>()) {
-      error = "MAC und address_type erforderlich"; return false;
+      error = "CONFIG_MAC"; return false;
     }
     const int type = item["address_type"].as<int>();
-    if (type != 0 && type != 1) { error = "address_type muss 0 oder 1 sein"; return false; }
+    if (type != 0 && type != 1) { error = "CONFIG_TYPE"; return false; }
     strcpy(out[i].name, item["name"].as<const char*>());
     const char* mac = item["mac"];
-    if (*mac && !normalizeMac(mac, out[i].mac)) { error = "Ungueltige Bluetooth-MAC"; return false; }
+    if (*mac && !normalizeMac(mac, out[i].mac)) { error = "CONFIG_MAC"; return false; }
     out[i].addressType = type;
     for (unsigned j = 0; j < i; ++j) {
-      if (*mac && strcmp(out[i].mac, out[j].mac) == 0) { error = "MAC doppelt vergeben"; return false; }
-      if (strcmp(out[i].name, out[j].name) == 0) { error = "Namen muessen eindeutig sein"; return false; }
+      if (*mac && strcmp(out[i].mac, out[j].mac) == 0) { error = "CONFIG_MAC"; return false; }
+      if (strcmp(out[i].name, out[j].name) == 0) { error = "CONFIG_NAME"; return false; }
     }
-    if (strcmp(out[i].name, "VR Basisstationen") == 0) { error = "Name fuer Gesamtschalter reserviert"; return false; }
+    if (strcmp(out[i].name, "VR Basisstationen") == 0) { error = "CONFIG_GROUP_NAME"; return false; }
   }
   return true;
 }
@@ -225,7 +299,8 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.1.1";
+  doc["version"] = "0.2.0";
+  doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
@@ -250,6 +325,8 @@ void statusRoute() {
       else item["requested"] = nullptr;
       item["pending"] = state.pending;
       item["busy"] = state.busy;
+      item["reading"] = state.reading || refreshRequested[i];
+      item["reachable"] = freshMeasurement(state, millis());
       item["command_sent"] = state.sent;
       item["last_sent_ms"] = state.lastSentMs;
       item["observed"] = observedName(state.observed);
@@ -269,15 +346,123 @@ void statusRoute() {
   sendJson(200, doc);
 }
 
+// Hue has no local push-status channel. Answer Alexa's GETs from the exact
+// same measured BLE state used by /api/status, including reachability.
+bool serveHueMeasurements(const String& uri) {
+  if (server.method() != HTTP_GET) return false;
+  const int position = uri.indexOf("/lights", 5);
+  if (position < 0) return false;
+  String tail = uri.substring(position + 7);
+  const bool stateOnly = tail.endsWith("/state");
+  if (stateOnly) tail.remove(tail.length() - 6);
+  if (tail.startsWith("/")) tail.remove(0, 1);
+  String mac = WiFi.macAddress(), suffix = mac; suffix.replace(":", "");
+  const uint32_t mac24 = strtoul(suffix.substring(6).c_str(), nullptr, 16);
+  int selected = -1;
+  if (tail.length()) {
+    char* end = nullptr;
+    const long key = strtol(tail.c_str(), &end, 10);
+    if (!end || *end || (static_cast<uint32_t>(key) >> 7) != mac24 ||
+        (static_cast<uint32_t>(key) & 127) > kStations) {
+      StaticJsonDocument<32> empty; empty.to<JsonObject>(); sendJson(200, empty); return true;
+    }
+    selected = static_cast<uint32_t>(key) & 127;
+  }
+  DynamicJsonDocument doc(4096);
+  JsonObject root = doc.to<JsonObject>();
+  {
+    Lock lock;
+    bool any = false, allOn = true, allReachable = true;
+    for (unsigned i = 0; i < kStations; ++i) {
+      if (!configs[i].mac[0]) continue;
+      any = true; allOn &= measuredOn(states[i]);
+      allReachable &= freshMeasurement(states[i], millis());
+      if (!states[i].reading && !states[i].busy &&
+          millis() - states[i].lastReadAttemptMs >= 15000) refreshRequested[i] = true;
+    }
+    for (unsigned i = 0; i <= kStations; ++i) {
+      if (selected >= 0 && selected != static_cast<int>(i)) continue;
+      const int32_t key = static_cast<int32_t>((mac24 << 7) | i);
+      JsonObject light = selected < 0 ? root.createNestedObject(String(key)) : root;
+      JsonObject state = stateOnly ? light : light.createNestedObject("state");
+      state["on"] = i < kStations ? measuredOn(states[i]) : any && allOn;
+      state["reachable"] = i < kStations ? configs[i].mac[0] && freshMeasurement(states[i], millis()) : any && allReachable;
+      state["alert"] = "none";
+      if (!stateOnly) {
+        char unique[32]; snprintf(unique, sizeof(unique), "%s-%02X-00:11", mac.c_str(), i + 1);
+        light["type"] = "On/off light";
+        light["name"] = i < kStations ? configs[i].name : "VR Basisstationen";
+        light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
+        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.0";
+      }
+    }
+  }
+  sendJson(200, doc); return true;
+}
+
 void configureRoutes() {
-  const char* headers[] = {"X-API-Key", "Origin", "Content-Type"};
-  server.collectHeaders(headers, 3);
+  const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie"};
+  server.collectHeaders(headers, 4);
   server.on("/", HTTP_GET, [] {
-    if (!authenticated()) return;
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("X-Content-Type-Options", "nosniff");
     server.sendHeader("X-Frame-Options", "DENY");
     server.send_P(200, "text/html; charset=utf-8", WEB_UI);
+  });
+  server.on("/api/login", HTTP_POST, [] {
+    if (!sameOriginJson()) return;
+    StaticJsonDocument<512> doc;
+    if (!readBody(doc)) return;
+    if (loginBlocked && millis() - loginBlockedAt < 30000) { fail(429, "LOGIN_THROTTLED"); return; }
+    if (loginBlocked) { loginBlocked = false; loginFailures = 0; }
+    const String password = doc["password"].as<String>();
+    const bool bootstrap = !webHash.length();
+    const bool valid = doc["password"].is<const char*>() && password.length() <= 128 &&
+      (bootstrap ? equalSecret(password, accessKey) : equalSecret(passwordHash(password, webSalt), webHash));
+    if (!valid) {
+      if (++loginFailures >= 5) { loginBlocked = true; loginBlockedAt = millis(); }
+      fail(401, "LOGIN_FAILED"); return;
+    }
+    loginFailures = 0;
+    issueSession(bootstrap);
+    doc.clear(); doc["password_required"] = bootstrap; sendJson(200, doc);
+  });
+  server.on("/api/account", HTTP_GET, [] {
+    if (!authenticated(true, true)) return;
+    StaticJsonDocument<384> doc;
+    doc["password_required"] = !webHash.length();
+    doc["setup_ssid"] = apName;
+    if (webHash.length()) doc["api_key"] = accessKey;
+    sendJson(200, doc);
+  });
+  server.on("/api/password", HTTP_POST, [] {
+    if (!authenticated(true, true) || !sameOriginJson()) return;
+    StaticJsonDocument<768> doc;
+    if (!readBody(doc)) return;
+    if (!doc["password"].is<const char*>()) { fail(400, "PASSWORD_LENGTH"); return; }
+    const String password = doc["password"];
+    if (password.length() < 8 || password.length() > 128) { fail(400, "PASSWORD_LENGTH"); return; }
+    if (equalSecret(password, accessKey)) { fail(400, "PASSWORD_MUST_DIFFER"); return; }
+    const String salt = randomHex(16), hash = passwordHash(password, salt);
+    if (hash.length() != 64) { fail(500, "PASSWORD_HASH_FAILED"); return; }
+    doc.clear(); doc["salt"] = salt; doc["hash"] = hash;
+    String record; serializeJson(doc, record);
+    if (prefs.putString("web_auth", record) != record.length()) { fail(500, "SAVE_FAILED"); return; }
+    webSalt = salt; webHash = hash;
+    for (auto& session : sessions) session.token = "";
+    issueSession(false);
+    doc.clear(); doc["saved"] = true; sendJson(200, doc);
+  });
+  server.on("/api/logout", HTTP_POST, [] {
+    if (!authenticated(true, true) || !sameOriginJson()) return;
+    const int index = sessionIndex(); if (index >= 0) sessions[index].token = "";
+    server.sendHeader("Set-Cookie", "LHSESSION=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
+    StaticJsonDocument<64> doc; doc["logged_out"] = true; sendJson(200, doc);
+  });
+  server.on("/api/refresh", HTTP_POST, [] {
+    if (!mutationAllowed()) return;
+    { Lock lock; for (unsigned i = 0; i < kStations; ++i) if (configs[i].mac[0]) refreshRequested[i] = true; }
+    StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/status", HTTP_GET, statusRoute);
   server.on("/api/power", HTTP_POST, [] {
@@ -286,15 +471,15 @@ void configureRoutes() {
     if (!readBody(doc)) return;
     Target target;
     if (!doc["state"].is<const char*>() || !parseTarget(doc["state"], target)) {
-      fail(400, "state muss on oder sleep sein"); return;
+      fail(400, "STATE_INVALID"); return;
     }
     int slot = -1;
     if (doc["station"].is<int>() && doc["station"].as<int>() >= 1 && doc["station"].as<int>() <= 4)
       slot = doc["station"].as<int>() - 1;
     else if (!doc["station"].is<const char*>() || strcmp(doc["station"], "all") != 0) {
-      fail(400, "station muss 1, 2, 3, 4 oder all sein"); return;
+      fail(400, "STATION_INVALID"); return;
     }
-    if (!queueTarget(slot, target)) { fail(409, "Keine konfigurierte Station ausgewaehlt"); return; }
+    if (!queueTarget(slot, target)) { fail(409, "NO_STATION"); return; }
     doc.clear(); doc["accepted"] = true;
     sendJson(202, doc);
   });
@@ -327,15 +512,14 @@ void configureRoutes() {
         }
       }
     }
-    if (busy) { fail(409, "BLE beschaeftigt; nach Abschluss erneut speichern"); return; }
-    if (!persisted) { fail(500, "Konfiguration konnte nicht gespeichert werden"); return; }
+    if (busy) { fail(409, "BLE_BUSY"); return; }
+    if (!persisted) { fail(500, "SAVE_FAILED"); return; }
     for (unsigned i = 0; i < kStations; ++i) lights[i]->setName(next[i].name);
     doc.clear(); doc["saved"] = true; sendJson(200, doc);
   });
   server.on("/api/wifi", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-    { Lock lock; if (occupied()) { fail(409, "BLE beschaeftigt; bitte warten"); return; } }
-    portalRequested = true;
+    { Lock lock; if (occupied()) { fail(409, "BLE_BUSY"); return; } blePaused = true; portalRequested = true; }
     StaticJsonDocument<96> doc; doc["setup_ssid"] = apName; doc["accepted"] = true;
     sendJson(202, doc);
   });
@@ -343,53 +527,64 @@ void configureRoutes() {
   server.onNotFound([] {
     const String uri = server.uri();
     if (uri == "/api/status" || uri == "/api/power" || uri == "/api/config" ||
-        uri == "/api/scan" || uri == "/api/wifi") {
-      if (authenticated()) fail(404, "Unbekannter API-Pfad oder HTTP-Methode");
+        uri == "/api/scan" || uri == "/api/wifi" || uri == "/api/refresh" ||
+        uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account") {
+      if (authenticated()) fail(404, "NOT_FOUND");
       return;
     }
     // Hue also uses /api/<username>/lights. Do not intercept it as our API.
     if (uri == "/api" || uri.startsWith("/api/")) {
-      if (server.header("Origin").length()) { fail(403, "Hue-API nicht fuer Browseraufrufe"); return; }
+      if (server.header("Origin").length()) { fail(403, "ORIGIN_DENIED"); return; }
+      if (serveHueMeasurements(uri)) return;
       if (alexa.handleAlexaApiCall(uri, server.arg("plain"))) return;
     }
-    fail(404, "Nicht gefunden");
+    fail(404, "NOT_FOUND");
   });
 }
 
-void setup() {
-  Serial.begin(115200);
-  pinMode(0, INPUT_PULLUP);
-  delay(500);
-  prefs.begin("lhbridge", false);
-  accessKey = prefs.getString("access_key", "");
-  if (accessKey.length() != 24) {
-    char key[25];
-    snprintf(key, sizeof(key), "%08lx%08lx%08lx", (unsigned long)esp_random(),
-             (unsigned long)esp_random(), (unsigned long)esp_random());
-    accessKey = key;
-    if (prefs.putString("access_key", accessKey) != accessKey.length()) {
-      Serial.println("NVS-Fehler: Zugangsschluessel nicht gespeichert.");
-      while (true) delay(1000);
-    }
+void persistWifiCredentials() {
+  wifi_config_t config{};
+  if (WiFi.status() != WL_CONNECTED || esp_wifi_get_config(WIFI_IF_STA, &config) != ESP_OK) return;
+  // WiFiManager saves credentials; explicitly retain FLASH storage for this core.
+  const esp_err_t storage = esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+  const esp_err_t saved = storage == ESP_OK ? esp_wifi_set_config(WIFI_IF_STA, &config) : storage;
+  if (saved != ESP_OK) Serial.println("WIFI_SAVE_FAILED");
+  memset(&config, 0, sizeof(config));
+}
+
+void emitDeviceInfo() {
+  StaticJsonDocument<512> doc;
+  doc["protocol"] = 1; doc["version"] = "0.2.0";
+  doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
+  doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
+  doc["password_set"] = webHash.length() > 0;
+  if (WiFi.status() == WL_CONNECTED) doc["url"] = "http://" + WiFi.localIP().toString() + "/";
+  else doc["url"] = nullptr;
+  Serial.print("LH_INFO "); serializeJson(doc, Serial); Serial.println();
+}
+
+void processSerial() {
+  static char line[80]; static unsigned length = 0; static bool overflow = false;
+  while (Serial.available()) {
+    const char c = Serial.read();
+    if (c == '\r') continue;
+    if (c == '\n') {
+      line[length] = 0;
+      if (!overflow && strcmp(line, "LH_INFO") == 0) emitDeviceInfo();
+      if (!overflow && strcmp(line, "LH_RESET_WEB_PASSWORD") == 0) {
+        prefs.remove("web_auth"); webSalt = ""; webHash = "";
+        for (auto& session : sessions) session.token = "";
+        Serial.println("LH_PASSWORD_RESET");
+      }
+      length = 0; overflow = false;
+    } else if (length < sizeof(line) - 1 && !overflow) line[length++] = c;
+    else overflow = true;
   }
-  // Update Arduino's cached policy too: STA starts/restarts reapply this value.
-  // Its setter may return false simply because the cached mode is unchanged.
-  WiFi.setSleep(WIFI_PS_MIN_MODEM);
-  WiFi.mode(WIFI_STA);
-  String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
-  apName = "Lighthouse-Setup-" + suffix;
-  hostname = "lighthouse-" + suffix; hostname.toLowerCase();
-  Serial.printf("\nLighthouse Bridge 0.1.1\nSetup-WLAN: %s\n", apName.c_str());
-  Serial.printf("Setup-Passwort / Web-Passwort / API-Key: %s\nWeb-Benutzer: admin\n", accessKey.c_str());
-  Serial.println("Nur ON/SLEEP; keine automatischen Schaltbefehle beim Start.");
-  WiFi.setHostname(hostname.c_str());
-  WiFiManager wifi;
-  wifi.setDebugOutput(false);
-  wifi.setTitle("Lighthouse WLAN-Setup");
-  wifi.setConnectTimeout(20);
-  wifi.setConfigPortalTimeout(0);
-  if (!wifi.autoConnect(apName.c_str(), accessKey.c_str())) { ESP.restart(); return; }
+}
+
+void startServices() {
   WiFi.setAutoReconnect(true);
+  persistWifiCredentials();
   // Arduino ESP32 2.0.17 / IDF 4.4 requires modem sleep for Wi-Fi/BLE
   // coexistence. WIFI_PS_NONE aborts in coex_enable() when NimBLE starts.
   // Use the driver API: WiFi.setSleep() also returns false when unchanged.
@@ -403,7 +598,7 @@ void setup() {
   stateMutex = xSemaphoreCreateMutex();
   if (!stateMutex) { Serial.println("Kein RAM fuer Mutex"); while (true) delay(1000); }
   for (unsigned i = 0; i < kStations; ++i)
-    snprintf(configs[i].name, sizeof(configs[i].name), "Basisstation %u", i + 1);
+    snprintf(configs[i].name, sizeof(configs[i].name), "Base station %u", i + 1);
   const String saved = prefs.getString("stations", "");
   if (saved.length()) {
     DynamicJsonDocument doc(3072); StationConfig restored[kStations]{}; String error;
@@ -432,18 +627,77 @@ void setup() {
   if (!alexaReady) { Serial.println("SSDP-Start fehlgeschlagen; Webinterface bleibt verfuegbar."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
   Serial.printf("Webinterface: http://%s/ oder http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
+  servicesStarted = true;
   Serial.println("Lighthouse Bridge bereit.");
+  emitDeviceInfo();
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(0, INPUT_PULLUP);
+  delay(500);
+  prefs.begin("lhbridge", false);
+  WiFi.setSleep(WIFI_PS_MIN_MODEM);
+  WiFi.persistent(true);
+  WiFi.mode(WIFI_STA);
+  accessKey = prefs.getString("access_key", "");
+  if (accessKey.length() != 24) {
+    accessKey = randomHex(12);
+    if (prefs.putString("access_key", accessKey) != accessKey.length()) {
+      Serial.println("NVS_KEY_SAVE_FAILED"); while (true) delay(1000);
+    }
+  }
+  const String authentication = prefs.getString("web_auth", "");
+  if (authentication.length()) {
+    StaticJsonDocument<256> doc;
+    if (!deserializeJson(doc, authentication)) {
+      webSalt = doc["salt"].as<String>(); webHash = doc["hash"].as<String>();
+      if (webSalt.length() != 32 || webHash.length() != 64) { webSalt = ""; webHash = ""; }
+    }
+  }
+  String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
+  apName = "Lighthouse-Setup-" + suffix;
+  hostname = "lighthouse-" + suffix; hostname.toLowerCase();
+  WiFi.setHostname(hostname.c_str());
+  Serial.println("\nLighthouse Bridge 0.2.0");
+  Serial.println("Setup Wi-Fi / API key: " + accessKey);
+  Serial.println("Web user: admin; first login uses the key, then choose your own password.");
+  emitDeviceInfo();
+  wifiManager.setDebugOutput(false);
+  wifiManager.setTitle("Lighthouse Wi-Fi Setup");
+  wifiManager.setConfigPortalBlocking(false);
+  wifiManager.setConnectTimeout(20);
+  wifiManager.setConfigPortalTimeout(0);
+  wifiManager.setSaveConfigCallback(persistWifiCredentials);
+  wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
+  // The main loop services USB info while the setup portal waits for Wi-Fi.
 }
 
 void loop() {
+  processSerial();
+  wifiManager.process();
+  if (manualPortal) {
+    if (!wifiManager.getConfigPortalActive()) {
+      if (WiFi.status() == WL_CONNECTED) persistWifiCredentials();
+      ESP.restart();
+    }
+    delay(2); return;
+  }
+  if (!servicesStarted) {
+    if (WiFi.status() == WL_CONNECTED) {
+      if (wifiManager.getConfigPortalActive()) wifiManager.stopConfigPortal();
+      startServices();
+    }
+    delay(2); return;
+  }
   alexa.loop();
-  // Alexa's boolean is an optimistic control value, not a confirmed BLE state.
+  // Alexa and the dashboard share measured state; requested targets are separate.
   bool allOn = true, anyConfigured = false;
   {
     Lock lock;
     for (unsigned i = 0; i < kStations; ++i) {
       const auto& state = states[i];
-      const bool on = state.hasRequest ? state.requested == Target::On : state.observed == 0x0b;
+      const bool on = measuredOn(state);
       lights[i]->setState(on);
       if (configs[i].mac[0]) { anyConfigured = true; allOn &= on; }
     }
@@ -454,21 +708,15 @@ void loop() {
     if (!pressedAt) pressedAt = millis();
     if (millis() - pressedAt >= 5000) {
       Lock lock;
-      if (!occupied()) portalRequested = true;
+      if (!occupied()) { blePaused = true; portalRequested = true; }
     }
   } else pressedAt = 0;
   if (portalRequested) {
-    // Portal owns port 80 until new credentials have been saved.
-    delay(250);
-    server.stop();
-    MDNS.end();
-    WiFiManager wifi;
-    wifi.setDebugOutput(false);
-    wifi.setTitle("Lighthouse WLAN-Setup");
-    wifi.setConfigPortalTimeout(180);
-    wifi.setConnectTimeout(20);
-    wifi.startConfigPortal(apName.c_str(), accessKey.c_str());
-    ESP.restart();
+    portalRequested = false;
+    server.stop(); MDNS.end();
+    manualPortal = true;
+    wifiManager.setConfigPortalTimeout(180);
+    wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());
   }
   delay(2);
 }

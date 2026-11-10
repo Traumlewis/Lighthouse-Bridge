@@ -38,5 +38,21 @@ int main() {
   state.pending = false;
   finish(state, state.generation, true, 0x00, 30, "");
   assert(state.sent && state.lastSentMs == 30 && state.observedMs == 30);
+  // Background measurements, rather than a previous requested target, drive Hue.
+  request(state, Target::On);
+  recordRead(state, 0x00, 100, "");
+  assert(!measuredOn(state));
+  assert(freshMeasurement(state, 110));
+  recordRead(state, 0x0b, 200, "");
+  assert(measuredOn(state) && freshMeasurement(state, 210));
+  recordRead(state, -1, 300, "BLE_CONNECT_FAILED");
+  assert(state.observed == 0x0b && !freshMeasurement(state, 301));
+  recordRead(state, 0x02, 400, "");
+  assert(!measuredOn(state));
+  recordRead(state, 0x01, 500, "");
+  assert(measuredOn(state));
+  assert(!freshMeasurement(state, 60500));
+  recordRead(state, 0x00, 0xfffffff0U, "");
+  assert(freshMeasurement(state, 10)); // millis wraparound.
   std::cout << "Core tests passed (ON/SLEEP, validation, superseded commands, failures).\n";
 }

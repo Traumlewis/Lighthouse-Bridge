@@ -1,6 +1,9 @@
 {
   "name": "lighthouse-bridge-tests",
   "private": true,
-  "scripts": { "test": "node test/web_ui.cjs" },
+  "scripts": {
+    "test": "node test/web_ui.cjs && node test/web_flasher.cjs && node test/serial_info.cjs",
+    "test:usb": "node test/serial_info.cjs"
+  },
   "devDependencies": { "playwright": "1.62.1" }
 }

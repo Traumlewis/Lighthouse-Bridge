@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 
 
 def main():
@@ -44,10 +44,22 @@ def main():
             offset = int(address, 16)
             assert payload[offset:offset + file.stat().st_size] == file.read_bytes(), file
         checksum = hashlib.sha256(payload).hexdigest()
+        # A merged image contains 0xff padding over NVS (0x9000..0xe000).
+        # Writing it at zero erases settings even when eraseAll is false!
+        # Web updates must flash only these four sector-aligned regions.
+        segments = {}
+        for (address, file), name in zip(parts, [
+            "bootloader", "partitions", "boot-app0", "app"]):
+            offset = int(address, 16)
+            segments[f"lighthouse-bridge-{name}.bin"] = payload[offset:offset + file.stat().st_size]
+        checksums = f"{checksum}  {merged.name}\n" + "".join(
+            f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in segments.items())
         archive = args.output / f"lighthouse-bridge-v{VERSION}.zip"
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
             bundle.write(merged, merged.name)
-            bundle.writestr("SHA256SUMS", f"{checksum}  {merged.name}\n")
+            bundle.writestr("SHA256SUMS", checksums)
+            for name, data in segments.items():
+                bundle.writestr(name, data)
             for file in sorted(ROOT.rglob("*")):
                 if not file.is_file():
                     continue
@@ -66,7 +78,9 @@ def main():
                         bundle.write(file, Path("third-party-licenses") / dep_root.name / file.relative_to(dep_root))
         # Also supply the merged binary directly for convenient flashing.
         (args.output / merged.name).write_bytes(payload)
-        (args.output / "SHA256SUMS").write_text(f"{checksum}  {merged.name}\n")
+        for name, data in segments.items():
+            (args.output / name).write_bytes(data)
+        (args.output / "SHA256SUMS").write_text(checksums)
         with zipfile.ZipFile(archive) as bundle:
             assert bundle.testzip() is None
         print(f"Release: {archive}")

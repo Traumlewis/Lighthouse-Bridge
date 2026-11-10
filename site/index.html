@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="dark">
   <meta name="description" data-i18n-content="description" content="Install Lighthouse Bridge on an ESP32. Control four Valve Lighthouse V2 base stations using Alexa, a web interface and a local API.">
   <title>Lighthouse Bridge · WebFlasher</title>
-  <link rel="stylesheet" href="style.css">
-  <script type="module" src="app.js"></script>
+  <link rel="stylesheet" href="style.css?v=0.2.0">
+  <script type="module" src="app.js?v=0.2.0"></script>
 </head>
 <body>
   <main>
@@ -26,11 +26,19 @@
           <span slot="unsupported" data-i18n="unsupported">Use Chrome or Edge on a computer to flash your board. This browser does not provide Web Serial access here.</span>
           <span slot="not-allowed" data-i18n="not_allowed">The flasher requires HTTPS or localhost.</span>
         </esp-web-install-button>
-        <a id="download" class="download" href="firmware/lighthouse-bridge-esp32-merged.bin" download hidden data-i18n="download">Download firmware BIN ↓</a>
+        <a id="download" class="download" href="firmware/lighthouse-bridge-esp32-merged.bin" download hidden data-i18n="factory_warning">Factory BIN (resets settings) ↓</a>
       </div>
       <p id="load-status" class="hint" role="status" data-i18n="checking">Checking firmware. Your USB port has not been accessed.</p>
       <p id="module-error" class="error" hidden data-i18n="module_error">The flasher could not be loaded. Reload the page, or download the firmware instead.</p>
       <details class="erase-note"><summary data-i18n="erase_title">First install or update?</summary><p data-i18n="erase_body">For a first installation on a previously used board, erasing the flash is recommended. <strong>This deletes existing settings.</strong> For a Bridge update, leave the erase option unchecked to keep your Wi-Fi credentials, access key and station assignments. The installer lets you choose.</p></details>
+    </section>
+    <section class="install-panel usb-panel" aria-labelledby="usb-title">
+      <h2 id="usb-title" data-i18n="usb_title">Your device, over USB</h2>
+      <p data-i18n="usb_help">After flashing, close the installer dialog. This panel then reads your key and Wi-Fi address over USB.</p>
+      <div class="install-actions"><button id="usb-read" data-i18n="usb_read">Read key &amp; address</button><button id="usb-stop" data-i18n="usb_stop" hidden>Disconnect USB</button></div>
+      <p id="usb-status" class="hint" role="status">USB information is read only after you connect.</p>
+      <dl id="usb-info" hidden><dt data-i18n="usb_key">API key / setup Wi-Fi password</dt><dd><code id="usb-key"></code></dd><dt data-i18n="usb_ssid">Setup Wi-Fi</dt><dd id="usb-ssid"></dd><dt data-i18n="usb_url">Web interface address</dt><dd><a id="usb-url" target="_blank" rel="noopener noreferrer" hidden></a><span id="usb-wifi-wait" data-i18n="usb_wifi_wait">Waiting for Wi-Fi connection …</span></dd></dl>
+      <p class="hint" data-i18n="usb_login">First web login uses admin and this key. Then choose your own web password.</p>
     </section>
     <section class="next" aria-labelledby="next-title"><p class="eyebrow" data-i18n="after_install">After installation</p><h2 id="next-title" data-i18n="next_title">Three steps to your first SLEEP.</h2>
       <ol class="steps">

@@ -1,178 +1,143 @@
 # Lighthouse Bridge — ESP32
 
-Firmware-Prototyp für **4 × Valve Lighthouse V2** und **Echo Dot (5. Generation)**.
+**4 × Valve Lighthouse V2**, ein ESP-WROOM-32 / ESP-32S mit CH340 USB-C und
+**Echo Dot (5. Generation)**. **Ein = ON (`0x01`), Aus = SLEEP (`0x00`), niemals
+STANDBY.** Keine zusätzliche Handy-Companion-App erforderlich.
 
-**[WebFlasher öffnen](https://traumlewis.github.io/Lighthouse-Bridge/)** ·
-[Build-Status](https://github.com/Traumlewis/Lighthouse-Bridge/actions/workflows/firmware-pages.yml)
+**[WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/)** ·
+[Deutsch](https://traumlewis.github.io/Lighthouse-Bridge/?lang=de) ·
+[Builds](https://github.com/Traumlewis/Lighthouse-Bridge/actions) ·
+[Prüfbericht](docs/VALIDATION.md)
 
-In Chrome oder Edge auf einem Rechner kannst du den ESP32 direkt per USB flashen.
-Die Flasher-Seite ist standardmäßig Englisch; Deutsch lässt sich im Sprachschalter
-auswählen oder direkt [mit diesem Link](https://traumlewis.github.io/Lighthouse-Bridge/?lang=de) öffnen.
-Die Webseite bietet auch die serielle Konsole für deinen Zugangsschlüssel.
-Das WLAN richtest du anschließend über den Setup-Zugangspunkt des ESP32 ein.
-Die vollständige Anleitung zum Veröffentlichen steht unter
-[GitHub Pages](docs/WEBFLASHER.md).
+## Neu in 0.2.0
 
-- Alexa: vier einzelne schaltbare Lampen plus „VR Basisstationen“.
-- **Ein = ON (`0x01`), Aus = SLEEP (`0x00`). Kein STANDBY-Befehl.**
-- Geschütztes WLAN-Setup über einen eigenen Zugangspunkt.
-- Lokales Webinterface mit BLE-Suche, Zuordnung, Schaltern und Fehleranzeige.
-- Lokale HTTP-API für eine spätere Pebble-Anbindung.
-- Kein automatisches Einschalten oder Schlafenlegen beim Start/Neustart.
+- Der WebFlasher schreibt getrennte Flashbereiche und erhält NVS mit WLAN,
+  Zuordnung und Passwörtern, wenn **Erase device abgewählt** ist.
+- BLE-Zustände werden beim Start, nach Befehlen und regelmäßig gelesen; zusätzlich
+  gibt es „Aktuelle Zustände abfragen“. Angeforderte und gemessene Werte bleiben
+  getrennt. Alexa erhält dieselben Messwerte bei ihren Hue-Abfragen.
+- Das lokale Webinterface ist standardmäßig Englisch, mit Deutsch als zweiter
+  Sprache und gespeicherter Auswahl, wie die öffentliche Flasher-Seite.
+- Erster Login mit API-Key; anschließend eigenes Web-Passwort festlegen. Der
+  API-Key bleibt separat und im Reiter „WLAN & lokale API“ sichtbar.
+- Der WebFlasher kann Schlüssel und WLAN-Adresse über USB anzeigen. Dafür nach
+  dem Flashen den Installationsdialog schließen oder „Read key & address“ wählen.
 
-**Status:** Für `esp32dev` kompiliert; siehe [Prüfbericht](docs/VALIDATION.md).
-Die BLE-Kommunikation und die Alexa-Erkennung sind ohne echte Hardware noch
-nicht getestet. Insbesondere die Hue-Emulation ist keine garantierte
-Alexa-Kompatibilität. Das Projekt benötigt keine Handy-Companion-App.
+**Wichtige Update-Korrektur:** Das bisherige zusammengeführte Image enthält
+`0xff`-Füllbytes über dem NVS-Bereich. Beim Schreiben an `0x0` gehen Einstellungen
+auch ohne vollständiges Löschen verloren. Deshalb verwendet der WebFlasher ab
+0.2.0 vier getrennte Teile. Das weiterhin verfügbare **Factory-BIN an `0x0` ist nur
+für Neuinstallationen**. Die Partitionstabelle wurde nicht verändert.
 
-**Update 0.1.1:** Behebt den Startabbruch von 0.1.0 bei der BLE-Initialisierung.
-WLAN-Modem-Sleep bleibt für den gemeinsamen WLAN-/Bluetooth-Betrieb aktiv.
-Zum Aktualisieren im WebFlasher **nicht löschen**, wenn WLAN, Zugangsschlüssel
-und Stationszuordnung erhalten bleiben sollen. Nach dem Neustart sollten
-„BLE bereit.“ und „Lighthouse Bridge bereit.“ erscheinen. Der erneute Test auf
-dem Board steht noch aus; siehe Prüfbericht.
+Der Besitzer hat den erfolgreichen Start von 0.1.1 bestätigt. Die Erweiterungen
+von 0.2.0 sind kompiliert und mit simuliertem Backend/USB geprüft; ihr kompletter
+Test an Basisstationen und Echo steht noch aus. Details im Prüfbericht.
 
-## Hardware
+## Hardware und erster Start
 
-Vorgesehen ist das beschriebene **ESP-WROOM-32 / ESP-32S Dual-Core Board mit
-CH340 und USB-C**. Das Buildprofil nimmt den klassischen ESP32 mit **4 MB Flash**
-an. Vor dem Flashen Modulaufdruck und Flashgröße prüfen: Die allgemeine
-Verkaufsbezeichnung allein legt die Hardware nicht eindeutig fest. Dieses Image
-ist nicht für ESP32-S2, S3 oder C3 bestimmt.
+Klassischer Dual-Core-ESP32, mindestens **4 MB Flash**, 2,4-GHz-WLAN. Nicht für
+ESP32-S2/S3/C3. Ein USB-Datenkabel genügt, keine zusätzliche Verdrahtung. Die vier
+Stationen bleiben normal mit Strom versorgt; ESP32 in BLE-Reichweite aufstellen.
 
-Keine zusätzlichen Bauteile oder Leitungen nötig. Den ESP32 per USB mit Strom
-versorgen, im Bereich aller vier Stationen aufstellen. Er braucht 2,4-GHz-WLAN;
-die Basisstationen behalten ihre normale Stromversorgung. Der CH340 ist nur der
-USB-Seriell-Wandler und beeinflusst die BLE-/WLAN-Funktionen nicht.
+1. WebFlasher in Chrome oder Edge **am Rechner** öffnen, Board anschließen,
+   bestätigen und „Connect & install“ wählen.
+2. Bei einem Update **Erase device abwählen**. Löschen nur bewusst für einen
+   vollständigen Neuanfang; dabei gehen alle Einstellungen verloren.
+3. Nach dem Flashen den Installationsdialog schließen. Der USB-Infobereich
+   übernimmt den bereits freigegebenen Port und zeigt den individuellen Key und
+   das Setup-WLAN. Alternativ dort „Read key & address“ drücken. Keine anderen
+   seriellen Programme dürfen den Port gleichzeitig geöffnet haben.
+4. Bei der ersten Einrichtung mit `Lighthouse-Setup-XXXXXX` verbinden; das
+   Passwort ist der Key. `http://192.168.4.1` öffnen und Heim-WLAN speichern.
+   USB kann verbunden bleiben; der Flasher zeigt die Adresse, sobald WLAN steht.
+5. Im Heim-WLAN die angezeigte Webadresse öffnen. **Benutzer `admin`**, beim
+   ersten Login **API-Key als Passwort**. Anschließend ein eigenes Web-Passwort
+   festlegen (8–128 Bytes, verschieden vom API-Key).
+6. Im Webinterface die vier `LHB-…`-Geräte suchen, jedem Platz genau eines zuordnen
+   und speichern. Der BLE-Adresstyp wird aus der Suche übernommen.
+7. Die Zustände werden automatisch gelesen. Zunächst eine Station einzeln mit
+   ON/SLEEP prüfen, danach alle gemeinsam. Keine automatischen Schaltbefehle beim
+   Start, Neustart oder Wiederverbinden.
 
-## Schnellstart mit fertigem Image
+Fehlt ein USB-Port, CH340-Treiber und Datenkabel prüfen. Bei „Connecting…“ BOOT
+halten, kurz EN/RESET drücken, BOOT nach Verbindungsaufbau loslassen. Für einen
+normalen Neustart nur EN/RESET drücken. Der Key steht außerdem im seriellen
+Monitor bei 115200 Baud. Der WebFlasher kann Geräteinfos erst ab Firmware 0.2.0
+abfragen; bei älteren Versionen zunächst aktualisieren.
 
-Im bereitgestellten ZIP liegen `lighthouse-bridge-esp32-merged.bin` und diese
-Anleitung. Das **zusammengeführte Image wird an Adresse `0x0`** geschrieben.
-Es enthält Bootloader, Partitionstabelle und Anwendung.
+## Gemessener Status und Alexa
 
-1. Ein USB-Datenkabel verwenden. Falls der serielle Port fehlt, den passenden
-   CH340-Treiber für dein Betriebssystem installieren.
-2. Mit einem ESP32-kompatiblen Flashtool das zusammengeführte Image an `0x0`
-   flashen. Alternativ mit Python/esptool 4.5.1:
+Der ESP32 liest die Power-Characteristic der konfigurierten Stationen:
 
-   ```sh
-   python -m pip install esptool==4.5.1
-   python -m esptool --chip esp32 --port COM5 flash_id
-   python -m esptool --chip esp32 --port COM5 --baud 115200 write_flash 0x0 lighthouse-bridge-esp32-merged.bin
-   ```
+| Rohwert | Anzeige | Hue `on` |
+| --- | --- | --- |
+| `0x00` | SLEEP | false |
+| `0x01`, `0x08`, `0x09` | Starting / Startet | true |
+| `0x0b` | ON | true |
+| `0x02` | STANDBY (nur gelesen) | false |
+| Keine erfolgreiche Messung | Unknown / Unbekannt | zuletzt bekannter Wert, `reachable: false` |
 
-   `COM5` durch deinen Port ersetzen, z. B. `/dev/ttyUSB0` unter Linux oder
-   `/dev/cu.wchusbserial…` unter macOS. `flash_id` sollte 4 MB oder mehr melden;
-   das Image verwendet die ersten 4 MB. War vorher eine andere Firmware auf dem
-   Board, ist ein vorheriges `erase_flash` sinnvoll. Dabei gehen alle alten
-   Einstellungen verloren; bei späteren Updates nicht routinemäßig löschen.
-3. Einen seriellen Monitor mit **115200 Baud** öffnen und **EN/RESET** drücken.
-   Das Gerät gibt seinen individuellen 24-stelligen Zugangsschlüssel aus.
-   Dieser bleibt bei normalen Neustarts erhalten.
-4. Mit `Lighthouse-Setup-XXXXXX` verbinden. **WLAN-Passwort = Zugangsschlüssel.**
-   Falls kein Portal aufgeht: **http://192.168.4.1** öffnen.
-5. Heim-WLAN auswählen und dessen Passwort speichern. Der ESP32 verbindet sich.
-   Das Handy/der Rechner muss anschließend zurück ins Heim-WLAN.
-6. Die im seriellen Monitor angezeigte IP im Browser öffnen. Anmeldung:
-   **Benutzer `admin`, Passwort = Zugangsschlüssel.** Alternativ funktioniert
-   häufig `http://lighthouse-xxxxxx.local/`; der exakte Name steht im Monitor.
-7. „Basisstationen einrichten“ öffnen, Bluetooth-Suche starten, die vier
-   gefundenen `LHB-…`-Stationen auf vier Plätze verteilen und speichern.
-   Der richtige BLE-Adresstyp wird bei der Auswahl automatisch übernommen.
-8. Erst eine Station mit ON und SLEEP testen, anschließend die Gruppe.
+Es gibt einen BLE-Worker und immer nur eine Verbindung gleichzeitig. Befehle
+haben Vorrang, mit höchstens drei Versuchen. Messungen folgen beim Start, nach
+Befehlen und im Zielintervall von 15 Sekunden; startende Stationen werden nach
+etwa zwei Sekunden, nicht erreichbare nach etwa 30 Sekunden erneut gelesen.
+Verbindungsversuche und andere Stationen können diese Intervalle verlängern.
+Eine manuelle Aktualisierung reiht reine Leseaufträge ein, ohne Schaltbefehl.
 
-Wenn das Flashen bei „Connecting…“ hängt: BOOT gedrückt halten, kurz EN/RESET
-drücken, dann BOOT loslassen, sobald die Verbindung steht. Für das spätere
-WLAN-Setup BOOT erst **nach dem normalen Start** drücken; beim Einschalten
-gehalten startet BOOT den Bootloader.
+`requested` ist ein Auftrag, **kein Messwert**. Webinterface und Hue-Antworten
+verwenden `observed`. Bei Lesefehlern bleibt der alte Wert mit Zeitstempel erhalten,
+gilt aber als nicht erreichbar. Messungen ab 60 Sekunden gelten ebenfalls als
+veraltet. Das Webinterface fragt den ESP32-Speicher alle 2,5 Sekunden ab.
 
-## Alexa
+Echo Dot und ESP32 müssen im selben Heimnetz sein, ohne Client-Isolation.
+„Alexa, suche Geräte“ findet vier einzelne Lampen und **„VR Basisstationen“**.
+Gespeicherte Namen bleiben erhalten; neue Plätze heißen „Base station 1“ usw.
+Der virtuelle Gesamtschalter gilt als an, wenn alle zugeordneten Stationen aktiv
+sind, und als erreichbar, wenn alle frische Messwerte haben.
 
-1. Echo Dot und ESP32 im selben lokalen Netz betreiben. 2,4 und 5 GHz dürfen
-   unterschiedliche Funkbänder desselben Heimnetzes sein; Gastnetz und
-   Client-Isolation verhindern häufig die Erkennung.
-2. Nach der Stationszuordnung sagen: **„Alexa, suche Geräte.“** Alternativ in
-   der Alexa-App eine Gerätesuche starten; falls gefragt, Philips Hue ohne
-   zusätzliche Skill-Verknüpfung versuchen.
-3. Erwartet werden „Basisstation 1“ bis „Basisstation 4“ (oder deine Namen)
-   sowie **„VR Basisstationen“**.
-4. **„Alexa, schalte VR Basisstationen ein.“** → alle zugeordneten Stationen ON.
-5. **„Alexa, schalte VR Basisstationen aus.“** → alle zugeordneten Stationen SLEEP.
+**Alexa erhält bei GET-Abfragen der lokalen Hue-Bridge dieselben Messwerte.
+Dieses Protokoll bietet keinen Push in die Alexa-App.** Die App kann ihren
+Schalter weiterhin zwischenspeichern, bis Alexa erneut abfragt. Sofortige
+Aktualisierung der Alexa-Anzeige lässt sich damit nicht garantieren. Alexa
+bestätigt Befehle außerdem vor Abschluss von BLE; Fehler stehen im Webinterface.
+Die Hue-Emulation muss mit der jeweiligen Echo-Firmware geprüft werden.
 
-Die Firmware nutzt [Espalexa](https://github.com/Aircoookie/Espalexa), eine
-lokale Hue-Bridge-Emulation über SSDP und HTTP. Kein Amazon-Entwicklerkonto,
-eigener Skill oder Home Assistant nötig. Alexa selbst benötigt weiterhin ihre
-übliche Verbindung zu Amazon. Ob die aktuelle Software deines Echo Dot 5 die
-Emulation akzeptiert, muss vor Ort getestet werden. Bei erfolgloser Suche Echo
-neu starten und Multicast/SSDP (UDP 1900) sowie Port 80 im Heimnetz prüfen.
-Funktioniert die Erkennung damit nicht, bleibt die lokale Web-/API-Steuerung
-nutzbar; eine andere Alexa-Anbindung wäre ein weiterer Entwicklungsschritt.
+## WLAN, Web-Passwort und API-Key
 
-Alexa bestätigt Befehle, bevor BLE abgeschlossen ist. **Der Alexa-Schalter
-zeigt den gewünschten Zustand, keine bestätigte Messung.** Einzelne unerreichbare
-Stationen werden in der Weboberfläche als Fehler angezeigt. Alle vier
-Einzellampen sind bereits vor der Zuordnung sichtbar, schalten aber erst nach
-Zuordnung einer MAC-Adresse ein echtes Gerät. Nach Namensänderungen kann Alexa
-alte Namen zwischenspeichern: betroffene Geräte entfernen und neu suchen.
+- WLAN wechseln: „Wi-Fi & local API / WLAN & lokale API → Open Wi-Fi setup“ oder
+  nach dem Start BOOT fünf Sekunden halten. Während aktiver BLE-Arbeit kurz
+  warten. Das manuelle Portal pausiert die Steuerung bis zum Speichern oder
+  spätestens drei Minuten und startet anschließend neu.
+- Ohne erreichbares gespeichertes WLAN öffnet sich beim Start das Setup-Portal
+  ohne Zeitlimit. USB-Geräteinfos bleiben dabei abfragbar. WLAN wird im normalen
+  ESP32-NVS gespeichert; Updates über die neuen Flashteile erhalten diesen Bereich.
+- Die Web-Anmeldung nutzt eine HttpOnly-/SameSite-Session. Das eigene Passwort
+  wird nur als PBKDF2-SHA256-Hash mit individuellem Salt und 10000 Iterationen
+  gespeichert, niemals angezeigt oder über USB ausgegeben. Ein Passwortwechsel
+  meldet andere Sessions ab. Sessions verfallen nach spätestens zwölf Stunden im Browser
+  oder einem Neustart.
+- Der **API-Key** bleibt für `X-API-Key`-Integrationen und als Passwort des
+  Setup-WLANs erhalten. Nach Vergabe eines Web-Passworts funktioniert er nicht mehr
+  als Web-Login. Angemeldete Benutzer sehen ihn unter „WLAN & lokale API“.
+- Passwort vergessen: über USB bei 115200 Baud `LH_RESET_WEB_PASSWORD` mit
+  Zeilenumbruch senden. Das setzt nur das Web-Passwort und Sessions zurück; dann
+  erneut mit dem API-Key anmelden und ein neues Passwort wählen. WLAN, Key und
+  Stationszuordnung bleiben erhalten.
 
-## WLAN ändern
+HTTP und NVS sind unverschlüsselt. Die Hue-Endpunkte sind für Alexa bewusst ohne
+Anmeldung nutzbar; deshalb nur im vertrauenswürdigen Heimnetz betreiben, ohne
+Internet-Portweiterleitung. Schlüssel/Adressen aus USB bleiben im Speicher der
+Flasher-Seite und werden nicht an GitHub übertragen oder im Browser gespeichert.
 
-Im Webinterface „WLAN & lokale API → WLAN-Setup öffnen“, oder nach dem Start
-**BOOT (GPIO 0) fünf Sekunden halten**, wenn kein BLE-Auftrag mehr läuft.
-Dann mit dem Setup-WLAN verbinden. Der Zugangsschlüssel bleibt gleich.
-Das manuell gestartete Portal läuft bis zu drei Minuten und startet den ESP32
-danach neu; beim Speichern verbindet er sich mit dem neuen WLAN. Stationszuordnung
-und Zugangsschlüssel bleiben erhalten. Während des Portals pausiert die normale
-Bedienung. Ohne gespeichertes/erreichbares WLAN öffnet der ESP32 beim Start das
-Portal ohne Zeitlimit. Während einer laufenden Sitzung versucht er bei
-WLAN-Verlust zunächst automatisch, sich wieder zu verbinden.
+## Lokale API und spätere Pebble-Anbindung
 
-## Bedienung und Zustandsanzeige
+[API-Dokumentation](docs/API.md). Ein späteres Pebble-Plugin kann mit LocalNetwork
+und `X-API-Key` dieselben Endpunkte nutzen. Ein solches Plugin ist noch nicht
+implementiert; auch OTA und Improv Serial sind nicht Bestandteil dieser Firmware.
 
-BLE-Zugriffe laufen nacheinander in einem separaten FreeRTOS-Task. Verbindungen
-werden nach jeder Aktion geschlossen. Bei Fehlern gibt es höchstens drei
-Versuche; ein neuerer Auftrag ersetzt einen noch wartenden älteren Auftrag für
-dieselbe Station. Die Gruppe kann daher je nach Empfang einige Sekunden bis
-über eine Minute brauchen. Ein bereits laufender Auftrag kann noch abgeschlossen
-werden, bevor der neuere Auftrag folgt.
+## Selbst bauen, prüfen und manuell flashen
 
-„Befehl gesendet“ bedeutet, dass der BLE-Schreibvorgang angenommen wurde.
-Die Firmware liest anschließend, wenn verfügbar, einmal die Power-Characteristic:
-
-| Gelesener Wert | Anzeige |
-| --- | --- |
-| `0x00` | SLEEP |
-| `0x01`, `0x08`, `0x09` | Startet |
-| `0x0b` | ON |
-| `0x02` | STANDBY (nur gelesen; wird niemals gesendet) |
-| Sonstige / keine Messung | Unbekannt |
-
-Ein Start kann länger als die erste Messung dauern. Deshalb kann „Startet“
-stehen bleiben, obwohl die Station inzwischen läuft. Das Alter der Messung wird
-angezeigt; es gibt **keine laufende BLE-Zustandsüberwachung**. SteamVR oder andere
-Controller können den Zustand unabhängig verändern. Das Webinterface fragt alle
-2,5 Sekunden den ESP32-Speicher ab, nicht die Basisstationen.
-
-## Lokale API / spätere Pebble-Anbindung
-
-Siehe [API.md](docs/API.md). Ein Pebble-Plugin kann später dieselben Endpunkte
-aufrufen, mit LocalNetwork-Berechtigung und gespeichertem Schlüssel. Das Plugin
-selbst ist noch nicht Teil dieses Prototyps.
-
-Die Verwaltungsoberfläche und `/api/status`, `/api/power`, `/api/scan`,
-`/api/config`, `/api/wifi` sind geschützt: HTTP Basic (`admin` + Schlüssel) oder
-`X-API-Key`. Der Schlüssel wird nicht in HTML oder Statusantworten ausgeliefert.
-Für die Alexa-Emulation bleiben deren Hue-Endpunkte ohne Anmeldung erreichbar;
-Geräte im Heimnetz können darüber ebenfalls Schaltbefehle senden. HTTP ist
-unverschlüsselt. Deshalb nur im eigenen vertrauenswürdigen Heimnetz betreiben,
-keine Portweiterleitung ins Internet einrichten. WLAN-Daten, Schlüssel und
-Stationszuordnung liegen im normalen, nicht verschlüsselten NVS des ESP32.
-
-## Selbst bauen
-
-In VS Code die PlatformIO-Erweiterung installieren und diesen Projektordner
-öffnen. Profil `esp32dev` verwenden, Build und Upload starten. Mit der CLI:
+In PlatformIO dieses Projekt öffnen, Profil `esp32dev` verwenden:
 
 ```sh
 pio run
@@ -180,22 +145,34 @@ pio run -t upload --upload-port COM5
 pio device monitor --port COM5 --baud 115200
 ```
 
-Die Partitionstabelle sieht zwei je 1,875 MiB große Anwendungsslots vor,
-OTA-Updates sind in diesem Prototyp aber **nicht implementiert**. Updates erfolgen
-per USB. Webinterface und Skripte sind direkt in der Firmware; kein separater
-Dateisystem-Upload und keine externen Webdienste nötig.
+`COM5` durch deinen Port ersetzen. Für ein manuelles **einstellungserhaltendes**
+Update aus dem ZIP (esptool 4.5.1):
 
-Hosttests und Browserprüfung:
+```sh
+python -m esptool --chip esp32 --port COM5 --baud 115200 write_flash \
+  0x1000 lighthouse-bridge-bootloader.bin \
+  0x8000 lighthouse-bridge-partitions.bin \
+  0xe000 lighthouse-bridge-boot-app0.bin \
+  0x10000 lighthouse-bridge-app.bin
+```
+
+`lighthouse-bridge-esp32-merged.bin` an `0x0` überschreibt dagegen NVS und ist
+nur ein Factory-Image. Die zwei Anwendungsslots bleiben für spätere Erweiterungen
+vorhanden; OTA ist noch nicht implementiert. Das gesamte Webinterface steckt in
+der Firmware, kein Dateisystem-Upload nötig.
 
 ```sh
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-test
 /tmp/lh-test
+python tools/package_release.py
+python tools/build_pages.py
+python -m unittest discover -s test -p 'test_pages.py' -v
+node test/serial_info.cjs
 npm install
-# Chromium installieren oder CHROMIUM_PATH setzen:
 npm test
 ```
 
-Der Browsertest verwendet simulierte API-Antworten und erzeugt Screenshots unter
-`docs/`. Er ersetzt keinen Test auf dem Board. Das geprüfte BLE-Protokoll stammt
-aus [Lighthouse PM](https://github.com/jeroen1602/lighthouse_pm/blob/1b1433d124ab3852c4aad62a8265a96a4997d7d0/lighthouse_provider/lighthouse_providers/lib/src/lighthouse_v2/device/lighthouse_v2_device.dart).
-Siehe [Quellen und Bibliotheken](docs/SOURCES.md).
+Für eigene PlatformIO-Verzeichnisse `PLATFORMIO_CORE_DIR` oder `--pio-core-dir`
+beim Paketieren setzen; Chromium über `CHROMIUM_PATH` auswählen. Browserprüfungen
+und USB-Simulation ersetzen keinen Hardwaretest. [WebFlasher-Details](docs/WEBFLASHER.md),
+[Quellen und Bibliotheken](docs/SOURCES.md), [Projektvorgaben](AGENTS.md).

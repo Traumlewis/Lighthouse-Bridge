@@ -36,13 +36,29 @@ def build():
     firmware = output / 'firmware'
     firmware.mkdir(exist_ok=True)
     shutil.copy2(image, firmware / image.name)
+    names = ['bootloader', 'partitions', 'boot-app0', 'app']
+    offsets = [0x1000, 0x8000, 0xe000, 0x10000]
+    parts = []
+    for name, offset in zip(names, offsets):
+        file = ROOT / 'dist' / f'lighthouse-bridge-{name}.bin'
+        if not file.is_file():
+            raise ValueError(f'Missing update segment: {file}')
+        end = offset + ((file.stat().st_size + 4095) // 4096) * 4096
+        if offset < 0xe000 and end > 0x9000:
+            raise ValueError('Update segment would erase NVS')
+        if image.read_bytes()[offset:offset + file.stat().st_size] != file.read_bytes():
+            raise ValueError('Update segment differs from merged firmware')
+        shutil.copy2(file, firmware / file.name)
+        # The installer uses normal browser caching: give each image its own URL.
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+        parts.append({'path': 'firmware/' + file.name + '?sha=' + digest, 'offset': offset})
     shutil.copy2(ROOT / 'dist/SHA256SUMS', firmware / 'SHA256SUMS')
     shutil.copy2(ROOT / 'dist' / f'lighthouse-bridge-v{VERSION}.zip', firmware)
     manifest = {
         'name': 'Lighthouse Bridge', 'version': VERSION,
         'new_install_prompt_erase': True,
         'new_install_improv_wait_time': 0,
-        'builds': [{'chipFamily': 'ESP32', 'parts': [{'path': 'firmware/' + image.name, 'offset': 0}]}],
+        'builds': [{'chipFamily': 'ESP32', 'parts': parts}],
     }
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (output / 'build-info.json').write_text(json.dumps({
@@ -50,7 +66,7 @@ def build():
         'sha256': checksum, 'esp_web_tools': upstream['version'],
     }, indent=2) + '\n')
     (output / '.nojekyll').touch()
-    print(f'GitHub Pages ready: {output}; ESP32 manifest, offset 0; SHA256 {checksum}')
+    print(f'GitHub Pages ready: {output}; four ESP32 segments preserve NVS; SHA256 {checksum}')
 
 
 if __name__ == '__main__':

@@ -57,12 +57,30 @@ struct StationState {
   bool pending = false;
   bool busy = false;
   bool sent = false;
+  bool reading = false;
+  bool reachable = false;
+  uint32_t lastReadAttemptMs = 0;
   uint32_t generation = 0;
   uint32_t lastSentMs = 0;
   uint32_t observedMs = 0;
   int observed = -1;
   char error[96] = {};
 };
+inline bool measuredOn(const StationState& state) {
+  return state.observed == 0x0b || state.observed == 0x01 ||
+         state.observed == 0x08 || state.observed == 0x09;
+}
+inline bool freshMeasurement(const StationState& state, uint32_t now) {
+  return state.reachable && state.observed >= 0 && now - state.observedMs < 60000;
+}
+inline void recordRead(StationState& state, int observed, uint32_t now, const char* error) {
+  state.reading = false;
+  state.lastReadAttemptMs = now;
+  state.reachable = observed >= 0;
+  if (observed >= 0) { state.observed = observed; state.observedMs = now; }
+  std::strncpy(state.error, error ? error : "", sizeof(state.error) - 1);
+  state.error[sizeof(state.error) - 1] = '\0';
+}
 inline void request(StationState& state, Target target) {
   state.requested = target;
   state.hasRequest = true;
@@ -75,6 +93,8 @@ inline void request(StationState& state, Target target) {
 inline void finish(StationState& state, uint32_t generation, bool sent,
                    int observed, uint32_t now, const char* error) {
   state.busy = false;
+  state.lastReadAttemptMs = now;
+  state.reachable = observed >= 0;
   if (observed >= 0) { state.observed = observed; state.observedMs = now; }
   if (generation != state.generation) return;
   state.sent = sent;
