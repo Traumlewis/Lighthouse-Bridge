@@ -32,8 +32,16 @@ status change. Keep current facts, not a conversation log. User instructions win
   retry after 2 seconds, unreachable devices after 30 seconds. One radio means
   queue/connection delays can lengthen intervals. Manual refresh is read-only.
 - Read-only queries use a 6-second connection timeout and up to two attempts,
-  with 500 ms between attempts. Yield to queued commands/reassignments before
-  retrying; command connection timeout stays 3 seconds. Allow 150 ms between jobs.
+  with 350–650 ms between attempts. Yield to queued commands/reassignments before
+  and after retry scanning; command connection timeout stays 3 seconds. Allow
+  150 ms between jobs.
+- BLE code 574 = 0x023e = HCI 0x3e, connection establishment failed. On this
+  error only, scan passively for 2 seconds before the next attempt. Match the
+  assigned MAC, require connectable advertising and use its current address type
+  only for that job. Do not persist changes or accept a device by name alone.
+  If unseen, retry the saved address anyway (a short scan is not proof of absence).
+  Log the actual phase/code/attempt and recovery RSSI/type or lack of advertising.
+  Recovery scans never write power and do not replace the user discovery results.
 - One failed read cycle retains a previously usable measurement, explicitly labeled
   last reading / retrying, without changing its timestamp. Retry after 5 seconds.
   Two consecutive failed cycles, no prior reading, or age >=60 seconds means
@@ -90,7 +98,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.1**. Web updates use exactly four files at offsets:
+- Current release **0.2.2**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -159,8 +167,9 @@ ELF/map symbols are retained as `lighthouse-bridge-debug`. Keep generated `.pio/
 Owner reports **0.1.1 starts and basic operation works**, but settings were lost
 on update and status was not synchronized. The 0.2.0 extensions have passed local
 build/model/browser checks; **the owner reports intermittent BLE connection failures also without another
-controller. Version 0.2.1 adds retries and explicit transient-health handling;
-these changes still require an actual hardware retest**.
+controller. The owner subsequently reports repeated code 574 on all four stations.
+Version 0.2.2 adds scan-assisted recovery and precise phase/attempt diagnostics;
+the radio cause and effectiveness still require an actual hardware retest**.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

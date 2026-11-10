@@ -137,6 +137,39 @@ bool queueTarget(int slot, Target target) {
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
 // block the HTTP/SSDP loop. One connection at a time for all four stations.
+void refreshRetryAddress(StationConfig& config, unsigned slot) {
+  // A failed establishment (HCI 0x3e) needs a new radio opportunity, not a
+  // longer GATT read timeout. Passive scanning avoids extra scan requests.
+  auto* scan = NimBLEDevice::getScan();
+  scan->setActiveScan(false);
+  scan->setInterval(97);
+  scan->setWindow(67);
+  auto results = scan->start(2, false);
+  bool seen = false;
+  for (int i = 0; i < results.getCount(); ++i) {
+    auto device = results.getDevice(i);
+    char mac[18]{};
+    normalizeMac(device.getAddress().toString().c_str(), mac);
+    if (strcmp(mac, config.mac) || !device.isConnectable()) continue;
+    // Use the actual advertised address type for this job, without changing
+    // saved assignments or accepting a different device based on its name.
+    config.addressType = device.getAddressType();
+    Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=%u\n",
+                  slot + 1, device.getRSSI(), config.addressType);
+    seen = true;
+    break;
+  }
+  if (!seen) Serial.printf("Station %u: retry scan: no connectable advertisement within 2 seconds\n", slot + 1);
+  scan->clearResults();
+}
+
+void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt) {
+  Serial.printf("Station %u: %s, BLE code=%d, attempt=%u%s\n", slot + 1,
+                error, code, attempt + 1,
+                code == BLE_HS_HCI_ERR(BLE_ERR_CONN_ESTABLISHMENT)
+                  ? " (HCI 0x3e: connection establishment failed)" : "");
+}
+
 bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError) {
   bleError = 0;
   NimBLEClient* client = NimBLEDevice::createClient();
@@ -264,22 +297,39 @@ void bleWorker(void*) {
             { Lock lock; for (auto& state : states) urgent |= state.pending;
               urgent |= blePaused || states[selected].generation != generation; }
             if (urgent) break;
-            vTaskDelay(pdMS_TO_TICKS(500));
+            // Vary timing so repeated attempts do not stay synchronized with
+            // a recurring Wi-Fi/radio event. Never send power while recovering.
+            vTaskDelay(pdMS_TO_TICKS(350 + esp_random() % 301));
+            if (bleError == BLE_HS_HCI_ERR(BLE_ERR_CONN_ESTABLISHMENT)) {
+              refreshRetryAddress(config, selected);
+            }
+            { Lock lock; for (auto& state : states) urgent |= state.pending;
+              urgent |= blePaused || states[selected].generation != generation; }
+            if (urgent) break;
           }
           error[0] = '\0';
-          if (accessPower(config, nullptr, observed, error, bleError)) break;
+          if (accessPower(config, nullptr, observed, error, bleError)) {
+            if (attempt) Serial.printf("Station %d: read recovered on attempt=%u, observed=%d\n",
+                                       selected + 1, attempt + 1, observed);
+            break;
+          }
+          logBleFailure(selected, error, bleError, attempt);
         }
         {
           Lock lock; finishRead(states[selected], generation, observed, millis(), error, bleError);
         }
-        if (observed < 0) Serial.printf("Station %d: READ_FAILED, BLE code=%d\n", selected + 1, bleError);
       } else {
       for (unsigned attempt = 0; attempt < 3; ++attempt) {
         { Lock lock; if (states[selected].generation != generation) break; }
+        if (attempt && bleError == BLE_HS_HCI_ERR(BLE_ERR_CONN_ESTABLISHMENT)) {
+          refreshRetryAddress(config, selected);
+          { Lock lock; if (states[selected].generation != generation) break; }
+        }
         error[0] = '\0';
         sent = accessPower(config, &target, observed, error, bleError);
         if (sent) break;
-        if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1)));
+        logBleFailure(selected, error, bleError, attempt);
+        if (attempt < 2) vTaskDelay(pdMS_TO_TICKS(600 * (attempt + 1) + esp_random() % 301));
       }
       {
         Lock lock;
@@ -325,7 +375,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.1";
+  doc["version"] = "0.2.2";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -586,7 +636,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.1";
+  doc["protocol"] = 1; doc["version"] = "0.2.2";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -691,7 +741,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.1");
+  Serial.println("\nLighthouse Bridge 0.2.2");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

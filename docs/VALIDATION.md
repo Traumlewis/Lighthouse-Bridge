@@ -1,4 +1,34 @@
-# Validation report — prototype 0.2.1
+# Validation report — prototype 0.2.2
+
+## Connection establishment error 574: 0.2.2
+
+The owner reports repeated numeric code 574 across all four stations, also without
+another controller. NimBLE 1.4.3 defines HCI errors as 0x200 + controller code:
+574 = 0x023e = HCI 0x3e, `BLE_ERR_CONN_ESTABLISHMENT`. The previous generic
+`READ_FAILED` serial line obscured the operation's actual failing phase. The code
+alone does not prove interference, weak signal, incorrect addressing or a faulty
+board. Increasing a read timeout alone does not resolve this controller error.
+
+Version 0.2.2 keeps the pinned BLE dependency and bounded attempt counts. Before
+retrying this code it performs a two-second passive scan. It matches only the
+assigned MAC, requires connectable advertising and copies the observed address
+type into the current job, never into persistent settings. If the scan misses it,
+the saved address is still retried. Scan results are cleared without replacing
+the user's discovery list. Retry delays vary; read retries check pending commands
+and reassignment both before and after scanning. Serial output records each
+failed operation/attempt/code, and recovery advertising RSSI/type or its absence.
+The observed-state grace, expiry and ON/SLEEP-only rules are unchanged.
+
+The 0.2.2 firmware build, native core tests, seven Python translation/layout/NVS
+checks and browser/USB suites passed locally. Browser tests use mocked HTTP/USB;
+they do not exercise the new radio recovery on hardware.
+
+This is a recovery and diagnostic change, **not a confirmed hardware fix**. The
+next board test should compare failures and recoveries with RSSI and advertising
+visibility. The environment has no attached ESP32 or base stations.
+
+References: [NimBLE return codes](https://github.com/apache/mynewt-nimble/blob/master/docs/ble_hs/ble_hs_return_codes.rst),
+[maintainer advice to retry after rediscovery](https://github.com/h2zero/NimBLE-Arduino/issues/140#issuecomment-769411985).
 
 ## Intermittent BLE failures: 0.2.1
 

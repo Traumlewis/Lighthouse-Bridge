@@ -12,14 +12,21 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.1
+## What's new in 0.2.2
 
-BLE reads get up to two connection attempts with a six-second timeout. A single
-failed read cycle keeps a recent previous measurement explicitly labeled **last
-reading**, then retries after five seconds. Two failed cycles, no previous reading,
-or a reading at least 60 seconds old means unreachable. Failed reads never refresh
-the measurement timestamp. Numeric BLE errors are available in the API and serial
-`READ_FAILED` messages. Effectiveness on the real board still needs confirmation.
+BLE error **574 / 0x023e** means **connection establishment failed** (HCI 0x3e).
+It does not identify a specific interference, range or hardware cause. On this
+error the next attempt first performs a two-second passive scan for the assigned
+MAC and uses its freshly advertised address type for that job. Retry timing varies
+to avoid repeatedly hitting the same radio timing. Saved assignments stay intact.
+Serial diagnostics identify the failed phase, attempt and code, plus the recovery
+scan's RSSI/address type or missing advertisement. No power writes occur in a read
+or recovery scan. Commands still have at most three attempts; reads have two.
+
+The 0.2.1 measurement rules remain: one failed cycle retains a usable previous
+measurement labeled **last reading**, with a five-second retry. Two failed cycles,
+no previous reading, or age of at least 60 seconds means unreachable. Failed reads
+never refresh measurement timestamps. Real-board reliability still needs a retest.
 
 ## Features introduced in 0.2.0
 
