@@ -64,7 +64,9 @@ int main() {
     assert(unique == expected && uniqueIds.insert(unique).second);
     assert(light["state"]["on"].is<bool>() && !light["state"]["on"].as<bool>());
     assert(light["state"]["reachable"].as<bool>());
-    assert(light["name"] == "Station" && light["modelid"] == "HASS321");
+    assert(light["state"]["bri"].is<unsigned>() && light["state"]["bri"].as<unsigned>()==0);
+    assert(light["state"]["mode"]=="homeautomation");
+    assert(light["name"] == "Station" && light["modelid"] == "HASS321" && light["type"] == "On/off light");
   }
   assert(collectionJson.size() == 16);
   assert(!collectionJson.containsKey(std::to_string(hueKey(mac, 5))));
@@ -85,6 +87,25 @@ int main() {
   writeHueLight(discovery.to<JsonObject>(),config,asleep,1101,bridgeMac,"test-version",true);
   assert(discovery["on"].as<bool>() && discovery["reachable"].as<bool>());
   assert(!discovery.containsKey("uniqueid") && asleep.observed==0 && asleep.observedMs==1000);
+  // All three response shapes use the same binary hint and measured health.
+  for (bool stateOnly : {false,true}) for (int raw : {-1,0,1,2,8,9,11}) {
+    StationState measured;recordRead(measured,raw,1000,raw<0?"BLE_READ_FAILED":"");
+    discovery.clear();writeHueLight(discovery.to<JsonObject>(),config,measured,1100,bridgeMac,"test-version",stateOnly);
+    const auto state=stateOnly?discovery.as<JsonObject>():discovery["state"].as<JsonObject>();
+    const bool on=raw==1||raw==8||raw==9||raw==11;
+    assert(state["on"].as<bool>()==on && state["bri"].as<unsigned>()==(on?254U:0U));
+    assert(state["mode"]=="homeautomation" && state["reachable"].as<bool>()==(raw>=0));
+    assert(measured.observed==raw && measured.observedMs==(raw>=0?1000U:0U));
+  }
+  StationState external;recordRead(external,11,1000,"");
+  const auto serializeState=[&](uint32_t now){discovery.clear();writeHueLight(discovery.to<JsonObject>(),config,external,now,bridgeMac,"test-version",true);};
+  serializeState(1100);assert(discovery["on"].as<bool>()&&discovery["bri"].as<unsigned>()==254);
+  recordRead(external,0,1200,"");serializeState(1201);
+  assert(!discovery["on"].as<bool>()&&discovery["bri"].as<unsigned>()==0&&discovery["reachable"].as<bool>());
+  recordRead(external,11,1300,"");request(external,Target::Sleep,1400);serializeState(1401);
+  assert(!discovery["on"].as<bool>()&&discovery["bri"].as<unsigned>()==0&&external.observed==11);
+  serializeState(31400);assert(discovery["on"].as<bool>()&&discovery["bri"].as<unsigned>()==254);
+  serializeState(61300);assert(!discovery["reachable"].as<bool>()&&external.observedMs==1300);
   assert(!parseHueLightRoute("/api/status", mac).matched);
   assert(!parseHueLightRoute("/api/test-user/config", mac).matched);
   assert(parseHueLightRoute("/api//lights", mac).matched);
@@ -124,6 +145,7 @@ int main() {
   for (auto body : {"{\"on\":1}", "{\"on\":\"true\"}", "{\"on\":null}"})
     errorIs(handleHueWrite(route, body, enqueue), 7);
   errorIs(handleHueWrite(route, "{\"unrelated\":true}", enqueue), 6);
+  errorIs(handleHueWrite(route, "{\"bri\":254}", enqueue), 6); // Read hint cannot request physical dimming.
   errorIs(handleHueWrite(route, std::string(513, ' ').c_str(), enqueue), 2);
   errorIs(handleHueWrite(route, "{\"a\":0,\"b\":0,\"c\":0,\"d\":0,\"e\":0,\"f\":0,\"g\":0,\"h\":0,\"on\":true}", enqueue), 2);
   assert(queued == before); // No command on malformed values or unrelated true.

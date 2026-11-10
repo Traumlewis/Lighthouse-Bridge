@@ -162,6 +162,16 @@ status change. Keep current facts, not a conversation log. User instructions win
   GET source=accepted_target or source=measurement identifies the selected Hue
   view (collections report whether any accepted target contributed). PUT handler_ms
   measures the handler only, not network/end-to-end latency.
+- Since 0.3.8 Hue GET includes read-only `bri` 0/254 mirroring the returned `on`,
+  plus `mode:homeautomation`. This is an experimental compatibility hint, not
+  physical brightness or a dimming capability. Preserve On/off light / HASS321,
+  all identities and boolean-only power PUT semantics. Reachability/timestamps
+  remain measured. The hint shares `on`'s accepted-target window exactly.
+- Owner's 0.3.7 sample proves fresh GET with on=false/reachable=true can still
+  leave the Alexa app showing ON. Do not claim missing polling/push or caching is
+  the established cause; full JSON was valid. Additional fields are a hypothesis,
+  not a verified app fix. No physical Echo/ESP32 is attached to this environment.
+  Never commit the raw response, which contains the owner's hardware MAC.
 - **Local Hue emulation cannot push status into the Alexa app.** Alexa controls
   its own polling/cache. Do not promise immediate app-state synchronization.
 - Keep Wi-Fi modem sleep enabled (`WIFI_PS_MIN_MODEM`) before BLE starts and
@@ -255,7 +265,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.7**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.8**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

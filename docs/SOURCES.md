@@ -43,3 +43,14 @@ Hue write response format: [deCONZ light-state API](https://dresden-elektronik.g
 with per-property success entries such as `/lights/<id>/state/on`. The prior
 fallback is visible in the pinned
 [Espalexa handler](https://github.com/Aircoookie/Espalexa/blob/40bf53a0c2e73c25d66da9a66a70307f1d304314/src/Espalexa.h).
+
+## Alexa app state compatibility investigation
+
+The owner's 0.3.7 device returns measured OFF in valid Hue JSON even while the
+app displays ON after a fresh GET. Related community observations appear in
+[Espalexa issue 90](https://github.com/Aircoookie/Espalexa/issues/90) (external
+state changes and app display) and [Home Assistant issue 30013](https://github.com/home-assistant/core/issues/30013)
+(Hue on/off profile compatibility, mostly discovery reports). These are historical
+reports, not proof of the current cause or of a successful fix. The additional
+binary bri/mode fields in 0.3.8 are an experiment; the device remains an On/off
+light and does not accept dimming commands. Actual Alexa behavior requires testing.

@@ -61,7 +61,12 @@ inline std::string hueUniqueId(const char* bridgeMac, uint32_t stationId) {
 inline void writeHueLight(JsonObject light, const StationConfig& config, const StationState& measured,
                           uint32_t now, const char* bridgeMac, const char* version, bool stateOnly) {
   JsonObject state = stateOnly ? light : light.createNestedObject("state");
-  state["on"] = hueOn(measured, now);
+  const bool on = hueOn(measured, now);
+  state["on"] = on;
+  // Binary read-only compatibility hint for clients which also inspect bri.
+  // This is not a measured brightness or an advertised dimming capability.
+  state["bri"] = on ? 254 : 0;
+  state["mode"] = "homeautomation";
   state["reachable"] = freshMeasurement(measured, now);
   state["alert"] = "none";
   if (!stateOnly) {

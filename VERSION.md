@@ -1,7 +1,23 @@
 # Version history
 
-Release notes are listed newest first. Current firmware: **0.3.7**.
+Release notes are listed newest first. Current firmware: **0.3.8**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
+
+## Version 0.3.8
+
+Alexa status compatibility experiment: Hue GET responses now include
+`mode:"homeautomation"` and a read-only binary `bri` hint (0 for the returned
+OFF state, 254 for ON/Starting). The hint follows the same bounded accepted-target
+view as Hue `on`, then measurements again. It never modifies measurements,
+reachability, timestamps or BLE commands. Station IDs, Alexa keys/unique IDs,
+`On/off light` type and HASS321 model remain unchanged. Brightness-only writes
+remain unsupported; this does not implement physical dimming.
+
+The owner supplied 0.3.7 responses with `on:false` and `reachable:true` while the
+Alexa app still showed ON, despite a fresh Hue GET. That rules out missing polling
+in that sample but does not establish why the app ignores the update. These extra
+fields are a targeted compatibility test, not a confirmed fix. Actual app behavior
+needs an owner retest after updating. GET diagnostics now log the returned `bri`.
 
 ## Version 0.3.7
 

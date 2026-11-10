@@ -1,4 +1,27 @@
-# Validation report — 0.3.7
+# Validation report — 0.3.8
+
+## Version 0.3.8 experimental Hue state hints
+
+The owner reports switching via Alexa works, but switching OFF through the web
+interface leaves the app showing ON. The later log explicitly contains a fresh
+Hue GET for station 1 with on=false/reachable=true/pending=false/source=measurement.
+A full 0.3.7 collection response contains all four stations with false/true and
+valid On/off light/HASS321 metadata. This rules out absent polling in this sample;
+it does not prove a cache-only cause or a defect in the app. Raw responses/logs
+contain hardware identifiers and are not committed.
+
+Version 0.3.8 adds read-only binary bri=0/254 and mode=homeautomation to all Hue GET
+shapes as a compatibility experiment. Device type/model/identities, PUT semantics,
+local API/measurement data and BLE behavior remain unchanged. The hint always
+matches Hue on, including the existing bounded accepted-target window; it is not
+physical brightness. No app synchronization fix is claimed without hardware testing.
+
+Native serializer checks cover SLEEP/ON/Starting/STANDBY/unknown states, collection
+and individual/state-only shapes, external ON-to-SLEEP readbacks, accepted-target
+expiry, stale reachability and unchanged measurements/timestamps. Existing schema,
+identity and ON/SLEEP ACK checks remain. Brightness-only writes are rejected.
+Build/package/NVS checks apply. Owner retest must check the app after a web SLEEP
+and a new GET, with bri=0/on=false; no Echo or ESP32 is attached here.
 
 ## Version 0.3.7 fixed reusable station slots
 

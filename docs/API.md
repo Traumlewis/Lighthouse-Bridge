@@ -1,4 +1,4 @@
-# Local API — 0.3.7
+# Local API — 0.3.8
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -257,6 +257,15 @@ Use Alexa groups or the local API `station:"all"` for collective control.
 Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
 There is no state push into the Alexa app: Alexa decides when to query again.
 
+Since 0.3.8 all Hue GET shapes (collection, light and `/state`) also contain
+`bri:0` when the returned `on` is false, otherwise `bri:254`, and
+`mode:"homeautomation"`. This read-only binary compatibility hint is not a
+physical brightness measurement; ON/Starting share 254. It follows exactly the
+same measured/temporarily accepted-target view as `on`, never altering observed
+state, measurement age or reachability. Type remains `On/off light` / HASS321.
+Brightness-only PUTs remain unsupported and cannot send power writes. This is an
+experimental client compatibility change; Alexa app synchronization is unverified.
+
 ### Hue light writes
 
 `PUT /api/<username>/lights/<id>/state`, body `{"on":true}` or `{"on":false}`,
@@ -296,7 +305,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.7","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.8","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.
