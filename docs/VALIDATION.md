@@ -1,5 +1,25 @@
 # Validation report — prototype 0.2.3
 
+## Owner log from 0.2.3: advertising visible, connections still intermittent
+
+The supplied log covers approximately 13:53–13:56. All 23 recovery scans found
+connectable ADV_IND (legacy report type 0) from the assigned station, always with
+random address type 1. Reported RSSI spans -60 to -76 dBm. There are 29 failed
+connection attempts and 12 recovered reads. The log records ON and SLEEP writes
+reported sent for all four stations, with measured raw 0 (SLEEP), 1 (starting)
+and 11 (ON) appearing in recovered reads. A sent write alone is not a confirmed
+measured state. First-attempt successes are not logged, so this excerpt cannot
+be used to calculate an overall failure rate.
+
+This confirms that the corrected filter sees the stations; the earlier negative
+scan diagnosis was misleading. It does not establish an RF, timing or board
+cause. A specific configuration check is now pending: compare the saved address
+types with the observed type 1. The worker copies the scan's type only into the
+current job; a wrong saved type would be reused by the next first attempt.
+Checking or correcting the four dropdowns uses the existing dashboard and does
+not require a firmware update. The log does not contain the saved types, so a
+mismatch is a hypothesis until the owner checks them.
+
 ## Legacy recovery scan correction: 0.2.3
 
 The owner's 0.2.2 log confirms intermittent successful reads with `observed=0`

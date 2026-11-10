@@ -182,6 +182,13 @@ Version 0.2.3 fixes
 the proven legacy scan-filter bug and adds regression coverage. This does not
 prove the source of the ongoing 574 connection failures or resolve them on
 hardware; use corrected advertising/RSSI evidence for the next diagnosis**.
+The owner's 0.2.3 log shows all 23 recovery scans finding connectable legacy
+ADV_IND (0), always address_type=1, RSSI -60..-76 dBm, but ongoing code 574.
+It includes recovered raw SLEEP/starting/ON reads and sent ON/SLEEP writes for
+all four stations. First-attempt successes are not logged: do not infer an
+overall failure rate. A check of saved address types is pending; job-local scan
+correction is discarded between jobs, so a saved type 0 would recur. Do not
+claim that mismatch is confirmed from a log containing only advertised types.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force
