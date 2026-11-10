@@ -37,6 +37,10 @@ jobs:
           /tmp/lighthouse-test
       - name: Build ESP32 firmware
         run: pio run
+      - name: Check Hue write acknowledgements
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_hue.cpp -o /tmp/lighthouse-hue-test
+          /tmp/lighthouse-hue-test
       - name: Package flash image and source
         run: python tools/package_release.py
       - name: Build WebFlasher site

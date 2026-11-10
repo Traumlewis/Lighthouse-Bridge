@@ -12,7 +12,22 @@ off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 Repository documentation is maintained in **English**. Both the public installer
 and the device dashboard default to English and offer German as a second language.
 
-## What's new in 0.2.4
+## What's new in 0.2.5
+
+Correct Hue write acknowledgements sent to Alexa. The previous Espalexa fallback
+always returned a generic light-1 response. The bridge now validates the actual
+light ID and boolean `on` value, queues work immediately and acknowledges
+`/lights/<actual-id>/state/on` with the requested `true` or `false` value.
+Individual and group commands retain their existing IDs and names. Invalid
+requests cannot trigger power; unsupported properties receive Hue errors.
+
+Measured GET states remain separate from accepted targets. Serial Hue PUT/GET
+traces now show acceptance, reported reachability and pending work without logging
+request credentials. This helps distinguish protocol errors from real BLE failures.
+The owner reports 0.2.4 improved switching, but occasional failures remain. The
+ACK correction and its effect on Alexa's spoken warning still need an Echo retest.
+
+## BLE recovery improved in 0.2.4
 
 Upgrade the BLE host from NimBLE 1.4.3 to pinned **2.5.2**, which includes
 connection-establishment recovery for HCI 0x3e. Limit it explicitly to one

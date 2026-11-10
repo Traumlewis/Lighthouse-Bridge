@@ -23,7 +23,9 @@ License/notice files shipped with the compiled dependencies are included in the
 firmware ZIP under `third-party-licenses/`. Refer to the respective source
 packages for additional notices; this table does not replace those notices.
 
-The Alexa implementation uses the unmodified Espalexa library. Its stated Echo
+The Alexa implementation uses unmodified Espalexa for discovery, bridge metadata
+and username registration. The bridge handles measured light GETs and validated
+light PUTs itself, with tested per-ID acknowledgements. Its stated Echo
 compatibility is a project goal, not evidence of testing with an Echo Dot 5
 running current firmware.
 
@@ -33,3 +35,8 @@ with the [2.5.2 fixes](https://github.com/h2zero/NimBLE-Arduino/releases/tag/2.5
 The maintainer also recommends connection retries for persistent 0x3e failures
 in [issue 1180](https://github.com/h2zero/NimBLE-Arduino/issues/1180).
 This is a software recovery mechanism, not proof of a particular physical cause.
+
+Hue write response format: [deCONZ light-state API](https://dresden-elektronik.github.io/deconz-rest-doc/endpoints/lights/#set-light-state),
+with per-property success entries such as `/lights/<id>/state/on`. The prior
+fallback is visible in the pinned
+[Espalexa handler](https://github.com/Aircoookie/Espalexa/blob/40bf53a0c2e73c25d66da9a66a70307f1d304314/src/Espalexa.h).

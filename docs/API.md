@@ -1,4 +1,4 @@
-# Local API — 0.2.4
+# Local API — 0.2.5
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -125,13 +125,42 @@ assigned slots to be active; group reachability requires usable readings for all
 Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
 There is no state push into the Alexa app: Alexa decides when to query again.
 
+### Hue light writes
+
+`PUT /api/<username>/lights/<id>/state`, body `{"on":true}` or `{"on":false}`,
+uses the encoded ID returned by GET, including the existing virtual group ID.
+The HTTP handler validates and queues without waiting for BLE. Its HTTP 200
+response has the Hue shape (replace `<id>` with the actual requested ID):
+
+```json
+[{"success":{"/lights/<id>/state/on":false}}]
+```
+
+`false` acknowledges an accepted SLEEP target; `true` acknowledges ON. This is
+queue acceptance, not a measured result. Read GET/status afterward for measurements;
+no optimistic state or forced reachability is inserted. The old generic
+`/lights/1/state/` response is no longer used for light state writes.
+
+Malformed JSON, non-boolean `on`, unavailable IDs and unsupported methods return
+Hue error arrays, without enqueuing invalid commands. Unsupported properties get
+error type 6; a valid `on` in the same body can still succeed independently.
+Brightness/color/transition operations are not implemented. Bodies are limited
+to 512 bytes/eight properties. Existing API-key/web-session endpoint rules remain.
+
+USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
+`Hue GET` (measured on/reachable, pending work; collection configured/fresh counts).
+`station=0` means the virtual group, 1–4 the individual slots. These diagnostics
+omit usernames, raw request paths/bodies and credentials. Handler time excludes
+network transfer/request parsing before dispatch. A correct ACK cannot guarantee
+that Alexa will not warn about a later unavailable or unchanged measurement.
+
 ## USB information protocol
 
 Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.4","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.5","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

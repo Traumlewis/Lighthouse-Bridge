@@ -82,6 +82,24 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Espalexa exposes four lights plus **`VR Basisstationen`**. Preserve existing
   light IDs and that group name. Group ON/reachable requires all assigned stations
   active/fresh. Hue GET responses include measured `on` and `reachable`.
+- `include/hue_api.h` owns shared Hue light-route parsing and write response
+  generation, tested against the same ArduinoJson dependency on the host. Strict
+  `PUT /api/<username>/lights/<actual-id>/state` parses boolean `on` only and
+  queues ON/SLEEP immediately. Success is HTTP 200 with
+  `[{"success":{"/lights/<actual-id>/state/on":true|false}}]`, with the accepted
+  target value. Never fall back to Espalexa's hard-coded light-1 ACK for these
+  routes. Errors use Hue error arrays; malformed IDs/JSON/values never enqueue.
+  Unsupported properties receive error 6 without triggering power by themselves;
+  valid `on` can be accepted independently. Bound bodies to 512 bytes/8 properties.
+- PUT acceptance does not imply the later BLE operation succeeded. Keep GET
+  measurements/reachability unchanged, including pending commands and failures.
+  Do not suppress Alexa warnings by fabricating ON or forcing reachable=true.
+  Preserve encoded IDs, names and group membership; Espalexa still handles SSDP,
+  description and username registration, not light PUTs or measured light GETs.
+- Serial `Hue PUT` / `Hue GET` diagnostics include station (0=group), target or
+  measured value, acceptance/reachability and pending work. Collection GETs log
+  configured/fresh counts. Log no usernames, raw URLs, bodies or access keys.
+  PUT handler_ms measures the handler only, not network/end-to-end latency.
 - **Local Hue emulation cannot push status into the Alexa app.** Alexa controls
   its own polling/cache. Do not promise immediate app-state synchronization.
 - Keep Wi-Fi modem sleep enabled (`WIFI_PS_MIN_MODEM`) before BLE starts and
@@ -124,7 +142,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.2.4**. Web updates use exactly four files at offsets:
+- Current release **0.2.5**. Web updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -171,6 +189,8 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ```sh
 pio run
+g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_hue.cpp -o /tmp/lh-hue-test
+/tmp/lh-hue-test
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-test
 /tmp/lh-test
 python tools/package_release.py
@@ -190,27 +210,21 @@ CI builds firmware and runs native, Python asset/NVS and Node USB/layout tests;
 ELF/map symbols are retained as `lighthouse-bridge-debug`. Keep generated `.pio/`,
 `dist/`, `_site/` and `node_modules/` out of Git.
 
-Owner reports **0.1.1 starts and basic operation works**, but settings were lost
-on update and status was not synchronized. The 0.2.0 extensions have passed local
-build/model/browser checks; **the owner reports intermittent BLE connection failures also without another
-controller. The owner subsequently reports repeated code 574 on all four stations.
-The 0.2.2 board log confirms some successful SLEEP reads (raw 0), but repeated
-574 failures and misleading negative recovery scan messages. The owner reports
-about 1.60 m distance, with failures both ON (green LED) and SLEEP (blue LED).
-Version 0.2.3 fixes
-the proven legacy scan-filter bug and adds regression coverage. This does not
-prove the source of the ongoing 574 connection failures or resolve them on
-hardware; use corrected advertising/RSSI evidence for the next diagnosis**.
-The owner's 0.2.3 log shows all 23 recovery scans finding connectable legacy
-ADV_IND (0), always address_type=1, RSSI -60..-76 dBm, but ongoing code 574.
-It includes recovered raw SLEEP/starting/ON reads and sent ON/SLEEP writes for
-all four stations. First-attempt successes are not logged: do not infer an
-overall failure rate. The owner confirms all saved address types were already 1. Testing Public (0)
-caused timeout code 13, so keep Random (1); a saved-type mismatch does not explain
-these failures. A later 0.2.3 log again finds connectable type-1 advertisements,
-RSSI -55..-85 dBm, successful SLEEP reads and persistent 574 failures. Version
-0.2.4 upgrades the BLE host for upstream establishment recovery and clarifies
-UI read/age states; effectiveness still needs a real-board retest.
+Owner confirms 0.1.1 startup/basic operation; the merged-image NVS overwrite
+was corrected in 0.2.0. Persistent 574 failures also occur without another
+controller, both ON/SLEEP, at about 1.60 m. Saved Random (1) types were already
+correct; Public (0) produced timeout 13. The 0.2.3 scan bug was reproduced and
+fixed, but visibility did not imply a successful BLE connection.
+The owner reports 0.2.4 is more reliable for reads and group switching, but still
+not perfect, and Alexa announces a problem even when switching works. The log
+has 69 successful read jobs, 38 failed worker attempts (reads and commands),
+24 sent command reports and one failed SLEEP command for station 4; it remained
+ON in later reads until another command. These are log counts, not a controlled
+failure-rate comparison. The log contains device credentials: never commit it.
+Version 0.2.5 fixes the proven generic/wrong Hue ACK shape and adds HTTP traces;
+Alexa's actual warning cause/effectiveness and remaining BLE reliability still
+need an Echo/board retest. Do not present ACK correction as a confirmed fix for
+every spoken warning or hide genuine failed commands.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force

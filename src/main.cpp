@@ -9,6 +9,7 @@
 #include <WiFiManager.h>
 #include <esp_wifi.h>
 #include "bridge_core.h"
+#include "hue_api.h"
 #include "web_ui.h"
 #include "password_hash.h"
 
@@ -410,7 +411,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.2.4";
+  doc["version"] = "0.2.5";
   doc["poll_interval_ms"] = 15000;
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
@@ -462,39 +463,48 @@ void statusRoute() {
   sendJson(200, doc);
 }
 
-// Hue has no local push-status channel. Answer Alexa's GETs from the exact
-// same measured BLE state used by /api/status, including reachability.
-bool serveHueMeasurements(const String& uri) {
-  if (server.method() != HTTP_GET) return false;
-  const int position = uri.indexOf("/lights", 5);
-  if (position < 0) return false;
-  String tail = uri.substring(position + 7);
-  const bool stateOnly = tail.endsWith("/state");
-  if (stateOnly) tail.remove(tail.length() - 6);
-  if (tail.startsWith("/")) tail.remove(0, 1);
+// The Hue write acknowledgement means queued; GETs retain measured state.
+// Espalexa still owns SSDP, description and username registration.
+bool serveHueLights(const String& uri) {
+  const uint32_t started = millis();
   String mac = WiFi.macAddress(), suffix = mac; suffix.replace(":", "");
   const uint32_t mac24 = strtoul(suffix.substring(6).c_str(), nullptr, 16);
-  int selected = -1;
-  if (tail.length()) {
-    char* end = nullptr;
-    const long key = strtol(tail.c_str(), &end, 10);
-    if (!end || *end || (static_cast<uint32_t>(key) >> 7) != mac24 ||
-        (static_cast<uint32_t>(key) & 127) > kStations) {
-      StaticJsonDocument<32> empty; empty.to<JsonObject>(); sendJson(200, empty); return true;
-    }
-    selected = static_cast<uint32_t>(key) & 127;
+  const auto route = parseHueLightRoute(uri.c_str(), mac24);
+  if (!route.matched) return false;
+  if (server.method() == HTTP_PUT) {
+    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueTarget);
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", reply.json.c_str());
+    Serial.printf("Hue PUT: station=%d (0=group), on=%s, queued=%s, unsupported=%u, handler_ms=%u\n",
+                  route.slot == static_cast<int>(kStations) ? 0 : route.slot + 1,
+                  reply.on ? "true" : "false", reply.accepted ? "true" : "false", reply.unsupported,
+                  millis() - started);
+    return true;
   }
+  if (server.method() != HTTP_GET || !route.valid) {
+    const auto error = hueError(route.valid ? 4 : 3, "/lights",
+                               route.valid ? "method not available" : "resource not available");
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", error.c_str());
+    return true;
+  }
+  const int selected = route.slot;
+  const bool stateOnly = route.stateOnly;
+  unsigned configured = 0, fresh = 0;
+  bool traceOn = false, traceReachable = false, tracePending = false;
   DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();
   {
     Lock lock;
+    const uint32_t now = millis();
     bool any = false, allOn = true, allReachable = true;
     for (unsigned i = 0; i < kStations; ++i) {
       if (!configs[i].mac[0]) continue;
-      any = true; allOn &= measuredOn(states[i]);
-      allReachable &= freshMeasurement(states[i], millis());
+      any = true; ++configured; allOn &= measuredOn(states[i]);
+      allReachable &= freshMeasurement(states[i], now);
+      if (freshMeasurement(states[i], now)) ++fresh;
       if (!states[i].reading && !states[i].busy &&
-          millis() - states[i].lastReadAttemptMs >= readInterval(states[i])) refreshRequested[i] = true;
+          now - states[i].lastReadAttemptMs >= readInterval(states[i])) refreshRequested[i] = true;
     }
     for (unsigned i = 0; i <= kStations; ++i) {
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
@@ -502,18 +512,28 @@ bool serveHueMeasurements(const String& uri) {
       JsonObject light = selected < 0 ? root.createNestedObject(String(key)) : root;
       JsonObject state = stateOnly ? light : light.createNestedObject("state");
       state["on"] = i < kStations ? measuredOn(states[i]) : any && allOn;
-      state["reachable"] = i < kStations ? configs[i].mac[0] && freshMeasurement(states[i], millis()) : any && allReachable;
+      state["reachable"] = i < kStations ? configs[i].mac[0] && freshMeasurement(states[i], now) : any && allReachable;
+      traceOn = state["on"].as<bool>();
+      traceReachable = state["reachable"].as<bool>();
+      tracePending = i < kStations ? states[i].pending || states[i].busy : false;
+      if (i == kStations) for (auto& item : states) tracePending |= item.pending || item.busy;
       state["alert"] = "none";
       if (!stateOnly) {
         char unique[32]; snprintf(unique, sizeof(unique), "%s-%02X-00:11", mac.c_str(), i + 1);
         light["type"] = "On/off light";
         light["name"] = i < kStations ? configs[i].name : "VR Basisstationen";
         light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
-        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.0";
+        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.2.5";
       }
     }
   }
-  sendJson(200, doc); return true;
+  sendJson(200, doc);
+  if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, group_on=%s, pending=%s\n",
+                                 configured, fresh, traceOn ? "true" : "false", tracePending ? "true" : "false");
+  else Serial.printf("Hue GET: station=%d (0=group), on=%s, reachable=%s, pending=%s\n",
+                     selected == static_cast<int>(kStations) ? 0 : selected + 1,
+                     traceOn ? "true" : "false", traceReachable ? "true" : "false", tracePending ? "true" : "false");
+  return true;
 }
 
 void configureRoutes() {
@@ -654,8 +674,12 @@ void configureRoutes() {
     // Hue also uses /api/<username>/lights. Do not intercept it as our API.
     if (uri == "/api" || uri.startsWith("/api/")) {
       if (server.header("Origin").length()) { fail(403, "ORIGIN_DENIED"); return; }
-      if (serveHueMeasurements(uri)) return;
-      if (alexa.handleAlexaApiCall(uri, server.arg("plain"))) return;
+      if (serveHueLights(uri)) return;
+      // Only username registration may reach the vendor's write parser.
+      // Its substring matching must never bypass strict light validation.
+      if (uri == "/api" && server.method() == HTTP_POST &&
+          alexa.handleAlexaApiCall(uri, server.arg("plain"))) return;
+      if (server.method() == HTTP_GET && alexa.handleAlexaApiCall(uri, "")) return;
     }
     fail(404, "NOT_FOUND");
   });
@@ -673,7 +697,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.2.4";
+  doc["protocol"] = 1; doc["version"] = "0.2.5";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -781,7 +805,7 @@ void setup() {
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.2.4");
+  Serial.println("\nLighthouse Bridge 0.2.5");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

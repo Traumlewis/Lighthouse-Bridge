@@ -1,4 +1,47 @@
-# Validation report — prototype 0.2.4
+# Validation report — prototype 0.2.5
+
+## Owner improvement report and Alexa ACK correction: 0.2.5
+
+The owner reports that 0.2.4 improves reliability, including switching all four
+stations, but intermittent failures remain. Alexa sends the commands and the
+stations switch, yet Alexa announces a problem. The supplied 0.2.4 log contains
+69 successful read jobs, 38 failed worker attempts across reads/commands and
+24 sent command reports. One SLEEP job for station 4 explicitly fails after all
+three worker attempts; subsequent reads still show ON until a later command.
+Thus the excerpt also contains a genuine failed operation. These are log counts,
+not a controlled before/after reliability comparison. Raw logs with personal
+credentials are not stored in the repository.
+
+Inspection of the pinned Espalexa fallback shows a concrete protocol defect:
+every state write is acknowledged as `{"/lights/1/state/":true}`, regardless
+of the actual light ID or requested ON/OFF value. Version 0.2.5 intercepts light
+PUTs and returns `{"/lights/<actual-id>/state/on":true|false}` in a Hue success
+array, after validating and queuing the accepted target. The HTTP handler never
+waits for BLE and never changes measured state. Resource parsing and JSON response
+generation live in `include/hue_api.h` and are tested directly on the host with
+the pinned ArduinoJson dependency. Other Espalexa discovery/registration behavior
+and all existing IDs/names remain unchanged.
+
+Native tests cover all four station IDs and the group, both boolean targets,
+collection routes, a maximum bridge identity, malformed/foreign/overflow IDs,
+invalid/non-object/oversized JSON, wrong value types, empty/overlarge property
+sets, unsupported properties including unrelated true values, unconfigured
+stations and separation of accepted targets from measured state. CI runs the
+same test after installing the firmware dependencies. Invalid power requests
+never enqueue; valid `on` can succeed alongside a per-property unsupported error.
+
+Serial PUT/GET traces show target acceptance and handler duration, cached measured
+on/reachability and pending work, without request paths, usernames or bodies.
+This allows a later Echo test to distinguish an accepted command from a stale,
+unavailable or not-yet-changed reading. **The wrong ACK is proven in source; its
+role in the owner's spoken Alexa warning is still a hypothesis.** GET reachability
+is deliberately not forced true; genuine BLE failures remain visible. A real
+Echo/board retest is required before claiming the warning is resolved.
+
+The 0.2.5 firmware build and native core/Hue suites passed locally, as did the
+seven Python asset/translation/NVS checks and Node USB/layout checks. The new
+Hue tests exercise production parsing/ACK code with a host command queue; they
+do not emulate an Echo's spoken-error policy or real HTTP/radio timings.
 
 ## BLE host upgrade and clearer read phases: 0.2.4
 
@@ -42,8 +85,10 @@ regressions cover queued versus active reads in English/German, recent unavailab
 versus expired measurements, and explicit last-measurement age labels. These are
 mocked HTTP/USB checks, not measurements of BLE recovery on a board.
 
-**Hardware effectiveness is unconfirmed.** The upgrade exercises an upstream
-recovery path for this error; it does not establish the cause or guarantee a fix.
+The owner subsequently reports improved switching/read reliability (see the
+0.2.5 evidence above), with remaining failures. The upgrade exercises an upstream
+recovery path; the physical cause and complete hardware reliability remain
+unconfirmed.
 
 ## Owner log from 0.2.3: advertising visible, connections still intermittent
 
