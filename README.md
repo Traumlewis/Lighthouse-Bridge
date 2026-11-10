@@ -16,6 +16,15 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.5
+
+Restore the quiet normal view: detailed errors, read phases, measurement ages and
+last-command history appear only in Debug. Current measured state, unavailability
+and queued/sending power commands remain visible. Triple-click the version to
+toggle as before. Cards reserve a fixed status area and the footer reserves its
+Debug indicator space, so toggling does not move the design. Long diagnostics
+scroll inside the card rather than stretching it. BLE/API behavior is unchanged.
+
 ## Version 0.3.4
 
 The debug toggle now hides only per-station BLE error/retry messages and orange

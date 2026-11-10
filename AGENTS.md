@@ -194,12 +194,15 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Dashboard debug details
 
-- Only warning diagnostics are behind debug: hide the per-station BLE error/retry
-  message and orange warning styling while off. Regular read/queued phases,
-  last-command history, measurement ages and last-reading suffix stay visible in
-  both modes. Unavailability/staleness remains visible as ordinary status text.
-  The owner clarified this after 0.3.3 hid too much. Do not suppress normal status
-  details or fabricate fresh measurements.
+- Normal view hides detailed read/retry errors, background-read phases, measurement
+  ages, last-reading suffix and last-command history. Preserve measured badges,
+  unavailable/first-read status and queued/sending power targets. Owner reverted
+  the warning-only 0.3.4 behavior, with an explicit requirement for no layout jumps.
+- Reserve a fixed four-line status area in every card even when text is empty.
+  Long debug text scrolls inside it (keyboard focus available in debug). Keep badge
+  height fixed and reserve the footer indicator's space using visibility rather
+  than display:none. Toggling must not move cards, buttons or footer on EN/DE
+  desktop/mobile layouts. Do not fabricate fresh measurements.
 - Three version-button activations within 1200 ms toggle debug; another triple
   disables it. Keep native keyboard support and EN/DE indicator/accessible labels.
   Single/double/slow unrelated clicks must not toggle it. No network mutations.
@@ -240,7 +243,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.4**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.5**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

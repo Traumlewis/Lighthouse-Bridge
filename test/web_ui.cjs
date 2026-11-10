@@ -96,11 +96,13 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('state-1').textContent==='SLEEP');
   const before=commands.length;await page.locator('#refresh').click();assert.equal(commands.length,before);assert.ok(refreshes>=2);
   Object.assign(stations[1],{observed:'on',observed_raw:11,observed_ms:88000,reachable:true,read_failures:1,error:'BLE_READ_FAILED'});
-  await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON · letzte Messung');
+  await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON');
   assert.equal(await page.locator('#debug-indicator').isHidden(),true);
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/Wiederholung|nicht gelesen/);
-  assert.match(await page.locator('#status-2').textContent(),/Letzte erfolgreiche Messung/);
+  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Letzte erfolgreiche Messung/);
   assert.equal(await page.locator('#status-2').evaluate(node=>node.classList.contains('warning')),false);
+  const layout=()=>page.evaluate(()=>[...document.querySelectorAll('#stations article,#stations .actions,#stations .status,footer,#version-toggle')].map(node=>{const r=node.getBoundingClientRect();return [node.id||node.className,...[r.left+scrollX,r.top+scrollY,r.width,r.height].map(n=>Math.round(n*100)/100)];}));
+  const layoutBefore=await layout();
   const commandCount=commands.length,refreshCount=refreshes;
   await page.locator('#version-toggle').click();assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false');
   await page.waitForTimeout(1300); // Expired first click must not contribute.
@@ -109,6 +111,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#version-toggle').click();
   assert.equal(await page.locator('#debug-indicator').textContent(),'Debug aktiviert');
   assert.equal(await page.locator('#debug-indicator').isVisible(),true);
+  assert.deepEqual(await layout(),layoutBefore,'desktop cards/actions/footer do not move when enabling debug');
   assert.equal(commands.length,commandCount);assert.equal(refreshes,refreshCount,'debug toggle does not send refresh writes');
   await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON · letzte Messung');
   assert.match(await page.locator('#status-2').textContent(),/Wiederholung/);
@@ -119,7 +122,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/veraltet/,'recent failed readings are unavailable, not expired');
   await page.locator('#version-toggle').click({clickCount:3});
-  assert.match(await page.locator('#status-2').textContent(),/Letzte erfolgreiche Messung.*nicht erreichbar/);
+  assert.equal(await page.locator('#status-2').textContent(),'nicht erreichbar');
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/nicht gelesen/);
   assert.equal(await page.locator('#status-2').evaluate(node=>node.classList.contains('warning')),false);
   assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
@@ -137,7 +140,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('target state confirmed'));
   assert.equal(await page.locator('#state-4').textContent(),'ON');
   await page.locator('#version-toggle').click({clickCount:3});
-  assert.match(await page.locator('#status-4').textContent(),/Last command: ON.*target state confirmed.*Last successful reading/);
+  assert.doesNotMatch(await page.locator('#status-4').textContent(),/Last command|confirmed|reading/);
   assert.equal(await page.locator('#status-4').evaluate(node=>node.classList.contains('warning')),false);
   assert.equal(await page.locator('#state-4').textContent(),'ON');
   await page.locator('#version-toggle').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.keyboard.press('Enter');
@@ -151,7 +154,6 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   Object.assign(stations[3],{command_sent:false,command_status:'failed'});
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('Befehl konnte nicht gesendet'));
   Object.assign(stations[3],{requested:null,command_status:'none'});
-  await page.locator('#version-toggle').click({clickCount:3});
   Object.assign(stations[2],{reading:true,read_active:false,read_queued:true});
   await page.waitForFunction(()=>document.getElementById('status-3').textContent.includes('Abfrage vorgemerkt'));
   assert.doesNotMatch(await page.locator('#status-3').textContent(),/Lese über Bluetooth/);
@@ -166,13 +168,24 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   assert.equal(await page.locator('#wifi').isEnabled(),true,'background reads must not flicker the Wi-Fi button');
   Object.assign(stations[2],{reading:false,read_active:false,read_queued:false});
   await page.locator('#language').selectOption('en');
-  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Could not read/);
+  assert.match(await page.locator('#status-2').textContent(),/Could not read/);
   assert.match(await page.locator('#status-2').textContent(),/Last successful reading/);
   assert.match(await page.locator('#message').textContent(),/State reads queued/);
   await page.locator('#configuration summary').click();
   await page.screenshot({path:path.join(root,'docs/webinterface-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  Object.assign(stations[1],{read_failures:1,reachable:true,requested:'sleep',command_status:'confirmed',error:'BLE diagnostic '+ 'x'.repeat(80)});
+  await page.waitForFunction(()=>document.getElementById('status-2').textContent.includes('Last command: SLEEP'));
+  const mobileLayout=await layout();
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.deepEqual(await layout(),mobileLayout,'mobile cards/actions/footer do not move when hiding details');
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.deepEqual(await layout(),mobileLayout,'mobile cards/actions/footer do not move when showing details');
+  assert.equal(await page.locator('#status-2').evaluate(node=>node.scrollHeight>node.clientHeight),true,'long diagnostics scroll inside the reserved area');
   await page.locator('#language').selectOption('de');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  const germanMobileLayout=await layout();await page.locator('#version-toggle').click({clickCount:3});
+  assert.deepEqual(await layout(),germanMobileLayout,'German mobile layout stays fixed');
+  await page.locator('#version-toggle').click({clickCount:3});assert.deepEqual(await layout(),germanMobileLayout);
   await page.screenshot({path:path.join(root,'docs/webinterface-mobile.png'),fullPage:true});
   await page.locator('#network-settings summary').click();assert.equal(await page.locator('#api-key').isVisible(),true);
   await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);

@@ -1,4 +1,4 @@
-# Local API — 0.3.4
+# Local API — 0.3.5
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -23,9 +23,10 @@ by the web login. Mutations require `Content-Type: application/json`. CORS is no
   SameSite=Strict and has a 12-hour lifetime; server sessions also have a 12-hour
   inactivity limit. Reboot discards all sessions.
 
-The dashboard hides per-station BLE error/retry messages and orange warning
-highlighting by default. Regular read phases, last-command history, measurement
-ages and unavailable/stale status remain visible. Triple-click its firmware version within 1.2 s
+The dashboard hides detailed errors, background-read phases, last-command history
+and measurement ages by default. Measured badges, unavailable/first-read status
+and queued/sending power commands remain visible. Debug text scrolls within a
+reserved card area; toggling does not change the layout. Triple-click its firmware version within 1.2 s
 to toggle debug details. This only changes browser presentation; all API fields
 and serial diagnostics remain available and BLE behavior is unchanged.
 
@@ -282,7 +283,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.4","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.5","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

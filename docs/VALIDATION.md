@@ -1,4 +1,20 @@
-# Validation report — 0.3.4
+# Validation report — 0.3.5
+
+## Version 0.3.5 quiet view with stable layout
+
+The owner reverted to the quiet 0.3.3-style normal view, asking that Debug not
+shift the design. Card status areas now have a fixed four-line height in both
+modes; long diagnostics scroll internally. Badge height stays fixed, and the
+footer reserves indicator space even while its label is invisible. Debug can be
+scrolled using keyboard focus. Measured state/unavailability and queued/sending
+commands remain visible normally; detailed read phases, errors, history and ages
+require Debug. No underlying BLE/API/Hue behavior changes.
+
+Browser checks compare document-space card, status-area, action and footer
+positions/sizes before and after toggling on desktop and EN/DE mobile layouts.
+They verify that long diagnostics overflow internally and that normal-mode
+filtering/toggle timing/language/reset behavior remains correct. Firmware and
+package/NVS checks apply. No physical device is used for these browser checks.
 
 ## Version 0.3.4 warning-only debug filtering
 
