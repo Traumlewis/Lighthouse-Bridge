@@ -42,6 +42,16 @@ int main() {
  // New entries before retained IDs cannot steal them; allocation skips occupied slots.
  assert(!deserializeJson(doc,R"([{"id":0,"name":"New","mac":""},{"id":1,"name":"A","mac":"AA:BB:CC:DD:EE:06"}])"));
  assert(parseStationList(doc.as<JsonVariantConst>(),next,old,counter,false,false,error));assert(next[0].id==1&&next[0].hueId==6&&next[1].id==2);
+ // Profile defaults off, persists, survives omitted fields, and rejects invalid types.
+ assert(!old[0].alexaCompat);
+ assert(!deserializeJson(doc,R"([{"id":1,"name":"A","mac":"AA:BB:CC:DD:EE:06","alexa_compat":true}])"));
+ assert(parseStationList(doc.as<JsonVariantConst>(),next,old,counter,false,false,error));assert(next[0].alexaCompat&&next[0].hueId==6);
+ doc.clear();writeStationList(doc.to<JsonArray>(),next,true);
+ assert(parseStationList(doc.as<JsonVariantConst>(),restored,nullptr,counter,true,false,error));assert(restored[0].alexaCompat&&restored[0].hueId==6);
+ assert(!deserializeJson(doc,R"([{"id":1,"name":"A","mac":"AA:BB:CC:DD:EE:06"}])"));
+ assert(parseStationList(doc.as<JsonVariantConst>(),next,restored,counter,false,false,error));assert(next[0].alexaCompat);
+ doc[0]["alexa_compat"]=false;assert(parseStationList(doc.as<JsonVariantConst>(),next,restored,counter,false,false,error));assert(!next[0].alexaCompat);
+ doc[0]["alexa_compat"]="yes";assert(!parseStationList(doc.as<JsonVariantConst>(),next,restored,counter,false,false,error)&&error=="CONFIG_PROFILE");
  // All 16 local IDs, including local station 5, are usable; Hue 5 stays retired.
  counter=1;doc.clear();auto list=doc.to<JsonArray>();
  for(unsigned i=0;i<16;++i){auto item=list.createNestedObject();item["id"]=0;item["name"]="Station "+std::to_string(i);item["mac"]="";}

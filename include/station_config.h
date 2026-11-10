@@ -77,6 +77,10 @@ inline bool parseStationList(JsonVariantConst input, StationConfig* out,
     std::strcpy(value.name, item["name"].as<const char*>());
     if (*mac && !normalizeMac(mac, value.mac)) { error = "CONFIG_MAC"; return false; }
     value.addressType = 1;
+    if (item.containsKey("alexa_compat")) {
+      if (!item["alexa_compat"].is<bool>()) { error = "CONFIG_PROFILE"; return false; }
+      value.alexaCompat = item["alexa_compat"].as<bool>();
+    } else if (!restoring && inputId) value.alexaCompat = current[stationIndex(current,inputId)].alexaCompat;
     for (unsigned j = 0; j < count; ++j) {
       if ((inputId && seenIds[j] == inputId) || out[j].hueId == hueId) { error = "CONFIG_IDS"; return false; }
       if (*mac && !std::strcmp(out[j].mac, value.mac)) { error = "CONFIG_MAC"; return false; }
@@ -106,6 +110,7 @@ inline void writeStationList(JsonArray array, const StationConfig* stations, boo
     if (storage) item["hue_id"] = stations[i].hueId;
     item["name"] = stations[i].name;
     item["mac"] = stations[i].mac;
+    item["alexa_compat"] = stations[i].alexaCompat;
   }
 }
 } // namespace bridge

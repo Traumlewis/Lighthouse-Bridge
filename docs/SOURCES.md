@@ -54,3 +54,9 @@ state changes and app display) and [Home Assistant issue 30013](https://github.c
 reports, not proof of the current cause or of a successful fix. The additional
 binary bri/mode fields in 0.3.8 are an experiment; the device remains an On/off
 light and does not accept dimming commands. Actual Alexa behavior requires testing.
+
+The optional 0.3.9 profile uses the pinned Espalexa dimmable-device metadata
+(`Dimmable light`, `LWB010`) as a controlled alternative to its on/off profile.
+Historical Home Assistant reports describe successful dimmable-profile workarounds
+for some Alexa devices, but are not validation for the owner's current Echo/app.
+The bridge's brightness handling remains explicitly binary ON/SLEEP.

@@ -1,4 +1,26 @@
-# Validation report — 0.3.8
+# Validation report — 0.3.9
+
+## Version 0.3.9 optional per-station LWB010 profile
+
+The owner reports 0.3.8 GET on=false/bri=0/reachable=true while the app still shows
+ON, including after fully closing the app and clearing local cache. Thus the
+extra read fields did not fix the observed symptom; a local-cache-only diagnosis
+is not established. No credential-bearing/raw hardware response is committed.
+
+An optional profile, off by default per station, advertises LWB010/Dimmable light
+rather than HASS321/On-off. Numeric/unique IDs, measured data and BLE limits remain.
+Only compatibility-profile Hue writes accept binary bri 0..254, with explicit on
+precedence and at most one queue operation; ACKs report effective 0/254. Standard
+profile stays boolean-on-only. This is a compatibility experiment requiring an
+owner retest after re-discovering just one changed Alexa device; it is not a
+verified fix and may require restoring that device's groups/routines.
+
+Native tests cover profile metadata/identity, binary brightness bounds and types,
+explicit on precedence in either property order, one queue call per mixed body,
+standard-profile rejection, persisted/default/omitted/invalid config values.
+Browser checks cover the checkbox across language changes, save and reload,
+with other stations left standard. Existing debug geometry/auth/ID tests remain.
+Firmware/package/NVS checks apply. No Echo or ESP32 is attached to these tests.
 
 ## Version 0.3.8 experimental Hue state hints
 

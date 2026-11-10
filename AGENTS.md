@@ -164,11 +164,23 @@ status change. Keep current facts, not a conversation log. User instructions win
   measures the handler only, not network/end-to-end latency.
 - Since 0.3.8 Hue GET includes read-only `bri` 0/254 mirroring the returned `on`,
   plus `mode:homeautomation`. This is an experimental compatibility hint, not
-  physical brightness or a dimming capability. Preserve On/off light / HASS321,
-  all identities and boolean-only power PUT semantics. Reachability/timestamps
+  physical brightness or a dimming capability. Standard profile remains On/off light / HASS321; preserve all identities.
+  Optional compatibility behavior is described below. Reachability/timestamps
   remain measured. The hint shares `on`'s accepted-target window exactly.
+- 0.3.9 adds per-station `alexaCompat` / public+NVS `alexa_compat` boolean, off by
+  default. True advertises Dimmable light / LWB010, without changing either ID.
+  In this profile only, Hue accepts integer bri 0..254 as binary 0=SLEEP/nonzero=ON.
+  Explicit valid boolean on overrides bri. Queue once per request and acknowledge
+  the effective 0/254 binary result; never claim physical dimming. Standard
+  brightness-only writes stay error6. Invalid fields cannot send power by themselves.
+- Preserve the profile on existing entries when config input omits it, default
+  false for old records/new stations. Reject non-boolean values. UI translations,
+  unsaved edits and reload must preserve the checkbox. Other stations stay standard.
+- Profile changes may need removing/re-discovering just that Alexa device to refresh
+  capabilities; explain that groups/routines may need restoring. Start with one
+  station, not a mass reset. No actual Alexa hardware is attached for validation.
 - Owner's 0.3.7 sample proves fresh GET with on=false/reachable=true can still
-  leave the Alexa app showing ON. Do not claim missing polling/push or caching is
+  leave the Alexa app showing ON; 0.3.8 plus app-cache clearing did not help. Do not claim missing polling/push or caching is
   the established cause; full JSON was valid. Additional fields are a hypothesis,
   not a verified app fix. No physical Echo/ESP32 is attached to this environment.
   Never commit the raw response, which contains the owner's hardware MAC.
@@ -265,7 +277,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.8**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

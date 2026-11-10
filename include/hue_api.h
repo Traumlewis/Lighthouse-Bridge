@@ -70,9 +70,9 @@ inline void writeHueLight(JsonObject light, const StationConfig& config, const S
   state["reachable"] = freshMeasurement(measured, now);
   state["alert"] = "none";
   if (!stateOnly) {
-    light["type"] = "On/off light";
+    light["type"] = config.alexaCompat ? "Dimmable light" : "On/off light";
     light["name"] = std::string(config.name);
-    light["modelid"] = "HASS321";
+    light["modelid"] = config.alexaCompat ? "LWB010" : "HASS321";
     light["manufacturername"] = "Philips";
     light["uniqueid"] = hueUniqueId(bridgeMac, config.hueId);
     light["swversion"] = version;
@@ -104,7 +104,7 @@ struct HueWriteReply {
 // Queue-only acknowledgement: no BLE call or invented measurement belongs here.
 // The callback returns false when no configured station can accept the request.
 inline HueWriteReply handleHueWrite(const HueLightRoute& route, const char* body,
-                                   bool (*queue)(int, Target)) {
+                                   bool (*queue)(int, Target), bool binaryBrightness = false) {
   HueWriteReply reply;
   if (!route.valid || route.slot < 0 || !route.stateOnly) {
     reply.json = hueError(3, "/lights", "resource not available");
@@ -124,25 +124,27 @@ inline HueWriteReply handleHueWrite(const HueLightRoute& route, const char* body
     return reply;
   }
   if (object.size() == 0) appendHueError(responses, 5, address, "missing parameters in body");
+  const bool validOn = object["on"].is<bool>();
+  const bool validBri = binaryBrightness && object["bri"].is<unsigned>() && object["bri"].as<unsigned>() <= 254;
+  if (validOn || validBri) {
+    // Explicit on wins over bri (Hue clients may retain a nonzero bri while OFF).
+    reply.on = validOn ? object["on"].as<bool>() : object["bri"].as<unsigned>() > 0;
+    reply.accepted = queue(route.slot, reply.on ? Target::On : Target::Sleep);
+  }
   for (JsonPairConst property : object) {
     const std::string name = property.key().c_str();
-    if (name != "on") {
-      ++reply.unsupported;
-      appendHueError(responses, 6, address + name, "parameter not available");
-      continue;
+    const bool known = name == "on" || (binaryBrightness && name == "bri");
+    if (!known) {
+      ++reply.unsupported; appendHueError(responses, 6, address + name, "parameter not available"); continue;
     }
-    if (!property.value().is<bool>()) {
-      appendHueError(responses, 7, address + "on", "invalid value for parameter on");
-      continue;
+    if (!(name == "on" ? validOn : validBri)) {
+      appendHueError(responses, 7, address + name, "invalid value for parameter"); continue;
     }
-    reply.on = property.value().as<bool>();
-    reply.accepted = queue(route.slot, reply.on ? Target::On : Target::Sleep);
     if (reply.accepted) {
       auto success = responses.createNestedObject().createNestedObject("success");
-      success[address + "on"] = reply.on;
-    } else {
-      appendHueError(responses, 3, address, "no configured station available");
-    }
+      if (name == "on") success[address + name] = reply.on;
+      else success[address + name] = reply.on ? 254 : 0; // Binary result, never pretend to dim.
+    } else appendHueError(responses, 3, address, "no configured station available");
   }
   serializeJson(output, reply.json);
   return reply;

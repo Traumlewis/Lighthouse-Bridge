@@ -103,6 +103,14 @@ expiry restores measurements. Reachability is always measured. Identical active
 requests coalesce and do not extend this window. Alexa controls its app's polling
 and cache; the bridge cannot push instant app-state changes.
 
+If Alexa keeps an old app state despite receiving the measured value, an
+experimental **Alexa compatibility profile** checkbox is available per station
+under Set up base stations. Test one station first. It presents a Hue LWB010
+light with binary 0/100% behavior; the hardware still only supports ON/SLEEP.
+After saving a changed profile, remove only that device in Alexa and rediscover
+it so capabilities reload. Its group/routine assignments may need restoring.
+This is a compatibility experiment, not a guarantee of app synchronization.
+
 ## Wi-Fi, passwords and local API
 
 - **Open Wi-Fi setup** pauses normal control until save or a three-minute timeout,

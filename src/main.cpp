@@ -409,7 +409,7 @@ void bleWorker(void*) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
-  doc["version"] = "0.3.8";
+  doc["version"] = "0.3.9";
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -436,6 +436,7 @@ void statusRoute() {
       item["name"] = configs[i].name;
       item["mac"] = configs[i].mac;
       item["address_type"] = configs[i].addressType;
+      item["alexa_compat"] = configs[i].alexaCompat;
       item["configured"] = configs[i].mac[0] != '\0';
       const auto& state = states[i];
       if (state.hasRequest) item["requested"] = targetName(state.requested);
@@ -482,7 +483,9 @@ bool serveHueLights(const String& uri) {
   const auto route = parseHueLightRoute(uri.c_str(), mac24);
   if (!route.matched) return false;
   if (server.method() == HTTP_PUT) {
-    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueHueTarget);
+    const int selected = route.slot < 0 ? -1 : stationHueIndex(configs,route.slot);
+    const bool compat = selected >= 0 && configs[selected].alexaCompat;
+    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueHueTarget, compat);
     server.sendHeader("Cache-Control", "no-store");
     server.send(200, "application/json", reply.json.c_str());
     Serial.printf("Hue PUT: station=%d, on=%s, queued=%s, unsupported=%u, handler_ms=%u\n",
@@ -520,7 +523,7 @@ bool serveHueLights(const String& uri) {
           now - states[i].lastReadAttemptMs >= readInterval(states[i], now)) refreshRequested[i] = true;
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
       JsonObject light = selected < 0 ? root.createNestedObject(String(hueKey(mac24, configs[i].hueId))) : root;
-      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.8", stateOnly);
+      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.9", stateOnly);
       JsonObject state = stateOnly ? light : light["state"].as<JsonObject>();
       traceOn = state["on"].as<bool>(); traceBri = state["bri"].as<unsigned>(); traceReachable = state["reachable"].as<bool>();
       tracePending |= states[i].pending || states[i].busy;
@@ -530,8 +533,8 @@ bool serveHueLights(const String& uri) {
   sendJson(200, doc);
   if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, pending=%s, source=%s\n",
       configured, fresh, tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
-  else Serial.printf("Hue GET: station=%d, on=%s, bri=%u, reachable=%s, pending=%s, source=%s\n",
-      configs[selected].id, traceOn ? "true" : "false", traceBri, traceReachable ? "true" : "false",
+  else Serial.printf("Hue GET: station=%d, profile=%s, on=%s, bri=%u, reachable=%s, pending=%s, source=%s\n",
+      configs[selected].id, configs[selected].alexaCompat ? "compat" : "standard", traceOn ? "true" : "false", traceBri, traceReachable ? "true" : "false",
       tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
   return true;
 }
@@ -825,7 +828,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.3.8";
+  doc["protocol"] = 1; doc["version"] = "0.3.9";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -932,7 +935,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.3.8");
+  Serial.println("\nLighthouse Bridge 0.3.9");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

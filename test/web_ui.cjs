@@ -76,14 +76,14 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   assert.equal(await page.locator('[id^=pick-],[id^=edit-type-]').count(),0);
   assert.equal(await page.locator('#edit-mac-2').getAttribute('list'),'discovered-addresses');
   assert.equal(await page.locator('#discovered-addresses option').count(),4);
-  await page.locator('#edit-name-1').fill('Left corner');
+  await page.locator('#edit-name-1').fill('Left corner');await page.locator('#edit-alexa-1').check();
   await page.locator('#language').selectOption('de');
-  assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');
+  assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');assert.equal(await page.locator('#edit-alexa-1').isChecked(),true);
   await page.waitForTimeout(2800);assert.equal(await page.locator('#edit-name-1').inputValue(),'Left corner');
   saveFailure=true;await page.locator('#save').click();
   await page.waitForFunction(()=>document.getElementById('message').textContent.includes('Bluetooth ist beschäftigt'));
   saveFailure=false;await page.locator('#save').click();
-  await page.waitForFunction(()=>document.getElementById('name-1').textContent==='Left corner');
+  await page.waitForFunction(()=>document.getElementById('name-1').textContent==='Left corner');assert.equal(stations[0].alexa_compat,true);assert.equal(stations[1].alexa_compat,false);
   // External state change becomes visible before any button is pressed.
   Object.assign(stations[0],{observed:'on',observed_raw:11,observed_ms:89000,reachable:true});
   await page.waitForFunction(()=>document.getElementById('state-1').textContent==='ON');
@@ -199,7 +199,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#version-toggle').click({clickCount:3});
   assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'true');
   await page.reload();await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
-  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false','reload resets debug');
+  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false','reload resets debug');assert.equal(await page.locator('#edit-alexa-1').isChecked(),true,'profile survives reload');
   await page.locator('#network-settings').evaluate(node=>node.open=true);
   assert.deepEqual(await page.locator('#copy-key').evaluate(node=>{const s=getComputedStyle(node);return [s.backgroundColor,s.borderWidth,s.padding];}),['rgba(0, 0, 0, 0)','0px','0px'],'API key is plain clickable text without a button box');
   const keyContrast=await page.locator('#api-key').evaluate(node=>{

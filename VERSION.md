@@ -1,7 +1,28 @@
 # Version history
 
-Release notes are listed newest first. Current firmware: **0.3.8**.
+Release notes are listed newest first. Current firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
+
+## Version 0.3.9
+
+Add an optional, per-station **Alexa compatibility profile** in the station
+settings, off by default. It advertises `Dimmable light` / `LWB010` instead of
+`On/off light` / `HASS321`, retaining the station ID and Alexa identity. Test one
+station first; after changing its profile, remove that one device from Alexa and
+rediscover it to refresh capabilities. Group/routine assignments may need restoring.
+
+The compatibility profile is binary: Hue `bri` 0 means SLEEP, 1–254 means ON,
+and acknowledgements/readbacks are coerced to 0/254. Explicit boolean `on` takes
+precedence over `bri`; each request queues at most one command. It does not dim
+Lighthouse hardware. Standard-profile brightness-only writes remain unsupported.
+The local API remains ON/SLEEP-only. The profile is saved with the station and
+preserved when an API client omits the optional `alexa_compat` field.
+
+The owner reports that 0.3.8 still returns OFF while the app displays ON, including
+after closing the app and clearing its local cache. This alternative device profile
+is another targeted compatibility test, not a confirmed fix. Actual Alexa app
+behavior and capability refresh require an owner retest. Hue GET logs identify
+`profile=standard` or `profile=compat`.
 
 ## Version 0.3.8
 

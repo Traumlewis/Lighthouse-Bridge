@@ -77,6 +77,7 @@ struct StationConfig {
   char name[41] = {};
   char mac[18] = {};
   uint8_t addressType = 1;
+  bool alexaCompat = false;
 };
 struct StationState {
   Target requested = Target::Sleep;

@@ -1,4 +1,4 @@
-# Local API — 0.3.8
+# Local API — 0.3.9
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -144,7 +144,7 @@ results; `scan_truncated` indicates truncation. Results are never assigned autom
 ## POST /api/config
 
 Replace the complete dynamic list using `{"stations":[…]}` (0–16 entries).
-Each entry contains `id`, `name`, `mac`:
+Each entry contains `id`, `name`, `mac` and optional boolean `alexa_compat`:
 
 ```json
 {"stations":[{"id":1,"name":"Left corner","mac":"AA:BB:CC:DD:EE:01"},{"id":0,"name":"New station","mac":""}]}
@@ -163,6 +163,15 @@ group. Old IDs 6–9 automatically become local 1–4 without changing Alexa key
 Leave an entry out to remove it. Empty MAC disables an explicitly added entry;
 it still counts toward capacity and is not advertised to Alexa. Save returns
 `200 {"saved":true,"stations":[{"id":…, "name":…, "mac":…},…]}` with assigned IDs.
+
+`alexa_compat` selects an experimental Alexa LWB010/Dimmable-light profile for
+that station only. It defaults to false for old/new records. Omitting it on an
+existing entry preserves the current setting; explicit false restores standard.
+It cannot change IDs or send power. Non-boolean values return CONFIG_PROFILE.
+The flag is included in station status/config responses and stored in NVS.
+After changing it, Alexa may need that one device removed/re-discovered to reload
+capabilities; its groups/routines may need reassigning. No synchronization fix is
+claimed without a successful hardware retest.
 
 All connections use Random (1); `address_type` input is ignored and status returns
 1 for compatibility. Names must be unique, 1–40 UTF-8 bytes, without control
@@ -263,8 +272,18 @@ Since 0.3.8 all Hue GET shapes (collection, light and `/state`) also contain
 physical brightness measurement; ON/Starting share 254. It follows exactly the
 same measured/temporarily accepted-target view as `on`, never altering observed
 state, measurement age or reachability. Type remains `On/off light` / HASS321.
-Brightness-only PUTs remain unsupported and cannot send power writes. This is an
+Standard-profile brightness-only PUTs remain unsupported and cannot send power writes. This is an
 experimental client compatibility change; Alexa app synchronization is unverified.
+
+The optional per-station `alexa_compat:true` profile advertises `Dimmable light`
+with model `LWB010`, keeping the same unique ID/numeric key. This profile accepts
+integer `bri` 0..254: 0 maps to SLEEP; any positive value maps to ON. A valid
+explicit boolean `on` takes precedence, including `{on:false,bri:254}`. Queue at
+most one power job per request. Success for bri reports the effective binary
+0/254 value, not a requested intermediate brightness. Invalid values receive Hue
+error 7; unsupported fields error 6. Valid on/bri properties can succeed separately
+from invalid/unsupported properties. There is no physical dimming or local-API
+brightness endpoint. Standard profile remains strict boolean-on control.
 
 ### Hue light writes
 
@@ -286,7 +305,7 @@ measurement or reachability is fabricated. The old generic
 Malformed JSON, non-boolean `on`, unavailable IDs and unsupported methods return
 Hue error arrays, without enqueuing invalid commands. Unsupported properties get
 error type 6; a valid `on` in the same body can still succeed independently.
-Brightness/color/transition operations are not implemented. Bodies are limited
+Physical dimming/color/transition operations are not implemented. Bodies are limited
 to 512 bytes/eight properties. Existing API-key/web-session endpoint rules remain.
 
 USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
@@ -305,7 +324,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.8","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.9","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

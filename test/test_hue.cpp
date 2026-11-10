@@ -137,6 +137,28 @@ int main() {
   }
 
   const auto route = parseHueLightRoute((uri(mac, 1) + "/state").c_str(), mac);
+  // Optional LWB010 profile: retain identity and expose only binary brightness.
+  config.alexaCompat=true;discovery.clear();
+  writeHueLight(discovery.to<JsonObject>(),config,external,1500,bridgeMac,"test-version",false);
+  assert(discovery["type"]=="Dimmable light"&&discovery["modelid"]=="LWB010");
+  assert(discovery["uniqueid"]==hueUniqueId(bridgeMac,config.hueId));
+  unsigned compatBefore=queued;
+  auto briReply=handleHueWrite(route,"{\"bri\":128}",enqueue,true);
+  assert(briReply.accepted&&lastTarget==Target::On&&queued==compatBefore+1);
+  StaticJsonDocument<1024> briJson;assert(!deserializeJson(briJson,briReply.json));
+  const auto briPath="/lights/"+std::to_string(route.key)+"/state/bri";
+  assert(briJson[0]["success"][briPath].as<unsigned>()==254);
+  briReply=handleHueWrite(route,"{\"bri\":0}",enqueue,true);
+  assert(briReply.accepted&&lastTarget==Target::Sleep);
+  for(auto mixedBody:{"{\"on\":false,\"bri\":254}","{\"bri\":254,\"on\":false}"}){
+    const unsigned count=queued;auto result=handleHueWrite(route,mixedBody,enqueue,true);
+    assert(result.accepted&&!result.on&&lastTarget==Target::Sleep&&queued==count+1);
+    assert(!deserializeJson(briJson,result.json));assert(briJson.size()==2);
+    bool sawBri=false;for(JsonVariant item:briJson.as<JsonArray>())if(item["success"].containsKey(briPath)){assert(item["success"][briPath].as<unsigned>()==0);sawBri=true;}assert(sawBri);
+  }
+  compatBefore=queued;
+  for(auto invalid:{"{\"bri\":-1}","{\"bri\":255}","{\"bri\":1.5}","{\"bri\":true}","{\"bri\":\"128\"}","{\"bri\":null}"})errorIs(handleHueWrite(route,invalid,enqueue,true),7);
+  assert(queued==compatBefore);
   unsigned before = queued;
   errorIs(handleHueWrite(route, "not JSON", enqueue), 2);
   errorIs(handleHueWrite(route, nullptr, enqueue), 2);
