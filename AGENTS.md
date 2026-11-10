@@ -107,26 +107,36 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Readings older than 60 seconds are stale. Raw 1/8/9 = booting, 11 = ON, 0 = SLEEP, 2 = STANDBY.
   Booting counts active for Hue; dashboard still says Starting.
 - Alexa exposes only individual entries with an ID and nonempty MAC. No virtual
-  group light; station ID 5 is permanently retired. Cached VR Basisstationen must
+  group light; Hue identity 5 is permanently retired (local/API ID 5 is valid). Cached VR Basisstationen must
   be deleted once by the owner in Alexa; the bridge cannot delete cloud entries.
 - Hue discovery serialization lives in `include/hue_api.h` and is host-tested.
-  IDs 1–255 use the pinned Espalexa zero-padded hexadecimal endpoint format
+  Hue identities 1–255 use the pinned Espalexa zero-padded hexadecimal endpoint format
   `bridge-MAC-%02X-00:11`, including newly added IDs 6–9. Do not use unpadded
   decimal IDs: 0.3.0/0.3.1 introduced that regression for IDs >4. Larger IDs use
   a fixed EUI-64 + endpoint representation (local prefix, existing 24-bit bridge
   identity, full station ID); never truncate the monotonic ID or reuse identities.
-  Preserve old IDs 1–4 and numeric Hue keys. Test actual serialized collection
+  Preserve old Alexa identities and numeric Hue keys. Test actual serialized collection
   fields and string lifetimes as well as PUT acknowledgements.
 - Dynamic list: 0–16 entries. UI supports explicit Add/Remove and one MAC input
   with discovered datalist suggestions. Empty added entries are disabled and
   count toward capacity. Legacy empty slots are discarded during migration.
-- Persistent IDs are monotonic positive signed-31-bit integers, skip 5, never
-  reuse removed identities. Existing first-four Hue keys/unique IDs stay unchanged.
-  API station IDs are identities, not array indexes. Internal capacity arrays are
-  fine. The NVS record atomically stores {next_id,stations}; legacy bare arrays
-  migrate assigned rows to their original IDs. User/device names are preserved.
+- Local/API station IDs are contiguous **1..N**, following saved list order, as
+  requested by the owner in 0.3.6. Renumber on load/save/removal/reorder, including
+  local ID 5. Cards use two-digit IDs 01..16; API and worker/Hue logs use the same
+  local numbers. Never merely change labels while leaving API IDs at 6–9.
+- `StationConfig.hueId` is a separate stable monotonic Alexa identity. Skip Hue 5
+  permanently and never reuse removed Hue identities. Old dynamic IDs 6–9 migrate
+  to local 1–4 while preserving those Hue identities and encoded keys/unique IDs.
+  Legacy four-slot records preserve original Hue identities; discard empty slots.
+- NVS atomically stores {next_id,stations:[{id,hue_id,name,mac}]}; next_id is the
+  next Hue identity, retaining the existing record key. Public config omits
+  hue_id; clients cannot replace it. Existing request IDs refer to pre-save local
+  IDs, new entries use 0, and the saved response returns newly compacted IDs.
+  Browser power controls stay disabled during save until a fresh status is loaded;
+  ignore older in-flight status responses. Integrations must refresh IDs after configuration changes, not cache positions
+  as permanent physical identities. Hue PUT/GET translate via the stable identity.
 - Config saves may run during a background read but reject pending/active commands
-  or scans. State/history follows unchanged ID+MAC across reordering; generation
+  or scans. State/history follows unchanged Hue identity+MAC across reordering; generation
   at each destination index increments to invalidate old in-flight readings.
 - `include/hue_api.h` owns shared Hue light-route parsing and write response
   generation, tested against the same ArduinoJson dependency on the host. Strict
@@ -144,7 +154,7 @@ status change. Keep current facts, not a conversation log. User instructions win
   measured observed/observed_raw fields.
   Preserve existing individual IDs and names; Espalexa still handles SSDP,
   description and username registration, not light PUTs or measured light GETs.
-- Serial `Hue PUT` / `Hue GET` diagnostics include persistent station ID, target or
+- Serial `Hue PUT` / `Hue GET` diagnostics include the current local station ID, target or
   measured value, acceptance/reachability and pending work. Collection GETs log
   configured/fresh counts. Log no usernames, raw URLs, bodies or access keys.
   GET source=accepted_target or source=measurement identifies the selected Hue
@@ -243,7 +253,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.5**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.6**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

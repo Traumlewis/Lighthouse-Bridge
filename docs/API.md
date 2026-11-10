@@ -1,4 +1,4 @@
-# Local API — 0.3.5
+# Local API — 0.3.6
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -35,7 +35,9 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, a dynamic list of up to 16
 entries, discovery state and results. `alexa_started` confirms only SSDP startup.
 Top-level fields include `max_stations:16`, `maintenance`, `setup_ssid`,
-`ota_supported` and `ota_product`. Station IDs are stable opaque integers.
+`ota_supported` and `ota_product`. Station IDs are contiguous local numbers 1..N in the saved list order.
+They renumber after configuration changes; refresh status before controlling a
+station after a save/removal/reorder. Alexa identities remain separate and stable.
 A station entry looks like this:
 
 ```json
@@ -148,9 +150,13 @@ Each entry contains `id`, `name`, `mac`:
 ```
 
 Keep the existing ID for edits/reordering. Omit `id` or use `0` for a new entry.
-The server allocates stable monotonically increasing IDs, never reusing removed
-IDs. ID 5 is permanently reserved for the retired virtual Alexa group. IDs are
-opaque identities, not array indexes; do not assume the sequence 1–16.
+The server numbers the saved entries 1..N, including ID 5. Existing IDs in the
+request identify the current (pre-save) entries; the response contains the new
+numbers after removal/reordering. Public API IDs are list positions, not permanent
+physical identities. Fetch status/saved results after configuration changes.
+A separate server-managed Hue identity preserves Alexa devices through renumbering;
+clients cannot assign it. Only that Hue identity space reserves 5 for the retired
+group. Old IDs 6–9 automatically become local 1–4 without changing Alexa keys.
 Leave an entry out to remove it. Empty MAC disables an explicitly added entry;
 it still counts toward capacity and is not advertised to Alexa. Save returns
 `200 {"saved":true,"stations":[{"id":…, "name":…, "mac":…},…]}` with assigned IDs.
@@ -158,11 +164,12 @@ it still counts toward capacity and is not advertised to Alexa. Save returns
 All connections use Random (1); `address_type` input is ignored and status returns
 1 for compatibility. Names must be unique, 1–40 UTF-8 bytes, without control
 characters or `"`, `\`, `<`, `>`, `&`. Addresses must be unique and are normalized.
-Old four-slot records migrate assigned devices to their original IDs 1–4; empty
-legacy slots are discarded. The list and next-ID counter persist atomically.
+Old four-slot records retain their original Alexa identities; empty legacy slots
+are discarded and local IDs compact. Local IDs, Hue identities and the next Hue
+identity counter persist atomically.
 
 Active commands/discovery or maintenance cause `409 BLE_BUSY`. Background reads
-do not block saving. State/history follows ID and unchanged MAC when reordered;
+do not block saving. State/history follows stable Hue identity and unchanged MAC when reordered;
 a changed address resets measurements. Old in-flight reads cannot apply to new
 assignments. A malformed list is rejected as a whole (`CONFIG_LIMIT`, `CONFIG_IDS`,
 `CONFIG_NAME`, `CONFIG_MAC`); reload after an unknown/removed ID error.
@@ -230,15 +237,16 @@ the measured value; duplicates do not extend the deadline. `reachable` always
 uses measured health, including failed cycles and measurement age. Dashboard and
 local API measurements are unchanged. This policy was explicitly chosen by the
 owner after Echo queried the opposite old value immediately after accepting PUT.
-Discovery `uniqueid` uses the pinned Espalexa two-digit uppercase hexadecimal
-endpoint for IDs 1–255, e.g. `AA:BB:CC:11:22:33-06-00:11`. This restores the
+Discovery uses stable Hue identities independent of local/API numbering.
+`uniqueid` uses the pinned Espalexa two-digit uppercase hexadecimal
+endpoint for Hue identities 1–255, e.g. `AA:BB:CC:11:22:33-06-00:11`. This restores the
 format accidentally changed for new IDs in 0.3.0/0.3.1. Larger monotonic IDs use
 `02:<bridge MAC last three octets>:<four station-ID octets>-01`, a fixed EUI-64
 and endpoint representation; the numeric light key does not change. Metadata
 changes do not assign stations, enqueue commands or modify measurements.
 
 Only individual configured stations appear in the Hue collection. Existing first
-four light IDs/unique IDs are preserved. The old virtual group (station ID 5) is
+four light IDs/unique IDs are preserved. The old virtual group (Hue identity 5) is
 unavailable (Hue error 3), never reused; delete its cached Alexa app entry once.
 Use Alexa groups or the local API `station:"all"` for collective control.
 Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
@@ -271,7 +279,7 @@ USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
 `Hue GET` (reported on, measured reachability, pending work; collection
 configured/fresh counts). `source=accepted_target` identifies the bounded target
 view; `source=measurement` identifies the measured value.
-`station` identifies a persistent station ID; collections log configured/fresh
+`station` identifies the current local station ID; collections log configured/fresh
 counts. The retired virtual group is never controlled. These diagnostics
 omit usernames, raw request paths/bodies and credentials. Handler time excludes
 network transfer/request parsing before dispatch. A correct ACK cannot guarantee
@@ -283,7 +291,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.5","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.6","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

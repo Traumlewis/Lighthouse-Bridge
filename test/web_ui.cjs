@@ -39,7 +39,7 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
     data.discovered=stations.map((s,i)=>({name:i===0?'LHB-<img src=x onerror=alert(1)>':'LHB-'+i,mac:'AA:BB:CC:DD:EE:0'+(i+1),address_type:i%2,rssi:-40-i*5}));
    }else if(uri==='/api/config'){
     if(saveFailure){status=409;result={error:'BLE_BUSY'};}
-    else{const saved=body.stations.map(s=>({...stations.find(old=>old.id===s.id),...s,id:s.id||nextId++,configured:Boolean(s.mac)}));stations.splice(0,stations.length,...saved);result={saved:true,stations};}
+    else{const saved=body.stations.map((s,i)=>({...stations.find(old=>old.id===s.id),...s,id:i+1,hue_id:stations.find(old=>old.id===s.id)?.hue_id||s.id||nextId++,configured:Boolean(s.mac)}));stations.splice(0,stations.length,...saved);result={saved:true,stations};await new Promise(resolve=>setTimeout(resolve,180));}
    }else if(uri==='/api/power'){
     commands.push(body);status=202;result={accepted:true};
     // A command must not fabricate an observed state.
@@ -216,13 +216,18 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#configuration').evaluate(node=>node.open=true);
   for(let i=0;i<12;i++)await page.locator('#add-station').click();
   assert.equal(await page.locator('.config-slot').count(),16);assert.equal(await page.locator('#add-station').isDisabled(),true);
+  await page.locator('#config-fields .config-slot').nth(4).locator('input[list]').fill('AA:BB:CC:DD:EE:05');
+  await page.locator('#config-fields .config-slot').nth(5).locator('input[list]').fill('AA:BB:CC:DD:EE:06');
   await page.locator('#language').selectOption('en');assert.equal(await page.locator('.config-slot').count(),16);
-  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelectorAll('#stations article').length===16);
-  assert.equal(stations[4].id,6);assert.equal(stations[15].id,17);
+  await page.locator('#save').click();assert.equal(await page.locator('#on-1').isDisabled(),true,'controls wait for the saved ID mapping');await page.waitForFunction(()=>document.querySelectorAll('#stations article').length===16&&!document.getElementById('on-1').disabled);
+  assert.equal(stations[4].id,5);assert.equal(stations[4].hue_id,6);assert.equal(stations[15].id,16);
+  assert.deepEqual(await page.locator('#stations .slot').allTextContents(),Array.from({length:16},(_,i)=>'STATION '+String(i+1).padStart(2,'0')));
   await page.locator('[data-remove="2"]').click();await page.locator('#save').click();
-  await page.waitForFunction(()=>!document.getElementById('card-2'));assert.equal(stations.some(s=>s.id===2),false);
+  await page.waitForFunction(()=>document.querySelectorAll('#stations article').length===15);assert.equal(stations[1].id,2);assert.equal(stations[1].name,'Base station 3');
   await page.locator('#add-station').click();await page.locator('#save').click();
-  await page.waitForFunction(()=>document.getElementById('card-18'));assert.equal(stations.at(-1).id,18);
+  await page.waitForFunction(()=>document.getElementById('card-16'));assert.equal(stations.at(-1).id,16);assert.equal(stations.at(-1).hue_id,18);
+  await page.locator('#on-5').click();assert.deepEqual(commands.at(-1),{station:5,state:'on'});
+  assert.equal(stations[4].hue_id,7);stations[4].pending=false;
   // Removing all entries is supported; empty state is not represented by fixed slots.
   await page.locator('#configuration').evaluate(node=>node.open=true);
   while(await page.locator('[data-remove]').count())await page.locator('[data-remove]').first().click();

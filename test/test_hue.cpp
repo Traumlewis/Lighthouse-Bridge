@@ -1,10 +1,13 @@
 #include "hue_api.h"
+#include "station_config.h"
 #include <cassert>
 #include <iostream>
 #include <regex>
 #include <set>
 
 using namespace bridge;
+static StationConfig configs[kStations];
+static int lastLocalId = 0;
 static StationState states[kStations];
 static bool configured[kStations] = {true, true, true, true};
 static uint32_t ids[kStations] = {};
@@ -14,8 +17,10 @@ static Target lastTarget = Target::Sleep;
 
 static bool enqueue(int slot, Target target) {
   bool accepted = false;
+  const int localId = stationIdForHue(configs, slot);
+  lastLocalId = localId;
   for (unsigned i = 0; i < kStations; ++i) {
-    if (configured[i] && (slot < 0 || slot == static_cast<int>(ids[i]))) {
+    if (configured[i] && (localId == static_cast<int>(configs[i].id))) {
       request(states[i], target);
       accepted = true;
     }
@@ -38,7 +43,7 @@ static void errorIs(const HueWriteReply& reply, unsigned type) {
 
 int main() {
   const uint32_t mac = 0x112233; // Synthetic bridge identity.
-  for (unsigned i=0;i<kStations;++i) { ids[i]=i<4?i+1:i+2; configured[i]=true; }
+  for (unsigned i=0;i<kStations;++i) { ids[i]=i<4?i+1:i+2; configured[i]=true; configs[i].id=i+1; configs[i].hueId=ids[i]; }
   // Exercise the production discovery serializer, not only PUT routing. IDs 6–9
   // are the owner's reported failing setup after removing/re-adding stations.
   const char* bridgeMac = "AA:BB:CC:11:22:33";
@@ -49,7 +54,7 @@ int main() {
   recordRead(asleep, 0, 1000, "");
   for (uint32_t id = 1; id <= 17; ++id) {
     if (id == kRetiredGroupId) continue;
-    StationConfig config; config.id = id;
+    StationConfig config; config.id = id < 5 ? id : id-1; config.hueId = id;
     std::strcpy(config.name, "Station");
     JsonObject light = collectionJson.createNestedObject(std::to_string(hueKey(mac, id)));
     writeHueLight(light, config, asleep, 1100, bridgeMac, "test-version", false);
@@ -75,7 +80,7 @@ int main() {
   std::string wire;serializeJson(discovery,wire);
   DynamicJsonDocument parsed(16384);assert(!deserializeJson(parsed,wire));
   assert(parsed[std::to_string(hueKey(mac,6))]["uniqueid"] == "AA:BB:CC:11:22:33-06-00:11");
-  discovery.clear();StationConfig config;config.id=6;
+  discovery.clear();StationConfig config;config.id=1;config.hueId=6;
   request(asleep,Target::On,1100);
   writeHueLight(discovery.to<JsonObject>(),config,asleep,1101,bridgeMac,"test-version",true);
   assert(discovery["on"].as<bool>() && discovery["reachable"].as<bool>());
@@ -96,6 +101,8 @@ int main() {
       const auto reply = handleHueWrite(route, on ? "{\"on\":true}" : "{\"on\":false}", enqueue);
       assert(reply.accepted && reply.on == on);
       assert(lastSlot == static_cast<int>(slot));
+      assert(lastLocalId == stationIdForHue(configs,slot));
+      if(slot==6)assert(lastLocalId==5);
       assert(lastTarget == (on ? Target::On : Target::Sleep));
       StaticJsonDocument<512> response;
       assert(!deserializeJson(response, reply.json));

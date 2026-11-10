@@ -26,7 +26,7 @@ Preferences prefs;
 SemaphoreHandle_t stateMutex;
 StationConfig configs[kStations];
 StationState states[kStations];
-uint32_t nextStationId = 1;
+uint32_t nextHueId = 1;
 String customDeviceName;
 bool otaPrepared = false, otaUploading = false, otaSucceeded = false, otaCandidateReady = false, otaRequestAuthorized = false;
 void emitDeviceInfo();
@@ -146,6 +146,11 @@ bool queueTarget(int slot, Target target) {
     }
   }
   return accepted;
+}
+
+bool queueHueTarget(int hueId, Target target) {
+  const int stationId = stationIdForHue(configs, static_cast<uint32_t>(hueId));
+  return stationId && queueTarget(stationId, target);
 }
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
@@ -404,7 +409,7 @@ void bleWorker(void*) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
-  doc["version"] = "0.3.5";
+  doc["version"] = "0.3.6";
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -477,11 +482,11 @@ bool serveHueLights(const String& uri) {
   const auto route = parseHueLightRoute(uri.c_str(), mac24);
   if (!route.matched) return false;
   if (server.method() == HTTP_PUT) {
-    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueTarget);
+    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueHueTarget);
     server.sendHeader("Cache-Control", "no-store");
     server.send(200, "application/json", reply.json.c_str());
     Serial.printf("Hue PUT: station=%d, on=%s, queued=%s, unsupported=%u, handler_ms=%u\n",
-                  route.slot,
+                  stationIdForHue(configs, route.slot),
                   reply.on ? "true" : "false", reply.accepted ? "true" : "false", reply.unsupported,
                   millis() - started);
     return true;
@@ -493,7 +498,7 @@ bool serveHueLights(const String& uri) {
     server.send(200, "application/json", error.c_str());
     return true;
   }
-  const int selected = route.slot < 0 ? -1 : stationIndex(configs, route.slot);
+  const int selected = route.slot < 0 ? -1 : stationHueIndex(configs, route.slot);
   if (route.slot >= 0 && (selected < 0 || !configs[selected].mac[0])) {
     const auto error = hueError(3, "/lights", "resource not available");
     server.send(200, "application/json", error.c_str()); return true;
@@ -513,8 +518,8 @@ bool serveHueLights(const String& uri) {
       if (!states[i].reading && !states[i].busy &&
           now - states[i].lastReadAttemptMs >= readInterval(states[i], now)) refreshRequested[i] = true;
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
-      JsonObject light = selected < 0 ? root.createNestedObject(String(hueKey(mac24, configs[i].id))) : root;
-      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.5", stateOnly);
+      JsonObject light = selected < 0 ? root.createNestedObject(String(hueKey(mac24, configs[i].hueId))) : root;
+      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.6", stateOnly);
       JsonObject state = stateOnly ? light : light["state"].as<JsonObject>();
       traceOn = state["on"].as<bool>(); traceReachable = state["reachable"].as<bool>();
       tracePending |= states[i].pending || states[i].busy;
@@ -525,7 +530,7 @@ bool serveHueLights(const String& uri) {
   if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, pending=%s, source=%s\n",
       configured, fresh, tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
   else Serial.printf("Hue GET: station=%d, on=%s, reachable=%s, pending=%s, source=%s\n",
-      route.slot, traceOn ? "true" : "false", traceReachable ? "true" : "false",
+      configs[selected].id, traceOn ? "true" : "false", traceReachable ? "true" : "false",
       tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
   return true;
 }
@@ -727,7 +732,7 @@ void configureRoutes() {
       fail(400, "STATE_INVALID"); return;
     }
     int slot = -1;
-    if (doc["station"].is<int>() && doc["station"].as<int>() >= 1 && doc["station"].as<int>() <= static_cast<int>(kMaxStationId))
+    if (doc["station"].is<int>() && doc["station"].as<int>() >= 1 && doc["station"].as<int>() <= static_cast<int>(kStations))
       slot = doc["station"].as<int>();
     else if (!doc["station"].is<const char*>() || strcmp(doc["station"], "all") != 0) {
       fail(400, "STATION_INVALID"); return;
@@ -749,13 +754,13 @@ void configureRoutes() {
     std::unique_ptr<StationConfig[]> next(new (std::nothrow) StationConfig[kStations]);
     std::unique_ptr<StationState[]> restored(new (std::nothrow) StationState[kStations]);
     if (!next || !restored) { fail(500, "SAVE_FAILED"); return; }
-    uint32_t counter = nextStationId;
+    uint32_t counter = nextHueId;
     std::string error;
     if (!parseStationList(doc["stations"], next.get(), configs, counter, false, false, error)) {
       fail(400, error.c_str()); return;
     }
     doc.clear(); doc["next_id"] = counter;
-    writeStationList(doc.createNestedArray("stations"), next.get());
+    writeStationList(doc.createNestedArray("stations"), next.get(), true);
     String saved; serializeJson(doc, saved);
     bool busy = false, persisted = false;
     {
@@ -768,7 +773,7 @@ void configureRoutes() {
           for (unsigned i = 0; i < kStations; ++i) {
             configs[i] = next[i]; states[i] = restored[i]; refreshRequested[i] = false;
           }
-          nextStationId = counter;
+          nextHueId = counter;
         }
       }
     }
@@ -819,7 +824,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.3.5";
+  doc["protocol"] = 1; doc["version"] = "0.3.6";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -873,7 +878,7 @@ void startServices() {
       if (parseStationList(legacy ? doc.as<JsonVariantConst>() : doc["stations"].as<JsonVariantConst>(),
                            restored.get(), nullptr, counter, true, legacy, error)) {
         for (unsigned i = 0; i < kStations; ++i) configs[i] = restored[i];
-        nextStationId = counter;
+        nextHueId = counter;
       } else Serial.println("Saved station configuration is invalid; please assign the stations again.");
     }
   }
@@ -926,7 +931,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.3.5");
+  Serial.println("\nLighthouse Bridge 0.3.6");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

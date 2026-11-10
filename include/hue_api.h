@@ -9,7 +9,7 @@ struct HueLightRoute {
   bool matched = false;
   bool valid = false;
   bool stateOnly = false;
-  int slot = -1; // -1 = collection; otherwise persistent station ID (not an array index).
+  int slot = -1; // -1 = collection; otherwise stable Hue identity (not the local/API station ID).
   uint32_t key = 0;
 };
 
@@ -69,7 +69,7 @@ inline void writeHueLight(JsonObject light, const StationConfig& config, const S
     light["name"] = std::string(config.name);
     light["modelid"] = "HASS321";
     light["manufacturername"] = "Philips";
-    light["uniqueid"] = hueUniqueId(bridgeMac, config.id);
+    light["uniqueid"] = hueUniqueId(bridgeMac, config.hueId);
     light["swversion"] = version;
   }
 }

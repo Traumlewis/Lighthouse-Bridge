@@ -72,7 +72,8 @@ inline bool validName(const char* name) {
 }
 
 struct StationConfig {
-  uint32_t id = 0;
+  uint32_t id = 0; // Contiguous local/API ID, 1..configured entry count.
+  uint32_t hueId = 0; // Stable Alexa identity, independent of list numbering.
   char name[41] = {};
   char mac[18] = {};
   uint8_t addressType = 1;

@@ -1,4 +1,22 @@
-# Validation report — 0.3.5
+# Validation report — 0.3.6
+
+## Version 0.3.6 contiguous local station IDs
+
+The owner requested actual IDs 1..N as well as card labels 01..N, rather than
+exposing old monotonic IDs such as 6–9. Configuration now separates contiguous
+local IDs from stable Hue identities. Old bare-slot/dynamic records migrate
+without changing Alexa keys or unique IDs. New NVS records persist both ID spaces
+atomically; clients cannot overwrite Hue identities. Local ID 5 is valid while
+retired Hue identity 5 stays unavailable.
+
+Native tests cover the owner's 6–9 to 1–4 migration, serialization/reload,
+removal/reorder/addition, all 16 local IDs, Hue-to-local command mapping including
+local station 5, preservation of measurement/history by Hue identity+MAC, and
+invalidation of stale reads. Browser checks cover labels 01..16, compaction after
+removal, local-ID control, controls blocked until the new mapping is loaded, and
+retained Alexa identities in the mocked backend.
+Firmware/package/NVS checks apply; no board is attached. Actual Alexa continuity
+through this migration remains an owner hardware check.
 
 ## Version 0.3.5 quiet view with stable layout
 

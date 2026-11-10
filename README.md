@@ -16,6 +16,15 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.6
+
+Station numbers now match the configured list everywhere: four entries have IDs
+**1–4**, shown as **STATION 01–04**. Local IDs compact after removal or reordering,
+up to 16. This also applies to API and worker logs, not only card labels.
+Existing IDs such as 6–9 migrate automatically. Alexa keeps a separate stable
+identity, so its encoded keys and unique IDs are preserved. No reassignment is
+needed. API clients must refresh the station list after configuration changes.
+
 ## Version 0.3.5
 
 Restore the quiet normal view: detailed errors, read phases, measurement ages and
