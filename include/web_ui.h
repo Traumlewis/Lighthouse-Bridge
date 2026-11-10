@@ -26,7 +26,7 @@ const char WEB_UI[] PROGMEM = R"LHHTML(<!doctype html>
 </details>
 <details><summary>Alexa verbinden</summary><p>ESP32 und Echo Dot müssen im selben Heimnetz sein. Starte nach der Zuordnung eine Gerätesuche in Alexa oder sage: „Alexa, suche Geräte.“</p><p>Es erscheinen vier einzelne Lampen und „VR Basisstationen“. Beispiel: „Alexa, schalte VR Basisstationen aus.“</p><p class="warning">Die Hue-Emulation ist experimentell und muss mit deinem Echo Dot der 5. Generation getestet werden. Alexas Schalter zeigt den angeforderten Zustand; BLE-Fehler siehst du hier.</p></details>
 <details><summary>WLAN &amp; lokale API</summary><p>Für einen WLAN-Wechsel startet der ESP32 einen geschützten Setup-Zugangspunkt. Währenddessen pausiert die normale Bedienung. Alternativ nach dem Start die BOOT-Taste fünf Sekunden halten.</p><button id="wifi">WLAN-Setup öffnen</button><p class="hint">Das Setup-Passwort wird über USB im seriellen Monitor ausgegeben. Es ist auch das Web-Passwort für „admin“ und der API-Key. Beim ersten Setup öffnest du 192.168.4.1.</p><p>Für die spätere Pebble-Anbindung: <code>POST /api/power</code> mit <code>{"station":"all","state":"sleep"}</code> und dem Header <code>X-API-Key</code>. Status: <code>GET /api/status</code>.</p></details>
-<footer><span id="device-address">Lokale Steuerung · ESP32</span><span>Valve Lighthouse V2 · Bridge 0.1.0</span></footer>
+<footer><span id="device-address">Lokale Steuerung · ESP32</span><span>Valve Lighthouse V2 · Bridge 0.1.1</span></footer>
 </main>
 <script>
 'use strict';

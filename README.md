@@ -25,6 +25,13 @@ Die BLE-Kommunikation und die Alexa-Erkennung sind ohne echte Hardware noch
 nicht getestet. Insbesondere die Hue-Emulation ist keine garantierte
 Alexa-Kompatibilität. Das Projekt benötigt keine Handy-Companion-App.
 
+**Update 0.1.1:** Behebt den Startabbruch von 0.1.0 bei der BLE-Initialisierung.
+WLAN-Modem-Sleep bleibt für den gemeinsamen WLAN-/Bluetooth-Betrieb aktiv.
+Zum Aktualisieren im WebFlasher **nicht löschen**, wenn WLAN, Zugangsschlüssel
+und Stationszuordnung erhalten bleiben sollen. Nach dem Neustart sollten
+„BLE bereit.“ und „Lighthouse Bridge bereit.“ erscheinen. Der erneute Test auf
+dem Board steht noch aus; siehe Prüfbericht.
+
 ## Hardware
 
 Vorgesehen ist das beschriebene **ESP-WROOM-32 / ESP-32S Dual-Core Board mit

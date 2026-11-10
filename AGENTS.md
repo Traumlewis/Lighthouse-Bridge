@@ -48,7 +48,7 @@ decisions, not a conversation log. User instructions take precedence.
   `translations.js`. All asset/manifest URLs must work below `/Lighthouse-Bridge/`.
 - `site/vendor/`: unmodified ESP Web Tools **10.4.0**, including lazy-loaded
   modules and `UPSTREAM.json` integrity hashes. No runtime CDN dependency.
-- `tools/package_release.py`: version **0.1.0**, merged image and source ZIP.
+- `tools/package_release.py`: version **0.1.1**, merged image and source ZIP.
 - `tools/build_pages.py`: validates vendor/firmware integrity and creates `_site/`.
 - `.github/workflows/firmware-pages.yml`: build, checks, artifacts and Pages deploy.
 - `README.md`, `docs/API.md`, `docs/WEBFLASHER.md`, `docs/VALIDATION.md`: keep relevant
@@ -61,6 +61,13 @@ decisions, not a conversation log. User instructions take precedence.
 - Up to three connection/write attempts; newer pending requests replace older
   ones for the same station. Old results must not clear a newer request.
 - One BLE task owns scan/connect/write/disconnect; HTTP and SSDP remain responsive.
+- Keep **Wi-Fi modem sleep enabled (`WIFI_PS_MIN_MODEM`) before initializing BLE**.
+  With Arduino ESP32 2.0.17, disabling it (`WiFi.setSleep(false)` / `WIFI_PS_NONE`)
+  aborts inside `coex_enable()` when the BT controller starts. Do not disable it
+  later to improve HTTP/SSDP latency. This modem setting does not change the
+  Lighthouse SLEEP command or put the ESP32 CPU into deep sleep.
+  Set Arduino's cached mode before starting STA as well as checking the driver
+  setting before BLE; STA restarts can reapply Arduino's cached policy.
 - Read state once after a command when available. Display reading age; do not
   present it as continuous monitoring or treat `0x01` as confirmed ON.
 - Preserve BLE address type from discovery and reject duplicate assignments.
@@ -101,11 +108,16 @@ to test page rendering. For language changes run the static translation checks
 and the bilingual browser test. Keep generated `_site/`, `dist/`, `.pio/` and
 `node_modules/` out of Git; edit source files, not generated output.
 
-Current verification: firmware compiles; native logic, page asset/integrity and
-EN/DE browser checks pass. GitHub Pages is enabled and has been deployed. **No real
-board flashing, Wi-Fi provisioning, Lighthouse BLE or Echo Dot 5 test has been
-reported yet.** Keep hardware support labeled prototype until verified evidence
-is available; record new evidence here and in `docs/VALIDATION.md`.
+Current verification: native logic, page asset/integrity and EN/DE browser checks
+pass; GitHub Pages is enabled. On 2026-11-10 the owner reported a real 0.1.0 boot:
+firmware starts and connects to Wi-Fi, then aborts during BT-controller coexistence
+initialization. Version 0.1.1 corrects the incompatible Wi-Fi power-save setting;
+the owner must still confirm startup after reflashing. **Lighthouse BLE operations,
+full Wi-Fi-portal recovery and Echo Dot 5 control remain unverified on hardware.**
+Keep hardware support labeled prototype and record new evidence here and in
+`docs/VALIDATION.md`. CI retains matching ELF/map files as the
+`lighthouse-bridge-debug` artifact for future crash decoding. Never commit raw
+serial logs containing access keys or personal network/device identifiers.
 
 ## Repository and publication workflow
 

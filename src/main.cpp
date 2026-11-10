@@ -7,6 +7,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
+#include <esp_wifi.h>
 #include "bridge_core.h"
 #include "web_ui.h"
 
@@ -224,7 +225,7 @@ bool parseConfigs(JsonVariantConst input, StationConfig* out, String& error) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(8192);
-  doc["version"] = "0.1.0";
+  doc["version"] = "0.1.1";
   doc["ip"] = WiFi.localIP().toString();
   doc["hostname"] = hostname;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
@@ -371,11 +372,14 @@ void setup() {
       while (true) delay(1000);
     }
   }
+  // Update Arduino's cached policy too: STA starts/restarts reapply this value.
+  // Its setter may return false simply because the cached mode is unchanged.
+  WiFi.setSleep(WIFI_PS_MIN_MODEM);
   WiFi.mode(WIFI_STA);
   String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
-  Serial.printf("\nLighthouse Bridge 0.1.0\nSetup-WLAN: %s\n", apName.c_str());
+  Serial.printf("\nLighthouse Bridge 0.1.1\nSetup-WLAN: %s\n", apName.c_str());
   Serial.printf("Setup-Passwort / Web-Passwort / API-Key: %s\nWeb-Benutzer: admin\n", accessKey.c_str());
   Serial.println("Nur ON/SLEEP; keine automatischen Schaltbefehle beim Start.");
   WiFi.setHostname(hostname.c_str());
@@ -386,8 +390,16 @@ void setup() {
   wifi.setConfigPortalTimeout(0);
   if (!wifi.autoConnect(apName.c_str(), accessKey.c_str())) { ESP.restart(); return; }
   WiFi.setAutoReconnect(true);
-  WiFi.setSleep(false);
-  Serial.printf("Webinterface: http://%s/ oder http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
+  // Arduino ESP32 2.0.17 / IDF 4.4 requires modem sleep for Wi-Fi/BLE
+  // coexistence. WIFI_PS_NONE aborts in coex_enable() when NimBLE starts.
+  // Use the driver API: WiFi.setSleep() also returns false when unchanged.
+  const esp_err_t powerSaveResult = esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  if (powerSaveResult != ESP_OK) {
+    Serial.printf("WLAN-Modem-Sleep fehlgeschlagen: %s; BLE wird nicht gestartet.\n",
+                  esp_err_to_name(powerSaveResult));
+    while (true) delay(1000);
+  }
+  Serial.println("WLAN verbunden; Modem-Sleep fuer WLAN/BLE aktiv.");
   stateMutex = xSemaphoreCreateMutex();
   if (!stateMutex) { Serial.println("Kein RAM fuer Mutex"); while (true) delay(1000); }
   for (unsigned i = 0; i < kStations; ++i)
@@ -399,7 +411,9 @@ void setup() {
       memcpy(configs, restored, sizeof(configs));
     else Serial.println("Gespeicherte Stationskonfiguration ungueltig; bitte neu zuordnen.");
   }
+  Serial.println("Initialisiere BLE ...");
   NimBLEDevice::init("Lighthouse Bridge");
+  Serial.println("BLE bereit.");
   if (xTaskCreatePinnedToCore(bleWorker, "lighthouse-ble", 8192, nullptr, 1, nullptr, 0) != pdPASS) {
     Serial.println("BLE-Task konnte nicht gestartet werden"); while (true) delay(1000);
   }
@@ -417,6 +431,8 @@ void setup() {
   alexaReady = alexa.begin(&server);
   if (!alexaReady) { Serial.println("SSDP-Start fehlgeschlagen; Webinterface bleibt verfuegbar."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
+  Serial.printf("Webinterface: http://%s/ oder http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
+  Serial.println("Lighthouse Bridge bereit.");
 }
 
 void loop() {

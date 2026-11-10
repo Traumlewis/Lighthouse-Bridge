@@ -1,4 +1,29 @@
-# Prüfbericht — Prototyp 0.1.0
+# Prüfbericht — Prototyp 0.1.1
+
+## Hardware-Rückmeldung und Startkorrektur
+
+Am 10.11.2026 meldete der Besitzer den ersten echten Start mit 0.1.0: Firmware
+geflasht, Zugangsschlüssel ausgegeben, Heim-WLAN verbunden; anschließend Abbruch
+bei der Bluetooth-Initialisierung. Die lokalen Symbole des entsprechenden
+Quellstands ordnen den Backtrace `coex_core_enable → coex_enable →
+esp_bt_controller_enable → NimBLEDevice::init → setup` zu. Das exakte ELF des
+ursprünglichen CI-Builds wurde noch nicht archiviert; künftig bleibt es als
+Actions-Artefakt `lighthouse-bridge-debug` verfügbar. Es werden keine persönlichen
+Geräte-/Netzwerkdaten oder Zugangsschlüssel aus dem Log im Repository gespeichert.
+
+Ursache: `WiFi.setSleep(false)` setzte `WIFI_PS_NONE`, bevor BLE aktiviert wurde.
+Version 0.1.1 setzt stattdessen explizit `WIFI_PS_MIN_MODEM` und prüft den
+Treiber-Rückgabewert, bevor BLE startet. Bei einem Fehler wird BLE nicht gestartet.
+Auch der von Arduino gespeicherte Modus wird vor dem STA-Start gesetzt, damit
+spätere WLAN-Neustarts nicht wieder `WIFI_PS_NONE` anwenden.
+Die Bereitschaftsmeldung und Webadresse erscheinen erst nach der Initialisierung.
+Diese WLAN-Modem-Einstellung ändert den Lighthouse-SLEEP-Befehl nicht.
+
+Referenz: [Espressif, IDFGH-8094 / Issue 9595](https://github.com/espressif/esp-idf/issues/9595).
+Die zusätzliche Meldung zur fehlenden Core-Dump-Partition ist ein separates
+Diagnoseproblem: Die bisherige Partitionstabelle enthält keine Core-Dump-Partition.
+Für dieses Update bleiben alle Partitionen und gespeicherten Einstellungen
+unverändert. Die Wiederholung des Hardwaretests mit **0.1.1** steht noch aus.
 
 ## In der Entwicklungsumgebung geprüft
 
@@ -51,6 +76,8 @@
 8. Längerer Betrieb: freier Heap, Web-Erreichbarkeit während BLE-Aufträgen,
    Verhalten parallel zu SteamVR und nach Strom-/WLAN-Unterbrechungen.
 
-Keine dieser Hardwareprüfungen wird durch einen erfolgreichen Build oder den
-Browser mit simuliertem Backend nachgewiesen. Die Firmware wurde hier nicht auf
-ein Board geflasht und hat keine realen Basisstationen oder Echos angesprochen.
+Ein erfolgreicher Build oder Browser mit simuliertem Backend ersetzt keine
+Hardwareprüfung. Die oben beschriebene Besitzer-Rückmeldung belegt den Start und
+die WLAN-Verbindung von 0.1.0, aber keinen erfolgreichen BLE-Start. Die Firmware
+wurde hier nicht auf ein Board geflasht; erfolgreiche Basisstations- oder
+Echo-Steuerung wurde noch nicht nachgewiesen.
