@@ -13,7 +13,7 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     let firmwareMissing=false;
     await page.addInitScript(()=>{
-      window.copiedValue='';Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});document.execCommand=()=>{window.copiedValue=document.activeElement.value;return true;};
+      window.realClipboard=navigator.clipboard;window.copiedValue='';Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});document.execCommand=()=>{window.copiedValue=document.activeElement.value;return true;};
       window.serialRequests=0;
       window.usbMode=false;
       const info={protocol:1,version:'0.2.0',api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:false,url:null};
@@ -79,7 +79,22 @@ const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(site,'manifes
     await page.waitForFunction(()=>document.getElementById('usb-key').textContent==='1234567890abcdef12345678');
     assert.equal(await page.locator('#install').isDisabled(),true,'USB reader owns the port');
     assert.equal(await page.locator('#usb-url').isHidden(),true);
+    const contrast=await page.locator('#usb-key').evaluate(node=>{
+      const channels=color=>color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;});
+      const luminance=color=>{const [r,g,b]=channels(color);return .2126*r+.7152*g+.0722*b;};
+      let backdrop=node;while(backdrop&&getComputedStyle(backdrop).backgroundColor==='rgba(0, 0, 0, 0)')backdrop=backdrop.parentElement;
+      const foreground=luminance(getComputedStyle(node).color),background=luminance(getComputedStyle(backdrop).backgroundColor);
+      return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);
+    });
+    assert.ok(contrast>=4.5,'API key must remain readable on the panel; contrast='+contrast);
+    assert.deepEqual(await page.locator('#copy-key').evaluate(node=>{const s=getComputedStyle(node);return [s.backgroundColor,s.borderWidth,s.padding];}),['rgba(0, 0, 0, 0)','0px','0px'],'clickable key is plain text without a visible button box');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile layout with actual key visible');
     await page.locator('#copy-key').click();assert.equal(await page.evaluate(()=>window.copiedValue),'1234567890abcdef12345678');
+    assert.equal(await page.locator('#copy-status').textContent(),'Key kopiert.');
+    await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:'https://flasher.test'});
+    await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{value:window.realClipboard,configurable:true}));
+    await page.locator('#copy-key').focus();await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),'1234567890abcdef12345678');
     await page.evaluate(()=>window.sendWifiAddress());
     await page.waitForFunction(()=>document.getElementById('usb-url').getAttribute('href')==='http://192.168.1.42/');
     assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('1234567890abcdef12345678')),false);

@@ -187,6 +187,10 @@ status change. Keep current facts, not a conversation log. User instructions win
 ## Device naming, copy and OTA
 
 - Click-to-copy API key in the USB WebFlasher panel and authenticated dashboard.
+  The owner wants the WebFlasher key to look like plain clickable text: no visible
+  button background, border or padding. Keep native button semantics/keyboard
+  support but override generic button styling; accent-on-accent made it unreadable.
+  Check contrast against the panel with a visible key, not only before connection.
   Support local HTTP with selection/execCommand fallback; no key storage/network.
 - Custom device name: lowercase DNS label 1–32 bytes, digits/internal hyphens.
   Same saved name for setup AP SSID and mDNS hostname. Default legacy names stay

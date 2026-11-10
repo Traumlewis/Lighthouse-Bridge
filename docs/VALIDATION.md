@@ -1,5 +1,15 @@
 # Validation report — 0.3.0
 
+## WebFlasher key contrast correction
+
+A browser regression reproduces the 0.3.0 copy-button defect: the inherited
+accent background and USB code text are identical, giving a 1:1 contrast ratio.
+The public page now shows plain clickable accent text, with no button background,
+border or padding, as requested by the owner. Feedback appears on a separate line. The regression checks >=4.5:1 contrast
+with the key visible, mobile width, the fallback copy path and Chromium's actual
+Clipboard API through keyboard activation. USB is simulated; the clipboard is
+real within the test browser. Firmware remains 0.3.0; no ESP32 update is needed.
+
 ## Version 0.3.0 software validation
 
 No ESP32 is attached to this environment. Earlier hardware evidence below concerns
