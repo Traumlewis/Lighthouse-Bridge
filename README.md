@@ -16,6 +16,15 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.3
+
+The dashboard hides detailed read/retry errors, measurement ages and last-command
+history by default. Triple-click the firmware version within 1.2 seconds to turn
+**Debug** on; repeat to turn it off. It resets on reload/sign-out and supports
+keyboard activation. Current measured state, unavailable stations and queued or
+sending power commands remain visible. API/USB diagnostics and BLE behavior are
+unchanged. Install the 0.3.3 .lhota package to update the embedded interface.
+
 ## Version 0.3.2
 
 Fix the Hue discovery identifier format for newly added stations. Versions 0.3.0

@@ -192,6 +192,18 @@ status change. Keep current facts, not a conversation log. User instructions win
   are unencrypted; do not enable public network exposure. Never commit real keys,
   passwords, SSIDs, device MACs, or raw serial logs containing them.
 
+## Dashboard debug details
+
+- Default view is quiet: current measured ON/SLEEP/Starting/Unknown, unavailability,
+  first-reading wait and queued/sending power targets remain visible. Hide detailed
+  read failures/retries, background read phases, ages, last-reading suffix and
+  last-command history behind debug mode. Do not fabricate fresh measurements.
+- Three version-button activations within 1200 ms toggle debug; another triple
+  disables it. Keep native keyboard support and EN/DE indicator/accessible labels.
+  Single/double/slow unrelated clicks must not toggle it. No network mutations.
+- Default off on page load and logout, RAM only; language changes preserve it.
+  Debug affects browser presentation only, never BLE scheduling, serial or API.
+
 ## Device naming, copy and OTA
 
 - Click-to-copy API key in the USB WebFlasher panel and authenticated dashboard.
@@ -226,7 +238,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.2**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.3**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential

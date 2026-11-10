@@ -1,4 +1,4 @@
-# Local API — 0.3.2
+# Local API — 0.3.3
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -22,6 +22,11 @@ by the web login. Mutations require `Content-Type: application/json`. CORS is no
 - `POST /api/logout`, body `{}`: removes the web session. The cookie is HttpOnly,
   SameSite=Strict and has a 12-hour lifetime; server sessions also have a 12-hour
   inactivity limit. Reboot discards all sessions.
+
+The dashboard hides detailed per-station read errors, measurement ages and
+last-command history by default. Triple-click its firmware version within 1.2 s
+to toggle debug details. This only changes browser presentation; all API fields
+and serial diagnostics remain available and BLE behavior is unchanged.
 
 ## GET /api/status
 
@@ -276,7 +281,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.2","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.3","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

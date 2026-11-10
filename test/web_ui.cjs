@@ -96,6 +96,18 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('state-1').textContent==='SLEEP');
   const before=commands.length;await page.locator('#refresh').click();assert.equal(commands.length,before);assert.ok(refreshes>=2);
   Object.assign(stations[1],{observed:'on',observed_raw:11,observed_ms:88000,reachable:true,read_failures:1,error:'BLE_READ_FAILED'});
+  await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON');
+  assert.equal(await page.locator('#debug-indicator').isHidden(),true);
+  assert.doesNotMatch(await page.locator('#status-2').textContent(),/Wiederholung|nicht gelesen|Letzte erfolgreiche/);
+  const commandCount=commands.length,refreshCount=refreshes;
+  await page.locator('#version-toggle').click();assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false');
+  await page.waitForTimeout(1300); // Expired first click must not contribute.
+  await page.locator('#version-toggle').click();await page.locator('#version-toggle').click();
+  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false','two fresh clicks cannot enable debug');
+  await page.locator('#version-toggle').click();
+  assert.equal(await page.locator('#debug-indicator').textContent(),'Debug aktiviert');
+  assert.equal(await page.locator('#debug-indicator').isVisible(),true);
+  assert.equal(commands.length,commandCount);assert.equal(refreshes,refreshCount,'debug toggle does not send refresh writes');
   await page.waitForFunction(()=>document.getElementById('state-2').textContent==='ON · letzte Messung');
   assert.match(await page.locator('#status-2').textContent(),/Wiederholung/);
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/veraltet/);
@@ -104,6 +116,11 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.waitForFunction(()=>document.getElementById('status-2').textContent.includes('nicht gelesen'));
   assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
   assert.doesNotMatch(await page.locator('#status-2').textContent(),/veraltet/,'recent failed readings are unavailable, not expired');
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.equal(await page.locator('#status-2').textContent(),'nicht erreichbar');
+  assert.equal(await page.locator('#state-2').textContent(),'Unbekannt');
+  assert.equal(await page.locator('#debug-indicator').isHidden(),true);
+  await page.locator('#version-toggle').click({clickCount:3});
   stations[1].observed_ms=20000;
   await page.waitForFunction(()=>document.getElementById('status-2').textContent.includes('veraltet'));
   stations[1].observed_ms=88000;
@@ -115,6 +132,11 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   Object.assign(stations[3],{command_confirmed:true,command_status:'confirmed',observed:'on',observed_raw:11});
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('target state confirmed'));
   assert.equal(await page.locator('#state-4').textContent(),'ON');
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.doesNotMatch(await page.locator('#status-4').textContent(),/Last command|confirmed|reading/);
+  assert.equal(await page.locator('#state-4').textContent(),'ON');
+  await page.locator('#version-toggle').focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.keyboard.press('Enter');
+  assert.match(await page.locator('#status-4').textContent(),/target state confirmed/);
   Object.assign(stations[3],{command_confirmed:false,command_status:'unconfirmed'});
   await page.waitForFunction(()=>document.getElementById('status-4').textContent.includes('not confirmed within 30 seconds'));
   assert.equal(await page.locator('#state-4').textContent(),'ON','a late measurement and the verification deadline are distinct');
@@ -148,11 +170,16 @@ const html=fs.readFileSync(path.join(root,'include/web_ui.h'),'utf8').split('R"L
   await page.locator('#network-settings summary').click();assert.equal(await page.locator('#api-key').isVisible(),true);
   await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);
   assert.equal(await page.locator('#api-key').textContent(),'');
+  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false','sign-out resets debug');
   await page.locator('#login-password').fill(key);await page.locator('#login-form button').click();
   await page.waitForFunction(()=>document.getElementById('message').textContent.includes('Passwort falsch'));
   await page.locator('#login-password').fill(password);await page.locator('#login-form button').click();
   await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
   assert.equal(await page.locator('#api-key').textContent(),key);
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'true');
+  await page.reload();await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
+  assert.equal(await page.locator('#version-toggle').getAttribute('aria-pressed'),'false','reload resets debug');
   await page.locator('#network-settings').evaluate(node=>node.open=true);
   assert.deepEqual(await page.locator('#copy-key').evaluate(node=>{const s=getComputedStyle(node);return [s.backgroundColor,s.borderWidth,s.padding];}),['rgba(0, 0, 0, 0)','0px','0px'],'API key is plain clickable text without a button box');
   const keyContrast=await page.locator('#api-key').evaluate(node=>{

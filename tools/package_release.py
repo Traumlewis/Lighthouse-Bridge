@@ -11,7 +11,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 
 
 def main():

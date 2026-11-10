@@ -1,4 +1,21 @@
-# Validation report — 0.3.2
+# Validation report — 0.3.3
+
+## Version 0.3.3 dashboard debug presentation
+
+The owner requested hiding verbose per-station errors, measurement ages and
+last-command history behind a three-click version toggle. The mode is off by
+default and on logout/reload, is not stored, and preserves its setting across
+language changes. Three activations within 1.2 s enable/disable it. Native button
+keyboard activation is supported. Current measured badges, unavailable status,
+first-read wait and queued/sending commands remain visible in normal mode.
+
+Browser checks with mocked station states cover normal/debug rendering, single
+and double clicks, expired click sequences, repeated toggling, EN/DE, confirmed
+command history, retained measurements during one failed read, unavailable/stale
+readings and logout reset. Toggling must not queue commands or refresh writes.
+API/serial fields, BLE retries, Hue views and flash layout remain unchanged.
+The firmware build, package/header checks and NVS-preservation tests still apply;
+no physical flash is performed by the browser tests.
 
 ## Version 0.3.2 Hue discovery identifier regression
 
