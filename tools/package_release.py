@@ -69,7 +69,7 @@ def main():
                 if file.resolve() == archive.resolve():
                     continue
                 bundle.write(file, Path("source") / relative)
-            bundle.write(ROOT / "README.md", "BITTE-ZUERST-LESEN.md")
+            bundle.write(ROOT / "README.md", "READ-ME-FIRST.md")
             # Include the license/notice files shipped with compiled dependencies.
             dep_roots = [ROOT / ".pio/libdeps/esp32dev", core / "packages/framework-arduinoespressif32"]
             for dep_root in dep_roots:

@@ -1,14 +1,15 @@
 # ESP Web Tools
 
-Unveränderte Browser-Module aus `esp-web-tools@10.4.0/dist/web/`.
-Quelle: https://github.com/esphome/esp-web-tools
-Paket: https://unpkg.com/esp-web-tools@10.4.0/dist/web/
+Unmodified browser modules from `esp-web-tools@10.4.0/dist/web/`.
+Source: https://github.com/esphome/esp-web-tools
+Package: https://unpkg.com/esp-web-tools@10.4.0/dist/web/
 
-`UPSTREAM.json` enthält die veröffentlichten SHA-256-Integritätswerte aller
-26 JavaScript-Module. `tools/build_pages.py` prüft diese vor jeder Veröffentlichung.
-Es werden alle Lazy-Loading-Module mitgeliefert, auch die anderen Chipfamilien;
-das Firmware-Manifest erlaubt ausschließlich den klassischen ESP32.
+`UPSTREAM.json` contains published SHA-256 integrity values for all 26 JavaScript
+modules. `tools/build_pages.py` verifies them before deployment. All lazy-loaded
+modules are included, even those for other chip families; the firmware manifest
+allows only the classic ESP32.
 
-Die Module werden von derselben GitHub-Pages-Adresse geladen, nicht zur
-Laufzeit über ein CDN. Lizenz: Apache-2.0, siehe LICENSE-esp-web-tools.
-Eingebettete Abhängigkeiten und deren Lizenzhinweise gehören zum Upstream-Projekt.
+Modules are served from the same GitHub Pages origin, without a runtime CDN.
+License: Apache-2.0; see LICENSE-esp-web-tools. Embedded dependencies and their
+notices belong to the upstream project. Do not translate or modify those
+upstream module/license files.

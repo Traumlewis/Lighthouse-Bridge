@@ -286,7 +286,7 @@ void bleWorker(void*) {
         finish(states[selected], generation, sent, observed, millis(), error);
         states[selected].bleError = bleError;
       }
-      Serial.printf("Station %d: %s, %s\n", selected + 1, targetName(target), sent ? "gesendet" : error);
+      Serial.printf("Station %d: %s, %s\n", selected + 1, targetName(target), sent ? "sent" : error);
       }
       cursor = (selected + 1) % kStations;
     }
@@ -622,13 +622,13 @@ void startServices() {
   // Use the driver API: WiFi.setSleep() also returns false when unchanged.
   const esp_err_t powerSaveResult = esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
   if (powerSaveResult != ESP_OK) {
-    Serial.printf("WLAN-Modem-Sleep fehlgeschlagen: %s; BLE wird nicht gestartet.\n",
+    Serial.printf("Wi-Fi modem sleep failed: %s; BLE will not start.\n",
                   esp_err_to_name(powerSaveResult));
     while (true) delay(1000);
   }
-  Serial.println("WLAN verbunden; Modem-Sleep fuer WLAN/BLE aktiv.");
+  Serial.println("Wi-Fi connected; modem sleep enabled for Wi-Fi/BLE coexistence.");
   stateMutex = xSemaphoreCreateMutex();
-  if (!stateMutex) { Serial.println("Kein RAM fuer Mutex"); while (true) delay(1000); }
+  if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
   for (unsigned i = 0; i < kStations; ++i)
     snprintf(configs[i].name, sizeof(configs[i].name), "Base station %u", i + 1);
   const String saved = prefs.getString("stations", "");
@@ -636,13 +636,13 @@ void startServices() {
     DynamicJsonDocument doc(3072); StationConfig restored[kStations]{}; String error;
     if (!deserializeJson(doc, saved) && parseConfigs(doc.as<JsonVariantConst>(), restored, error))
       memcpy(configs, restored, sizeof(configs));
-    else Serial.println("Gespeicherte Stationskonfiguration ungueltig; bitte neu zuordnen.");
+    else Serial.println("Saved station configuration is invalid; please assign the stations again.");
   }
-  Serial.println("Initialisiere BLE ...");
+  Serial.println("Initializing BLE ...");
   NimBLEDevice::init("Lighthouse Bridge");
-  Serial.println("BLE bereit.");
+  Serial.println("BLE ready.");
   if (xTaskCreatePinnedToCore(bleWorker, "lighthouse-ble", 8192, nullptr, 1, nullptr, 0) != pdPASS) {
-    Serial.println("BLE-Task konnte nicht gestartet werden"); while (true) delay(1000);
+    Serial.println("Could not start BLE task"); while (true) delay(1000);
   }
   for (unsigned i = 0; i < kStations; ++i) {
     lights[i] = new EspalexaDevice(configs[i].name, [i](EspalexaDevice* device) {
@@ -656,11 +656,11 @@ void startServices() {
   alexa.addDevice(groupLight);
   configureRoutes();
   alexaReady = alexa.begin(&server);
-  if (!alexaReady) { Serial.println("SSDP-Start fehlgeschlagen; Webinterface bleibt verfuegbar."); server.begin(); }
+  if (!alexaReady) { Serial.println("SSDP startup failed; the web interface remains available."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
-  Serial.printf("Webinterface: http://%s/ oder http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
+  Serial.printf("Web interface: http://%s/ or http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
   servicesStarted = true;
-  Serial.println("Lighthouse Bridge bereit.");
+  Serial.println("Lighthouse Bridge ready.");
   emitDeviceInfo();
 }
 

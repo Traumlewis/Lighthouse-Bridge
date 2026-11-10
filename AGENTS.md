@@ -105,7 +105,14 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Languages and source layout
 
-- Speak German to the owner unless asked otherwise.
+- **Keep the GitHub repository in English:** README, project documentation,
+  authored comments, non-localized diagnostics, commit messages and generated
+  release instructions. Do not add German-only repository documentation.
+  German belongs in intentional UI translations and tests of those translations.
+  Preserve upstream licenses and established identifiers such as
+  `VR Basisstationen`; do not rename user/device data for language consistency.
+- Speak German to the owner in chat unless asked otherwise; repository language
+  and conversation language are separate preferences.
 - **Both public WebFlasher and embedded dashboard default to English**, German
   selectable. Valid `?lang=en/de` overrides `localStorage['lighthouse-bridge.language']`,
   otherwise default English. Never auto-select German from browser locale.

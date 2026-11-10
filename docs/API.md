@@ -1,33 +1,33 @@
-# Lokale API — 0.2.1
+# Local API — 0.2.1
 
-Basisadresse `http://<ESP32-IP>`. Für Integrationen gilt unverändert
-`X-API-Key: <Key>`. Der Webbrowser verwendet stattdessen eine HttpOnly-Session.
-HTTP Basic wurde durch den Web-Login ersetzt. Änderungen benötigen
-`Content-Type: application/json`; CORS wird nicht geöffnet.
+Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
+The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
+by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
 
-## Web-Anmeldung (keine Integrations-Endpunkte)
+## Web authentication (not integration endpoints)
 
-- `POST /api/login`, Body `{"password":"…"}`. Beim ersten Login ohne gespeichertes
-  Web-Passwort wird der API-Key akzeptiert. Danach ausschließlich das eigene
-  Passwort. Antwort `{"password_required":true|false}` und Cookie `LHSESSION`.
-  Nach fünf Fehlversuchen 30 Sekunden Sperre (`429`).
-- Bootstrap-Sessions müssen erst ein eigenes Passwort festlegen; normale
-  geschützte Anfragen liefern vorher `428 PASSWORD_REQUIRED`.
-- `POST /api/password`, Body `{"password":"…"}`: 8–128 Bytes, verschieden vom
-  API-Key. Nur angemeldete Web-Sessions, **nicht** `X-API-Key`. Speichert Salt und
-  PBKDF2-SHA256-Hash atomar als NVS-Eintrag, verwirft alte Sessions, erstellt eine
-  neue Session. Antwort `{"saved":true}`. Passwort niemals zurückgegeben.
-- `GET /api/account`: nur Web-Session, auch Bootstrap. Liefert `password_required`
-  und `setup_ssid`; `api_key` wird erst nach Passwortvergabe ausgegeben. API-Key-
-  Anmeldung als Header reicht für diesen Endpunkt ausdrücklich nicht.
-- `POST /api/logout`, Body `{}`: Web-Session löschen. Cookie HttpOnly,
-  SameSite=Strict, zwölf Stunden Inaktivität; Reboot verwirft alle Sessions.
+- `POST /api/login`, body `{"password":"…"}`. Before a personal password exists,
+  the API key is accepted. Later logins accept only the personal password.
+  Returns `{"password_required":true|false}` and the `LHSESSION` cookie.
+  Five failed attempts trigger a 30-second block (`429`).
+- Bootstrap sessions must set a personal password first; normal protected requests
+  return `428 PASSWORD_REQUIRED` until then.
+- `POST /api/password`, body `{"password":"…"}`: 8–128 bytes, different from the API
+  key. Requires a web session, **not** `X-API-Key`. Atomically saves the salt and
+  PBKDF2-SHA256 hash in NVS, invalidates old sessions and issues a new one. Returns
+  `{"saved":true}`. The password is never returned.
+- `GET /api/account`: requires a web session, including bootstrap sessions. Returns
+  `password_required` and `setup_ssid`. `api_key` is included only after password
+  setup. API-key header authentication does not grant access to this endpoint.
+- `POST /api/logout`, body `{}`: removes the web session. The cookie is HttpOnly,
+  SameSite=Strict and has a 12-hour lifetime; server sessions also have a 12-hour
+  inactivity limit. Reboot discards all sessions.
 
 ## GET /api/status
 
-Version, IP/Hostname, WLAN-/SSDP-Initialisierung, Uptime, freier Heap, vier Plätze,
-Suchstatus und Ergebnisse. `alexa_started` bestätigt nur den SSDP-Start.
-Pro Station beispielsweise:
+Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, four
+slots, discovery state and results. `alexa_started` confirms only SSDP startup.
+A station entry looks like this:
 
 ```json
 {
@@ -38,32 +38,35 @@ Pro Station beispielsweise:
 }
 ```
 
-`requested` ist nur ein Ziel und nach Neustart `null`. `observed` ist die letzte
-BLE-Messung. Gelesen wird beim Start, nach Befehlen und regelmäßig (Ziel 15 s,
-Boot-Zustand 2 s, nicht erreichbar 30 s; Verzögerungen bei belegtem BLE möglich).
-`reading` schließt vorgemerkte Leseaufträge ein. Jede Lese-Runde hat höchstens
-zwei Versuche mit sechs Sekunden Verbindungs-Timeout. Ein einzelner Fehlschlag
-erhält eine bisher gültige Messung, mit `read_failures=1` und Warnung im UI;
-Wiederholung nach fünf Sekunden. Zwei erfolglose Runden, kein Messwert oder Alter
-ab 60 s bedeuten `reachable=false`. Zeitstempel werden nie künstlich erneuert.
-`ble_error` ist der letzte numerische NimBLE-Fehler (0 falls keiner verfügbar),
-`last_read_attempt_ms` das Ende der letzten Abfrage, `read_failures` die Zahl
-aufeinanderfolgender fehlgeschlagener Runden. Erfolgreiche Messung setzt sie zurück.
-`observed_raw=-1` bedeutet noch keine Messung. Zeitangaben sind Millisekunden seit
-Start; Differenzen als unsigned 32 Bit berechnen. Status wird nicht persistiert.
+`requested` is only a target and is `null` after reboot. `observed` is the last BLE
+measurement. Reads run at startup, after commands and periodically: target 15 s,
+starting state 2 s, unreachable state 30 s, subject to the BLE queue.
+
+`reading` includes queued read requests. A read cycle has up to two attempts with
+a six-second connection timeout. One failed cycle preserves a previously usable
+measurement with `read_failures=1` and a dashboard warning, then retries after
+five seconds. Two failed cycles, no previous measurement, or age of at least 60 s
+means `reachable=false`. Failures never refresh the measurement timestamp.
+
+`ble_error` is the last numeric NimBLE error, or 0 if unavailable.
+`last_read_attempt_ms` is the end of the last read attempt; `read_failures` counts
+consecutive failed cycles and resets on success. `observed_raw=-1` means no
+measurement yet. Times are milliseconds since startup; calculate differences as
+unsigned 32-bit values. Runtime state is not persisted across reboots.
 
 ## POST /api/refresh
 
-Body `{}`, Antwort `202 {"accepted":true}`. Reiht reine BLE-Abfragen aller
-konfigurierten Plätze ein, **keine** Power-Schreibbefehle. Fortschritt in Status.
+Body `{}`, response `202 {"accepted":true}`. Queues reads for all configured slots.
+It sends **no power writes**. Follow progress in status.
 
 ## POST /api/power
 
-`{"station":"all","state":"sleep"}` oder `{"station":2,"state":"on"}`.
-Nur `on`/`sleep`; `off`/`standby` sind ungültig. `202 {"accepted":true}` bedeutet
-vorgemerkt, nicht gemessen. Neue Ziele ersetzen wartende Aufträge für denselben
-Platz; laufende Aktionen können noch enden. Drei Schreib-/Verbindungsversuche
-maximal. Die Gruppe berücksichtigt nur zugeordnete Plätze, sonst `409 NO_STATION`.
+Use `{"station":"all","state":"sleep"}` or `{"station":2,"state":"on"}`.
+Only `on` and `sleep` are valid; `off` and `standby` are rejected.
+`202 {"accepted":true}` means queued, not measured. New targets replace pending
+requests for the same slot; an in-flight action may still finish. There are at
+most three write/connection attempts. Groups include only assigned slots;
+otherwise the endpoint returns `409 NO_STATION`.
 
 ```sh
 curl --fail-with-body http://192.168.1.42/api/power \
@@ -73,59 +76,61 @@ curl --fail-with-body http://192.168.1.42/api/power \
 
 ## POST /api/scan
 
-Body `{}`, Antwort `202`. Fünfsekündige Suche nach `LHB-…`, nach Schaltaufträgen.
-`discovered` enthält Name, MAC, `address_type`, RSSI; maximal 16 Ergebnisse,
-`scan_truncated` meldet eine Begrenzung. Kein Fund wird automatisch zugeordnet.
+Body `{}`, response `202`. Runs a five-second `LHB-…` discovery after queued power
+commands. `discovered` contains name, MAC, `address_type` and RSSI, with up to 16
+results; `scan_truncated` indicates truncation. Results are never assigned automatically.
 
 ## POST /api/config
 
-Alle vier Plätze gemeinsam: `{"stations":[…]}` mit je
+Save all four slots together as `{"stations":[…]}`. Each entry has the shape
 `{"name":"Base station 1","mac":"AA:BB:CC:DD:EE:01","address_type":0}`.
-Leere MAC deaktiviert einen Platz. Typ `0` öffentlich, `1` random, aus Suche
-übernehmen. Namen eindeutig, 1–40 UTF-8-Bytes, keine Steuerzeichen oder
-`"`, `\`, `<`, `>`, `&`; `VR Basisstationen` ist reserviert. MACs eindeutig und
-normalisiert. Erfolg `200 {"saved":true}`. Bei laufenden Schaltaufträgen oder Suche
-`409 BLE_BUSY`; keine Teiländerung. Eine geänderte Adresse löscht alte Messwerte. Hintergrundmessungen blockieren
-das Speichern nicht; Ergebnisse der vorherigen Zuordnung werden verworfen.
+An empty MAC disables the slot. Type `0` means public, `1` random; preserve the
+discovered type. Names must be unique, 1–40 UTF-8 bytes, without control characters
+or `"`, `\`, `<`, `>`, `&`. `VR Basisstationen` is reserved. MACs are unique and
+normalized. Success: `200 {"saved":true}`. Active commands or discovery cause
+`409 BLE_BUSY`; changes are atomic. Changing an address clears its previous
+readings. Background reads do not block saving; results for the previous
+assignment are discarded.
 
 ## POST /api/wifi
 
-Body `{}`, Antwort `202 {"accepted":true,"setup_ssid":"Lighthouse-Setup-XXXXXX"}`.
-Öffnet den geschützten WLAN-Zugangspunkt und pausiert BLE/Verwaltungs-HTTP.
-Bei aktiver BLE-Arbeit `409`. Nach Abschluss oder spätestens drei Minuten Reboot.
-Key und Zuordnung bleiben unverändert; USB-Geräteinfos bleiben abfragbar.
+Body `{}`, response `202 {"accepted":true,"setup_ssid":"Lighthouse-Setup-XXXXXX"}`.
+Opens protected Wi-Fi setup and pauses BLE/normal administration HTTP.
+Returns `409` during active BLE work. Reboots after completion or a three-minute
+timeout. The key and assignments stay unchanged; USB information remains available.
 
-## Alexa-/Hue-Abfragen
+## Alexa / Hue queries
 
-`/description.xml`, `/api`, `/api/<username>/lights[/<id>[/state]]` sind ohne
-Anmeldung für den Echo erreichbar. GETs erhalten **dieselben BLE-Messwerte** wie
-Status, `reachable` berücksichtigt Lesefehler und Messwertalter. Light-IDs bleiben
-zum bisherigen Espalexa-Schema kompatibel. Gruppen-ON: alle zugeordneten Plätze
-aktiv; Gruppen-reachable: alle haben frische Werte. Anlaufwerte 1/8/9 gelten als
-aktiv, aber das Dashboard zeigt weiterhin Starting. Es gibt keinen Status-Push
-in die Alexa-App: Alexa entscheidet, wann sie erneut abfragt.
+`/description.xml`, `/api` and `/api/<username>/lights[/<id>[/state]]` are available
+to the local Echo without login. GETs return **the same BLE measurements** as
+status; `reachable` accounts for failed cycles and measurement age. Light IDs
+remain compatible with the previous Espalexa scheme. Group ON requires all
+assigned slots to be active; group reachability requires usable readings for all.
+Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
+There is no state push into the Alexa app: Alexa decides when to query again.
 
-## USB-Informationsprotokoll
+## USB information protocol
 
-Über den physischen seriellen Port bei 115200 Baud: `LH_INFO\n` senden.
-Antwort als eine Zeile `LH_INFO {…}`:
+Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
+single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.2.0","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.2.1","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
-Sobald WLAN steht, sind `wifi_connected=true` und `url=http://<IPv4>/`.
-Das eigene Web-Passwort wird nie ausgegeben. Diese Informationen sind bewusst
-USB-lokal; es gibt keinen ungeschützten HTTP-Endpunkt dafür. Die Flasher-Seite
-fragt alle zwei Sekunden, solange ihr USB-Informationsabruf verbunden bleibt.
-`LH_RESET_WEB_PASSWORD\n` setzt nur Web-Passwort und Sessions zurück, ohne WLAN,
-Key oder Stationszuordnung zu löschen. Dieser Wiederherstellungsbefehl erfordert
-physischen USB-Zugriff und wird nicht automatisch vom Flasher gesendet.
+Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.
+The personal web password is never included. This information is USB-local; no
+unprotected HTTP endpoint exposes it. The installer queries every two seconds
+while its USB information reader is connected.
 
-## Fehler
+`LH_RESET_WEB_PASSWORD\n` clears only web authentication and sessions, preserving
+Wi-Fi, the key and assignments. Recovery requires physical USB access and is never
+automatically initiated by the installer.
 
-JSON-Fehler haben `error` als stabilen Code; Weboberfläche übersetzt ihn EN/DE.
-`400`: ungültige Daten; `401`: Login/Key falsch oder fehlt; `403`: Origin;
-`409`: belegt/kein Ziel; `413`: >2400 Zeichen; `415`: Content-Type;
-`428`: eigenes Passwort fehlt; `429`: Login-Sperre; `500`: Speicher-/Hashfehler.
-Anfrage muss zusätzlich ins JSON-Dokument des Endpunkts passen.
+## Errors
+
+JSON errors have an `error` code; the dashboard translates it into English/German.
+`400`: invalid input; `401`: missing/incorrect login or key; `403`: origin;
+`409`: busy/no target; `413`: body exceeds 2400 characters; `415`: content type;
+`428`: personal password required; `429`: login block; `500`: storage/hash failure.
+The request must also fit the endpoint's JSON-document capacity.

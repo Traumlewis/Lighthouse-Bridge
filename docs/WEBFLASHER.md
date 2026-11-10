@@ -1,89 +1,87 @@
-# GitHub Pages / WebFlasher — 0.2.0
+# GitHub Pages / WebFlasher — 0.2.1
 
 **https://traumlewis.github.io/Lighthouse-Bridge/**
 
-ESP Web Tools 10.4.0 liegt unverändert unter `site/vendor/`, inklusive aller
-Lazy-Loading-Module und veröffentlichter Integritätswerte in `UPSTREAM.json`.
-Zur Laufzeit wird kein CDN benötigt. HTTPS kommt von GitHub Pages; lokal ist
-`http://localhost` zulässig. Chrome/Edge auf einem Rechner verwenden.
+ESP Web Tools 10.4.0 is vendored unchanged under `site/vendor/`, including its
+lazy-loaded modules and published integrity values in `UPSTREAM.json`. No runtime
+CDN is required. GitHub Pages provides HTTPS; `http://localhost` also works.
+Use Chrome or Edge on a computer.
 
-## Sprachen
+## Languages
 
-Englisch ist Standard. Der Schalter bietet Deutsch; Auswahl unter
-`lighthouse-bridge.language` im lokalen Browserspeicher. `?lang=en` / `?lang=de`
-hat Vorrang vor der gespeicherten Auswahl, danach Standard Englisch. Gesperrter
-Browserspeicher verhindert den Sprachwechsel nicht. `site/translations.js`
-enthält Seitentexte, Status-/Fehlermeldungen, Metadaten und Beschriftungen.
-Sprachwechsel setzt keine Checkboxen oder USB-Verbindungen zurück.
+Repository documentation is English. The page defaults to English and offers
+German in its language selector. It stores the choice under
+`lighthouse-bridge.language` in localStorage. `?lang=en` or `?lang=de` overrides
+that preference; otherwise it defaults to English. Switching still works if
+browser storage is blocked. `site/translations.js` contains page copy, statuses,
+errors, metadata and labels. Language changes preserve checkboxes and USB connections.
 
-Das ESP32-Webinterface ist nun ebenfalls EN/DE mit derselben Auswahlregel.
-Der unveränderte ESP-Web-Tools-Dialog und die USB-Port-Auswahl des Browsers haben
-weiterhin ihre eigenen Spracheinstellungen und können Englisch bleiben.
+The ESP32 dashboard uses the same English/German selection rules. The unmodified
+ESP Web Tools dialog and browser USB picker have their own language behavior and
+may remain in English.
 
-## Updates mit erhaltenen Einstellungen
+## Settings-preserving updates
 
-**Ab 0.2.0 verwendet der Flasher vier getrennte Teile:**
+**Since 0.2.0 the installer uses four separate images:**
 
-| Datei | Offset |
+| File | Offset |
 | --- | --- |
 | `lighthouse-bridge-bootloader.bin` | `0x1000` |
 | `lighthouse-bridge-partitions.bin` | `0x8000` |
 | `lighthouse-bridge-boot-app0.bin` | `0xe000` |
 | `lighthouse-bridge-app.bin` | `0x10000` |
 
-Der NVS-Bereich `0x9000..0xdfff` wird nicht geschrieben oder durch angrenzende
-Flashsektoren gelöscht. `Erase device` muss beim Update abgewählt bleiben.
-`new_install_prompt_erase: true` ermöglicht diese Auswahl.
+The NVS region `0x9000..0xdfff` is neither written nor erased by adjacent sectors.
+**Leave Erase device unchecked** for updates. `new_install_prompt_erase: true`
+provides that choice.
 
-**Fehler in 0.1.x:** Das damalige zusammengeführte Image an `0x0` schrieb seine
-Füllbytes über NVS. Die frühere Aussage, Erase abzuwählen reiche für dieses Image,
-war falsch. Der Factory-BIN-Download bleibt für Neuinstallationen verfügbar und
-ist entsprechend beschriftet. Für Updates den WebFlasher oder die vier Teile
-mit ihren jeweiligen Offsets verwenden. Die Speicheraufteilung bleibt gleich.
+**The 0.1.x bug:** Writing the old merged image at `0x0` overwrote NVS with padding.
+The earlier advice to deselect erase was insufficient for that image. The merged
+factory BIN remains available for fresh installations and is labeled accordingly.
+Use the WebFlasher or four separate images at their respective offsets for updates.
+The partition layout remains unchanged.
 
-`tools/package_release.py` erzeugt Factory-Image und sichere Teilimages und prüft
-sie gegeneinander. `tools/build_pages.py` kopiert diese Dateien nach `_site/`,
-erzeugt das Vier-Teile-Manifest und prüft, dass die Sektorbereiche NVS aussparen.
-`test/test_pages.py` simuliert die sektorweisen Erase-/Write-Operationen mit
-vorhandenem NVS-Inhalt. `site/flash-layout.mjs` lehnt unsichere Manifeste vor dem
-Freischalten des Installationsknopfs ab.
+`tools/package_release.py` creates and cross-checks the factory and split images.
+`tools/build_pages.py` copies them to `_site/`, generates the four-part manifest
+and verifies that their sector ranges exclude NVS. `test/test_pages.py` simulates
+sector erases/writes with existing NVS content. `site/flash-layout.mjs` rejects
+unsafe manifests before enabling the installation button.
 
-Die Teilimage-URLs enthalten ihre SHA-256-Prüfsumme als Query, damit der Browser
-beim nächsten Update keine ältere Datei aus dem Cache verwendet.
+Each part URL includes its SHA-256 checksum as a query parameter so the browser
+cannot reuse an older cached image on the next update.
 
-## Schlüssel und WLAN-Adresse über USB
+## USB key and Wi-Fi address display
 
-1. Nach der Installation den ESP-Web-Tools-Dialog schließen.
-2. Die Seite übernimmt dessen bereits freigegebenen Port und startet den
-   USB-Infobereich. Alternativ „Read key & address“ drücken und den Port wählen.
-3. API-Key und Setup-WLAN erscheinen, sobald die Firmware antwortet. USB verbunden
-   lassen; nach der WLAN-Einrichtung erscheint auch die lokale Webadresse.
-4. Vor erneutem Flashen „Disconnect USB“ drücken. Ein serieller Port kann immer
-   nur von einem Leser genutzt werden. Andere Konsolen/Programme schließen.
+1. Close the ESP Web Tools dialog after installation.
+2. The page reuses its granted port and starts the USB information reader.
+   Alternatively, select **Read key & address** and choose the port.
+3. The API key and setup Wi-Fi name appear when firmware responds. Keep USB
+   connected; the local web address appears after Wi-Fi setup completes.
+4. Select **Disconnect USB** before flashing again. A serial port can have only
+   one reader; close other consoles/applications using it.
 
-Die aktuelle Firmware implementiert `LH_INFO\n` bei 115200 Baud. Solange der
-Leser aktiv ist, fragt `site/serial-info.mjs` alle zwei Sekunden Informationen ab.
-Die erste Antwort darf nach Boot/Verbindungsversuchen bis zu 45 Sekunden dauern.
-Die Firmware bearbeitet USB-Befehle auch während des nicht blockierenden
-WLAN-Setup-Portals. Alte Firmware ohne dieses Protokoll muss zuerst aktualisiert
-werden. Die Adresse wird validiert; nur eine einfache HTTP-IPv4-Adresse mit Pfad
-`/` wird als Link angeboten. Schlüssel werden weder in localStorage, URLs oder
-Cookies abgelegt noch an GitHub übertragen. Das eigene Web-Passwort erscheint
-weder in USB-Infos noch im WebFlasher.
+Current firmware implements `LH_INFO\n` at 115200 baud. While connected,
+`site/serial-info.mjs` queries every two seconds. Allow up to 45 seconds for the
+first response after boot/connection attempts. Firmware also processes USB
+commands while the non-blocking setup portal is active. Older firmware without
+this protocol must be updated first.
 
-Der ESP-Web-Tools-Dialog behält den Port bis zum Schließen. Deshalb übernimmt die
-Seite erst nach dessen `closed`-Ereignis; sie greift nicht während des Flashens in
-seinen Datenstrom ein. Nach dem Schließen kann man aufgeteilte Boot-Zeilen im
-USB-Leser empfangen; der Parser ignoriert andere Logs und ungültige Frames.
-Improv Serial ist weiterhin **nicht implementiert**. WLAN wird über das ESP32-
-Portal eingerichtet, nicht direkt im ESP-Web-Tools-Dialog.
+Addresses are validated: only a plain HTTP IPv4 address with path `/` is offered
+as a link. Keys are not stored in localStorage, cookies or URLs, or sent to GitHub.
+The personal web password is never exposed in USB information or the installer.
 
-## Build und Veröffentlichung
+ESP Web Tools owns the port until its dialog closes. The page waits for its
+`closed` event before taking over and never interrupts flashing. The USB parser
+handles fragmented lines and ignores other logs and invalid frames. Improv
+Serial is **not implemented**; Wi-Fi setup uses the ESP32 portal rather than the
+ESP Web Tools provisioning dialog.
 
-Pages ist bereits auf **GitHub Actions** eingestellt. Ein Push auf `main` führt
-native Tests, Firmware-Build, Paketierung, Seiten-/NVS- und USB-Prüfungen aus und
-veröffentlicht bei Erfolg. Pull Requests werden geprüft, nicht veröffentlicht.
-Artefakte: `lighthouse-bridge-firmware` und `lighthouse-bridge-debug` (ELF/map).
+## Build and deployment
+
+Pages already uses **GitHub Actions**. A push to `main` runs native tests, builds
+firmware, packages images, checks page/NVS and USB behavior, and deploys on success.
+Pull requests are checked without deployment. Artifacts are
+`lighthouse-bridge-firmware` and `lighthouse-bridge-debug` (ELF/map symbols).
 
 ```sh
 pio run
@@ -95,8 +93,9 @@ npm test
 python -m http.server 8080 --directory _site
 ```
 
-`site/` ist Quelle, `_site/` generiert und nicht eingecheckt. Alle Pfade müssen
-unter `/Lighthouse-Bridge/` funktionieren. Browserprüfungen verwenden simulierte
-Geräte und ersetzen keinen echten Flashvorgang. Die Firmware-Version steht
-aktuell in `src/main.cpp`, `include/web_ui.h` und `tools/package_release.py`;
-Versionsänderungen dort und in Dokumentation/AGENTS gemeinsam durchführen.
+`site/` contains source; `_site/` is generated and ignored. All paths must work
+under `/Lighthouse-Bridge/`. Browser tests simulate devices and do not prove a
+real flash operation. Keep version references in `src/main.cpp`, `include/web_ui.h`
+and `tools/package_release.py` aligned with documentation and `AGENTS.md` when
+making an actual firmware release. Documentation translations do not change the
+firmware's functional version.

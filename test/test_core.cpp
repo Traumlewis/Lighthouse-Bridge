@@ -18,7 +18,7 @@ int main() {
   assert(std::strcmp(mac, "AA:BB:CC:DD:EE:FF") == 0);
   for (auto invalid : {"", "aabbccddeeff", "GG:BB:CC:DD:EE:FF", "AA-BB-CC-DD-EE-FF"})
     assert(!normalizeMac(invalid, mac));
-  assert(validName("Basisstation 1"));
+  assert(validName("Base station 1"));
   for (auto invalid : {"", "   ", "a\"b", "a\\b", "a<b", "a\nb", "a&b"})
     assert(!validName(invalid));
   StationState state;
@@ -31,8 +31,8 @@ int main() {
   finish(state, old, true, 0x08, 10, "");
   assert(state.pending && !state.sent && state.requested == Target::Sleep);
   state.pending = false;
-  finish(state, state.generation, false, -1, 20, "Keine Verbindung");
-  assert(!state.sent && std::strcmp(state.error, "Keine Verbindung") == 0);
+  finish(state, state.generation, false, -1, 20, "No connection");
+  assert(!state.sent && std::strcmp(state.error, "No connection") == 0);
   assert(state.observed == 0x08); // Failed read does not invent a state.
   request(state, Target::Sleep);
   state.pending = false;

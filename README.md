@@ -1,153 +1,149 @@
 # Lighthouse Bridge — ESP32
 
-**4 × Valve Lighthouse V2**, ein ESP-WROOM-32 / ESP-32S mit CH340 USB-C und
-**Echo Dot (5. Generation)**. **Ein = ON (`0x01`), Aus = SLEEP (`0x00`), niemals
-STANDBY.** Keine zusätzliche Handy-Companion-App erforderlich.
+Control **four Valve Lighthouse V2** base stations with an **ESP-WROOM-32 / ESP-32S
+CH340 USB-C board** and an **Echo Dot (5th generation)**. **On = ON (`0x01`),
+off = SLEEP (`0x00`), never STANDBY.** No extra phone companion app is required.
 
 **[WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/)** ·
-[Deutsch](https://traumlewis.github.io/Lighthouse-Bridge/?lang=de) ·
+[German UI](https://traumlewis.github.io/Lighthouse-Bridge/?lang=de) ·
 [Builds](https://github.com/Traumlewis/Lighthouse-Bridge/actions) ·
-[Prüfbericht](docs/VALIDATION.md)
+[Validation report](docs/VALIDATION.md)
 
-## Neu in 0.2.1
+Repository documentation is maintained in **English**. Both the public installer
+and the device dashboard default to English and offer German as a second language.
 
-BLE-Leseabfragen bekommen bis zu zwei Verbindungsversuche mit sechs Sekunden
-Timeout. Eine einzelne erfolglose Abfragerunde lässt einen noch gültigen
-Messwert als **letzte Messung** stehen und startet nach fünf Sekunden erneut.
-Zwei erfolglose Runden oder ein über 60 Sekunden alter Wert gelten als nicht
-erreichbar. Der Zeitstempel wird dabei nie künstlich erneuert. Bei weiterem
-Fehler steht der BLE-Treibercode in der API und im seriellen READ_FAILED-Eintrag.
-Die Anpassung muss noch am Board bestätigt werden.
+## What's new in 0.2.1
 
-## Funktionen seit 0.2.0
+BLE reads get up to two connection attempts with a six-second timeout. A single
+failed read cycle keeps a recent previous measurement explicitly labeled **last
+reading**, then retries after five seconds. Two failed cycles, no previous reading,
+or a reading at least 60 seconds old means unreachable. Failed reads never refresh
+the measurement timestamp. Numeric BLE errors are available in the API and serial
+`READ_FAILED` messages. Effectiveness on the real board still needs confirmation.
 
-- Der WebFlasher schreibt getrennte Flashbereiche und erhält NVS mit WLAN,
-  Zuordnung und Passwörtern, wenn **Erase device abgewählt** ist.
-- BLE-Zustände werden beim Start, nach Befehlen und regelmäßig gelesen; zusätzlich
-  gibt es „Aktuelle Zustände abfragen“. Angeforderte und gemessene Werte bleiben
-  getrennt. Alexa erhält dieselben Messwerte bei ihren Hue-Abfragen.
-- Das lokale Webinterface ist standardmäßig Englisch, mit Deutsch als zweiter
-  Sprache und gespeicherter Auswahl, wie die öffentliche Flasher-Seite.
-- Erster Login mit API-Key; anschließend eigenes Web-Passwort festlegen. Der
-  API-Key bleibt separat und im Reiter „WLAN & lokale API“ sichtbar.
-- Der WebFlasher kann Schlüssel und WLAN-Adresse über USB anzeigen. Dafür nach
-  dem Flashen den Installationsdialog schließen oder „Read key & address“ wählen.
+## Features introduced in 0.2.0
 
-**Wichtige Update-Korrektur:** Das bisherige zusammengeführte Image enthält
-`0xff`-Füllbytes über dem NVS-Bereich. Beim Schreiben an `0x0` gehen Einstellungen
-auch ohne vollständiges Löschen verloren. Deshalb verwendet der WebFlasher ab
-0.2.0 vier getrennte Teile. Das weiterhin verfügbare **Factory-BIN an `0x0` ist nur
-für Neuinstallationen**. Die Partitionstabelle wurde nicht verändert.
+- Separate flash regions preserve NVS, including Wi-Fi, assignments and passwords,
+  when **Erase device is not selected**.
+- BLE states are read at startup, after commands and periodically. A manual refresh
+  queues reads without power commands. Requested targets and measurements remain
+  separate; Alexa receives the same measurements in its Hue queries.
+- English/German device dashboard with a saved language preference.
+- First login with the API key, followed by a required personal web password.
+  The API key stays separate and visible under **Wi-Fi & local API** after login.
+- USB display of the key and Wi-Fi address: close the installation dialog after
+  flashing, or select **Read key & address**.
 
-Der Besitzer hat den erfolgreichen Start von 0.1.1 bestätigt. Die Erweiterungen
-von 0.2.0 sind kompiliert und mit simuliertem Backend/USB geprüft; ihr kompletter
-Test an Basisstationen und Echo steht noch aus. Details im Prüfbericht.
+**Important update correction:** The old merged image contains `0xff` padding over
+NVS. Writing it at `0x0` overwrites settings even without a full erase. Since 0.2.0,
+the WebFlasher uses four separate parts instead. The downloadable **merged BIN at
+`0x0` is for factory installations only**. The partition layout has not changed.
 
-## Hardware und erster Start
+The owner confirmed successful startup and basic operation of 0.1.1. The later
+features have passed builds and simulated-backend/USB tests, but complete testing
+on the stations and Echo is still pending. See the validation report for evidence
+and the reported intermittent connection failures.
 
-Klassischer Dual-Core-ESP32, mindestens **4 MB Flash**, 2,4-GHz-WLAN. Nicht für
-ESP32-S2/S3/C3. Ein USB-Datenkabel genügt, keine zusätzliche Verdrahtung. Die vier
-Stationen bleiben normal mit Strom versorgt; ESP32 in BLE-Reichweite aufstellen.
+## Hardware and first setup
 
-1. WebFlasher in Chrome oder Edge **am Rechner** öffnen, Board anschließen,
-   bestätigen und „Connect & install“ wählen.
-2. Bei einem Update **Erase device abwählen**. Löschen nur bewusst für einen
-   vollständigen Neuanfang; dabei gehen alle Einstellungen verloren.
-3. Nach dem Flashen den Installationsdialog schließen. Der USB-Infobereich
-   übernimmt den bereits freigegebenen Port und zeigt den individuellen Key und
-   das Setup-WLAN. Alternativ dort „Read key & address“ drücken. Keine anderen
-   seriellen Programme dürfen den Port gleichzeitig geöffnet haben.
-4. Bei der ersten Einrichtung mit `Lighthouse-Setup-XXXXXX` verbinden; das
-   Passwort ist der Key. `http://192.168.4.1` öffnen und Heim-WLAN speichern.
-   USB kann verbunden bleiben; der Flasher zeigt die Adresse, sobald WLAN steht.
-5. Im Heim-WLAN die angezeigte Webadresse öffnen. **Benutzer `admin`**, beim
-   ersten Login **API-Key als Passwort**. Anschließend ein eigenes Web-Passwort
-   festlegen (8–128 Bytes, verschieden vom API-Key).
-6. Im Webinterface die vier `LHB-…`-Geräte suchen, jedem Platz genau eines zuordnen
-   und speichern. Der BLE-Adresstyp wird aus der Suche übernommen.
-7. Die Zustände werden automatisch gelesen. Zunächst eine Station einzeln mit
-   ON/SLEEP prüfen, danach alle gemeinsam. Keine automatischen Schaltbefehle beim
-   Start, Neustart oder Wiederverbinden.
+Use a classic dual-core ESP32 with at least **4 MB flash** and 2.4 GHz Wi-Fi. This
+firmware is not for ESP32-S2/S3/C3. A USB data cable is sufficient; no extra wiring
+is required. Keep the base stations on their normal power supplies and place the
+ESP32 within BLE range of all four.
 
-Fehlt ein USB-Port, CH340-Treiber und Datenkabel prüfen. Bei „Connecting…“ BOOT
-halten, kurz EN/RESET drücken, BOOT nach Verbindungsaufbau loslassen. Für einen
-normalen Neustart nur EN/RESET drücken. Der Key steht außerdem im seriellen
-Monitor bei 115200 Baud. Der WebFlasher kann Geräteinfos erst ab Firmware 0.2.0
-abfragen; bei älteren Versionen zunächst aktualisieren.
+1. Open the WebFlasher in Chrome or Edge **on a computer**, connect the board,
+   confirm the supported hardware and choose **Connect & install**.
+2. For an update, **leave Erase device unchecked**. Erasing is only for an
+   intentional fresh start and deletes all saved settings.
+3. Close the installation dialog. The USB information panel reuses the granted
+   port and displays the individual key and setup Wi-Fi name. Alternatively,
+   choose **Read key & address**. Close any other application using the serial port.
+4. On first setup, connect to `Lighthouse-Setup-XXXXXX` using the key as its password.
+   Open `http://192.168.4.1`, select your home Wi-Fi and save. Keep USB connected;
+   the installer displays the local web address once Wi-Fi connects.
+5. On your home network, open that address. The username is **`admin`**; for the
+   first login use **the API key as the password**. Then choose your own web
+   password: 8–128 bytes, different from the API key.
+6. Discover the four `LHB-…` devices, assign each to exactly one slot and save.
+   Discovery supplies the correct BLE address type automatically.
+7. States are read automatically. Test ON/SLEEP on one station first, then the
+   group. Startup, reboot and reconnection never send power commands automatically.
 
-## Gemessener Status und Alexa
+If no USB port appears, check the CH340 driver and data cable. If connection stalls,
+hold BOOT, briefly press EN/RESET, and release BOOT once the flasher connects. For a
+normal restart press only EN/RESET. The key is also printed at 115200 baud in the
+serial console. USB device information requires firmware 0.2.0 or newer; update
+older firmware first.
 
-Der ESP32 liest die Power-Characteristic der konfigurierten Stationen:
+## Measured state and Alexa
 
-| Rohwert | Anzeige | Hue `on` |
+The ESP32 reads each configured station's power characteristic:
+
+| Raw value | Dashboard | Hue `on` |
 | --- | --- | --- |
 | `0x00` | SLEEP | false |
-| `0x01`, `0x08`, `0x09` | Starting / Startet | true |
+| `0x01`, `0x08`, `0x09` | Starting | true |
 | `0x0b` | ON | true |
-| `0x02` | STANDBY (nur gelesen) | false |
-| Keine erfolgreiche Messung | Unknown / Unbekannt | zuletzt bekannter Wert, `reachable: false` |
+| `0x02` | STANDBY (read only) | false |
+| No successful measurement | Unknown | last known value, `reachable: false` |
 
-Es gibt einen BLE-Worker und immer nur eine Verbindung gleichzeitig. Befehle
-haben Vorrang, mit höchstens drei Versuchen. Messungen folgen beim Start, nach
-Befehlen und im Zielintervall von 15 Sekunden; startende Stationen werden nach
-etwa zwei Sekunden, nicht erreichbare nach etwa 30 Sekunden erneut gelesen.
-Verbindungsversuche und andere Stationen können diese Intervalle verlängern.
-Eine manuelle Aktualisierung reiht reine Leseaufträge ein, ohne Schaltbefehl.
+A single BLE worker processes one connection at a time. Commands have priority and
+up to three attempts. Reads run at startup, after commands and at a target interval
+of 15 seconds; starting stations are checked after about two seconds, unreachable
+ones after about 30 seconds. A single failed read cycle triggers a five-second
+retry. Other work and connection attempts can extend these intervals.
 
-`requested` ist ein Auftrag, **kein Messwert**. Webinterface und Hue-Antworten
-verwenden `observed`. Bei einer erfolglosen Lese-Runde bleibt ein aktueller vorheriger Wert mit
-Warnung erhalten; nach fünf Sekunden wird erneut geprüft. Zwei erfolglose
-Runden oder Messungen ab 60 Sekunden gelten als nicht erreichbar/veraltet. Das Webinterface fragt den ESP32-Speicher alle 2,5 Sekunden ab.
+`requested` is a target, **not a measurement**. The dashboard and Hue responses use
+`observed`. A single failed read cycle preserves a recent previous value with a
+warning and its original timestamp. Repeated failed cycles or age of 60 seconds
+make it unavailable. The dashboard polls the ESP32's stored data every 2.5 seconds.
 
-Echo Dot und ESP32 müssen im selben Heimnetz sein, ohne Client-Isolation.
-„Alexa, suche Geräte“ findet vier einzelne Lampen und **„VR Basisstationen“**.
-Gespeicherte Namen bleiben erhalten; neue Plätze heißen „Base station 1“ usw.
-Der virtuelle Gesamtschalter gilt als an, wenn alle zugeordneten Stationen aktiv
-sind, und als erreichbar, wenn alle frische Messwerte haben.
+Keep the Echo Dot and ESP32 on the same home network without client isolation.
+Ask Alexa to discover devices. It finds four lights and the group light
+**`VR Basisstationen`**. This established group name is retained for compatibility;
+existing device names are also preserved. New slots default to “Base station 1”,
+etc. The virtual group is on when all assigned stations are active, and reachable
+when all have usable measurements.
 
-**Alexa erhält bei GET-Abfragen der lokalen Hue-Bridge dieselben Messwerte.
-Dieses Protokoll bietet keinen Push in die Alexa-App.** Die App kann ihren
-Schalter weiterhin zwischenspeichern, bis Alexa erneut abfragt. Sofortige
-Aktualisierung der Alexa-Anzeige lässt sich damit nicht garantieren. Alexa
-bestätigt Befehle außerdem vor Abschluss von BLE; Fehler stehen im Webinterface.
-Die Hue-Emulation muss mit der jeweiligen Echo-Firmware geprüft werden.
+**Alexa receives the same measurements when it queries the local Hue bridge.
+This protocol cannot push state changes into the Alexa app.** The app may cache
+its switch until Alexa queries again. Immediate display synchronization cannot
+be guaranteed. Alexa also acknowledges commands before BLE completes; check the
+dashboard for failures. Hue emulation needs testing with the installed Echo firmware.
 
-## WLAN, Web-Passwort und API-Key
+## Wi-Fi, web password and API key
 
-- WLAN wechseln: „Wi-Fi & local API / WLAN & lokale API → Open Wi-Fi setup“ oder
-  nach dem Start BOOT fünf Sekunden halten. Während aktiver BLE-Arbeit kurz
-  warten. Das manuelle Portal pausiert die Steuerung bis zum Speichern oder
-  spätestens drei Minuten und startet anschließend neu.
-- Ohne erreichbares gespeichertes WLAN öffnet sich beim Start das Setup-Portal
-  ohne Zeitlimit. USB-Geräteinfos bleiben dabei abfragbar. WLAN wird im normalen
-  ESP32-NVS gespeichert; Updates über die neuen Flashteile erhalten diesen Bereich.
-- Die Web-Anmeldung nutzt eine HttpOnly-/SameSite-Session. Das eigene Passwort
-  wird nur als PBKDF2-SHA256-Hash mit individuellem Salt und 10000 Iterationen
-  gespeichert, niemals angezeigt oder über USB ausgegeben. Ein Passwortwechsel
-  meldet andere Sessions ab. Sessions verfallen nach spätestens zwölf Stunden im Browser
-  oder einem Neustart.
-- Der **API-Key** bleibt für `X-API-Key`-Integrationen und als Passwort des
-  Setup-WLANs erhalten. Nach Vergabe eines Web-Passworts funktioniert er nicht mehr
-  als Web-Login. Angemeldete Benutzer sehen ihn unter „WLAN & lokale API“.
-- Passwort vergessen: über USB bei 115200 Baud `LH_RESET_WEB_PASSWORD` mit
-  Zeilenumbruch senden. Das setzt nur das Web-Passwort und Sessions zurück; dann
-  erneut mit dem API-Key anmelden und ein neues Passwort wählen. WLAN, Key und
-  Stationszuordnung bleiben erhalten.
+- Change Wi-Fi under **Wi-Fi & local API → Open Wi-Fi setup**, or hold BOOT for five
+  seconds after startup. Wait for active BLE work to finish. The manual portal
+  pauses normal control and reboots after saving or after a three-minute timeout.
+- If saved Wi-Fi is unavailable at startup, the setup portal has no timeout. USB
+  information remains available. Wi-Fi is stored in ESP32 NVS, which the separate
+  update parts preserve.
+- The web login uses an HttpOnly/SameSite session. The personal password is stored
+  only as a PBKDF2-SHA256 hash with an individual salt and 10000 iterations. It is
+  never displayed or sent over USB. Changing it invalidates other sessions.
+  Browser sessions last at most 12 hours and are lost on reboot.
+- The **API key** remains the `X-API-Key` integration credential and setup Wi-Fi
+  password. After a personal web password is set, the key no longer works for web
+  login. Signed-in users can still see it under **Wi-Fi & local API**.
+- Forgotten password: send `LH_RESET_WEB_PASSWORD` followed by a newline over USB
+  at 115200 baud. Only the web password and sessions are cleared. Sign in with the
+  API key and choose a new password. Wi-Fi, the key and assignments stay intact.
 
-HTTP und NVS sind unverschlüsselt. Die Hue-Endpunkte sind für Alexa bewusst ohne
-Anmeldung nutzbar; deshalb nur im vertrauenswürdigen Heimnetz betreiben, ohne
-Internet-Portweiterleitung. Schlüssel/Adressen aus USB bleiben im Speicher der
-Flasher-Seite und werden nicht an GitHub übertragen oder im Browser gespeichert.
+HTTP and NVS are unencrypted. Hue endpoints intentionally allow local Alexa access
+without login. Use a trusted home network without internet port forwarding. USB
+keys and addresses stay in page memory; they are not sent to GitHub or saved in
+browser storage.
 
-## Lokale API und spätere Pebble-Anbindung
+## Local API and future Pebble support
 
-[API-Dokumentation](docs/API.md). Ein späteres Pebble-Plugin kann mit LocalNetwork
-und `X-API-Key` dieselben Endpunkte nutzen. Ein solches Plugin ist noch nicht
-implementiert; auch OTA und Improv Serial sind nicht Bestandteil dieser Firmware.
+See the [API reference](docs/API.md). A future Pebble plugin can use these endpoints
+with LocalNetwork permission and `X-API-Key`. The plugin, OTA updates and Improv
+Serial are not implemented yet.
 
-## Selbst bauen, prüfen und manuell flashen
+## Build, test and flash manually
 
-In PlatformIO dieses Projekt öffnen, Profil `esp32dev` verwenden:
+Open this project in PlatformIO and use the `esp32dev` profile:
 
 ```sh
 pio run
@@ -155,8 +151,8 @@ pio run -t upload --upload-port COM5
 pio device monitor --port COM5 --baud 115200
 ```
 
-`COM5` durch deinen Port ersetzen. Für ein manuelles **einstellungserhaltendes**
-Update aus dem ZIP (esptool 4.5.1):
+Replace `COM5` with your port. For a manual **settings-preserving** update using
+the ZIP contents and esptool 4.5.1:
 
 ```sh
 python -m esptool --chip esp32 --port COM5 --baud 115200 write_flash \
@@ -166,10 +162,10 @@ python -m esptool --chip esp32 --port COM5 --baud 115200 write_flash \
   0x10000 lighthouse-bridge-app.bin
 ```
 
-`lighthouse-bridge-esp32-merged.bin` an `0x0` überschreibt dagegen NVS und ist
-nur ein Factory-Image. Die zwei Anwendungsslots bleiben für spätere Erweiterungen
-vorhanden; OTA ist noch nicht implementiert. Das gesamte Webinterface steckt in
-der Firmware, kein Dateisystem-Upload nötig.
+Writing `lighthouse-bridge-esp32-merged.bin` at `0x0` overwrites NVS; use it only
+for a factory installation. Two application slots are reserved for future work;
+OTA is not implemented. The dashboard is embedded in firmware and needs no
+filesystem upload.
 
 ```sh
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-test
@@ -182,7 +178,7 @@ npm install
 npm test
 ```
 
-Für eigene PlatformIO-Verzeichnisse `PLATFORMIO_CORE_DIR` oder `--pio-core-dir`
-beim Paketieren setzen; Chromium über `CHROMIUM_PATH` auswählen. Browserprüfungen
-und USB-Simulation ersetzen keinen Hardwaretest. [WebFlasher-Details](docs/WEBFLASHER.md),
-[Quellen und Bibliotheken](docs/SOURCES.md), [Projektvorgaben](AGENTS.md).
+Use `PLATFORMIO_CORE_DIR` or packaging `--pio-core-dir` for a custom installation,
+and `CHROMIUM_PATH` for the browser executable. Browser/USB simulations do not
+replace hardware tests. See [WebFlasher details](docs/WEBFLASHER.md),
+[sources and dependencies](docs/SOURCES.md), and [project instructions](AGENTS.md).

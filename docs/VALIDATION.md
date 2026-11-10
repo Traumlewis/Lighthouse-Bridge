@@ -1,140 +1,133 @@
-# Prüfbericht — Prototyp 0.2.1
+# Validation report — prototype 0.2.1
 
+## Intermittent BLE failures: 0.2.1
 
+The owner reports intermittent connection failures and previous measurements
+being shown as unreachable, including without another controller accessing the
+stations. Version 0.2.0 allowed one read attempt with a three-second timeout and
+marked the first failure as unreachable. This does not establish a specific radio
+or hardware cause.
 
-## Sporadische BLE-Aussetzer — 0.2.1
+Version 0.2.1 uses a six-second timeout and two attempts per read cycle, separated
+by a short pause. After one failed cycle it retries after five seconds. A usable
+previous measurement remains explicitly labeled **last reading** without changing
+its timestamp. Two failed cycles, no previous measurement, or age of at least
+60 seconds still means unreachable. Numeric BLE errors are exposed for diagnosis.
+Commands retain priority.
 
-Der Besitzer meldet zeitweise fehlgeschlagene Verbindungen und eine als nicht
-erreichbar angezeigte vorherige Messung, auch ohne andere Steuerung. 0.2.0
-hatte nur einen Leseversuch mit drei Sekunden Timeout und markierte schon den
-ersten Fehler als nicht erreichbar. Eine konkrete Funk-/Hardwareursache ist
-damit noch nicht nachgewiesen.
+Native regression tests cover single/repeated failures, recovery, age expiry,
+counter saturation, missing initial data, millis wraparound and discarded readings
+after reassignment. Browser tests cover English/German last-reading labels and
+the transition to unreachable. A separate BLE-active flag prevents Wi-Fi setup
+from starting while a reassigned device's previous read is still in flight.
+The effect on actual connection reliability still needs testing on the board.
 
-0.2.1 verwendet sechs Sekunden und zwei Versuche pro Lese-Runde mit kurzer Pause.
-Nach einem fehlgeschlagenen Zyklus wird nach fünf Sekunden erneut gelesen. Ein
-noch gültiger Messwert bleibt ausdrücklich als letzte Messung gekennzeichnet;
-sein Zeitstempel ändert sich nicht. Zwei fehlgeschlagene Zyklen, kein Messwert
-oder Alter ab 60 Sekunden bedeuten weiterhin nicht erreichbar. Zahlenwerte des
-BLE-Treiberfehlers werden für Diagnose ausgegeben. Befehle behalten Priorität.
+## Owner feedback on 0.1.1 and the 0.2.0 additions
 
-Native Regressionstests prüfen Einzelfehler, Wiederholung, doppelte Fehler,
-Erholung, Ablauf der Altersgrenze, Zählerüberlauf, fehlende Initialmessung,
-Millis-Überlauf und verworfene Ergebnisse nach Neuzuordnung. Browserprüfungen
-decken die zweisprachige Kennzeichnung als letzte Messung und den Übergang zu
-nicht erreichbar ab. Eine eigene BLE-Aktiv-Markierung verhindert Portalstart
-während eines alten, inzwischen neu zugeordneten Hintergrund-Leseauftrags.
-Die Wirkung auf die tatsächlichen Verbindungsaussetzer ist am Board zu prüfen.
+The owner confirmed successful startup and basic operation of 0.1.1, but reported
+lost Wi-Fi settings after updates and inconsistent dashboard/Alexa state.
+The update-loss cause is demonstrated by the image format: merged firmware
+contains padding over NVS. Deselecting a full erase was not sufficient.
 
-## Rückmeldung zu 0.1.1 und Erweiterungen 0.2.0
+Version 0.2.0 uses four separate images. A regression test simulates sector
+erases/writes over existing NVS content and confirms `0x9000..0xdfff` remains
+unchanged. The factory image reproduces the previous overwrite. Split images
+match the corresponding bytes of the patched merged image.
 
-Der Besitzer bestätigt erfolgreichen Start und grundlegende Funktion mit 0.1.1.
-Gemeldet wurden verlorene WLAN-Einstellungen beim Update sowie nicht gemeinsam
-aktualisierte Zustände von Webinterface/Alexa. Die Ursache der Update-Verluste
-ist im Imageformat nachgewiesen: Das zusammengeführte Image enthält Füllbytes
-über NVS. Die frühere Empfehlung „nicht löschen“ reichte damit nicht aus.
+Firmware reads at startup, periodically and on explicit refresh without a power
+write. Native tests check measured versus requested state, failure/staleness and
+millis wraparound. Hue GETs use the same readings but cannot push state changes
+into the Alexa app.
 
-0.2.0 verwendet vier getrennte Flashteile. Ein Regressionstest simuliert die
-sektorweisen Erase-/Write-Operationen über bestehendem NVS-Inhalt und bestätigt,
-dass `0x9000..0xdfff` unverändert bleibt; das Factory-Image reproduziert die alte
-Überschreibung. Teilimages stimmen byteweise mit dem gepatchten Image überein.
+Browser tests with mocked HTTP/USB passed for:
 
-Die Firmware liest Zustände beim Start, regelmäßig und manuell ohne Schreibbefehl.
-Native Tests prüfen gemessene Werte statt Zielwerten, Fehler/Staleness und
-Millisekunden-Überlauf. Hue-GETs liefern dieselben Daten, aber können keinen
-Status-Push in die Alexa-App erzwingen.
+- Personal-password setup after API-key bootstrap, mandatory password setup,
+  rejecting the key for later web login, and showing the key in the signed-in
+  network settings section.
+- Logout/relogin, English/German switching and mobile layouts.
+- State displayed before the first power command, no fabricated optimistic
+  measurements, updated readings and stale readings.
+- USB stream parsing, fragmented frames, invalid URL rejection, Wi-Fi address
+  changes, disconnect and port handoff after the installer dialog closes.
+  Keys are not persisted or transmitted to the hosting service.
 
-Browserprüfungen mit simuliertem Backend/USB bestanden: eigener Passwort-Login
-nach API-Key-Bootstrap, verpflichtende Passwortvergabe, API-Key nicht mehr als
-späteres Login, Key im angemeldeten Netzwerk-Reiter, Logout, EN/DE und mobile
-Ansichten, Zustand vor erstem Schaltbefehl, keine optimistische Messwert-Erfindung,
-aktualisierte und veraltete Messungen. USB-Tests prüfen echten Stream-Parser,
-geteilte Frames, ungültige URLs, WLAN-Adresswechsel, Trennen und Übergabe nach
-Schließen des Installationsdialogs. Schlüssel werden nicht gespeichert/übertragen.
+Builds, native tests, Python layout/integrity checks and Node USB tests passed.
+**The expanded functionality still needs end-to-end board/Echo validation.**
+Browser mocks do not verify on-device password hashing/session endpoints, Wi-Fi
+setup while querying USB, NVS retention after a real flash, continuous BLE reads,
+or Alexa's actual polling/cache behavior.
 
-Build, native Tests, Python-Layout/Integritätsprüfungen und Node-USB-Tests bestanden.
-**Die erweiterten Funktionen müssen noch am realen Board und Echo geprüft werden.**
-Insbesondere sind Passwort-Hashing/Session-Routen im Gerät, WLAN-Portal mit
-USB-Abfragen, NVS-Erhalt nach echtem Flash, BLE-Dauerabfragen und Alexas Abfrage-
-/Cache-Verhalten nicht durch Browser-Mocks nachgewiesen.
+## Initial hardware report and startup correction
 
-## Hardware-Rückmeldung und Startkorrektur
+On November 10, 2026, the owner reported the first real 0.1.0 boot: firmware
+started, printed an access key and joined home Wi-Fi, then aborted during Bluetooth
+initialization. Local symbols from the corresponding source map the trace to:
 
-Am 10.11.2026 meldete der Besitzer den ersten echten Start mit 0.1.0: Firmware
-geflasht, Zugangsschlüssel ausgegeben, Heim-WLAN verbunden; anschließend Abbruch
-bei der Bluetooth-Initialisierung. Die lokalen Symbole des entsprechenden
-Quellstands ordnen den Backtrace `coex_core_enable → coex_enable →
-esp_bt_controller_enable → NimBLEDevice::init → setup` zu. Das exakte ELF des
-ursprünglichen CI-Builds wurde noch nicht archiviert; künftig bleibt es als
-Actions-Artefakt `lighthouse-bridge-debug` verfügbar. Es werden keine persönlichen
-Geräte-/Netzwerkdaten oder Zugangsschlüssel aus dem Log im Repository gespeichert.
+`coex_core_enable → coex_enable → esp_bt_controller_enable → NimBLEDevice::init → setup`
 
-Ursache: `WiFi.setSleep(false)` setzte `WIFI_PS_NONE`, bevor BLE aktiviert wurde.
-Version 0.1.1 setzt stattdessen explizit `WIFI_PS_MIN_MODEM` und prüft den
-Treiber-Rückgabewert, bevor BLE startet. Bei einem Fehler wird BLE nicht gestartet.
-Auch der von Arduino gespeicherte Modus wird vor dem STA-Start gesetzt, damit
-spätere WLAN-Neustarts nicht wieder `WIFI_PS_NONE` anwenden.
-Die Bereitschaftsmeldung und Webadresse erscheinen erst nach der Initialisierung.
-Diese WLAN-Modem-Einstellung ändert den Lighthouse-SLEEP-Befehl nicht.
+The exact ELF from that original CI build was not retained. Subsequent builds
+retain matching symbols in the `lighthouse-bridge-debug` Actions artifact.
+Personal device/network identifiers and access keys from the report are not
+stored in the repository.
 
-Referenz: [Espressif, IDFGH-8094 / Issue 9595](https://github.com/espressif/esp-idf/issues/9595).
-Die zusätzliche Meldung zur fehlenden Core-Dump-Partition ist ein separates
-Diagnoseproblem: Die bisherige Partitionstabelle enthält keine Core-Dump-Partition.
-Für dieses Update bleiben alle Partitionen und gespeicherten Einstellungen
-unverändert. Der Besitzer hat den erfolgreichen Start mit **0.1.1** inzwischen bestätigt.
+Cause: `WiFi.setSleep(false)` selected `WIFI_PS_NONE` before BLE startup.
+Version 0.1.1 explicitly selects `WIFI_PS_MIN_MODEM` and checks the driver result
+before initializing BLE. Arduino's cached policy is set before STA startup so
+later restarts cannot reapply `WIFI_PS_NONE`. Readiness and web-address messages
+appear only after initialization. This Wi-Fi setting does not change Lighthouse
+SLEEP commands. The owner subsequently confirmed successful 0.1.1 startup.
 
-## In der Entwicklungsumgebung geprüft
+Reference: [Espressif IDFGH-8094 / issue 9595](https://github.com/espressif/esp-idf/issues/9595).
+The missing core-dump-partition message is a separate diagnostic limitation:
+the existing partition table has no core-dump partition. The startup fix did not
+change partitions.
 
-- PlatformIO-Build: `espressif32@6.9.0`, Profil `esp32dev`, Arduino ESP32 2.0.17.
-- Anwendung passt in den 1.875-MiB-Slot. Der erste erfolgreiche Build benötigte
-  rund 1,20 MB Flash und 59 KB statisches RAM. Laufzeit-Heap/Task-Stacks sind darin
-  nicht enthalten; der echte Speicherbedarf muss auf dem Gerät geprüft werden.
-- Native C++-Tests: ausschließlich ON/SLEEP als Eingabebefehle; STANDBY und
-  ungültige Werte abgelehnt; MAC-/Namensvalidierung; gelesene Boot-Zustände;
-  überholte Aufträge dürfen neuere Aufträge nicht als erledigt markieren;
-  fehlgeschlagene Befehle erfinden keine Messwerte.
-- Playwright/Chromium: das unveränderte eingebettete HTML mit simulierten
-  API-Antworten. Vier zunächst unkonfigurierte Plätze, Gerätesuche, Zuordnung
-  einschließlich Random-Adresstyp, Erhalt ungespeicherter Formulare bei Polling,
-  Speicherfehler, Einzel-/Gruppenbefehle ON/SLEEP, BLE-Fehleranzeige,
-  Verbindungsabbruch/-wiederkehr, Start des WLAN-Setups.
-- Layout bei 1280 und 390 Pixel Breite, kein horizontaler Überlauf.
-  Screenshots zeigen simulierte Daten, keine echten Stationen.
-- Zusammengeführtes Flashimage: Bootloader, Partitionstabelle, OTA-Metadaten
-  und Anwendung werden gegen die jeweiligen Bytes an ihren Zieladressen geprüft.
-- ZIP-Integrität und SHA-256-Prüfsumme werden bei der Paketierung geprüft.
-- WebFlasher: statische Prüfungen für das ESP32-Manifest mit Offset 0, die
-  veröffentlichten Firmware-Prüfsummen und die Modul-/Projektpfade bestanden.
-  Playwright hat die echten lokal eingebundenen ESP-Web-Tools-Module geladen,
-  die Board-Bestätigung und den Aufruf des USB-Port-Dialogs geprüft. Web Serial
-  war dabei simuliert; kein echtes USB-Gerät wurde angesprochen. Ein fehlendes
-  Firmwareimage deaktiviert Installation und Download. Desktop und mobile Ansicht
-  wurden geprüft; Screenshots unter `docs/webflasher-*.png`.
-- Zweisprachiger WebFlasher: englische Standardansicht, deutscher Sprachwechsel,
-  gespeicherte Präferenz, Vorrang von `?lang=en`, übersetzte Fehler-/Lademeldungen
-  und Beschreibungs-Metadaten geprüft. Die Installationsbestätigung bleibt beim
-  Wechsel erhalten; beide Sprachfassungen passen in die mobile Ansicht.
+## Development-environment checks
 
-## Noch an echter Hardware zu prüfen
+- PlatformIO `espressif32@6.9.0`, `esp32dev`, Arduino ESP32 2.0.17.
+- Firmware fits the 1.875 MiB application slot. The first successful build used
+  about 1.20 MB flash and 59 KB static RAM; runtime heap/task-stack consumption
+  must be checked on the device.
+- Native C++ tests: ON/SLEEP-only commands; rejection of STANDBY/invalid input;
+  MAC/name validation; starting-state decoding; superseded command/read results;
+  no invented measurements after failures; transient health and age limits.
+- Playwright/Chromium tests exercise the embedded HTML with mocked API responses:
+  four initially unassigned slots, discovery/assignment including random address
+  type, preservation of edits during polling, save errors, power actions,
+  measurement failures and authentication/language flows.
+- Layouts at 1280 and 390 pixels without horizontal overflow. Screenshots are
+  simulated examples, not measurements from real stations.
+- Factory image: bootloader, partition table, boot metadata and application bytes
+  match their target offsets. ZIP integrity and SHA-256 are checked at packaging.
+- Current WebFlasher: classic ESP32-only four-part manifest, published checksums,
+  relative project paths, complete lazy modules and NVS-preserving sector ranges.
+  The older merged-at-zero manifest was used only before 0.2.0.
+- Browser checks load the real vendored installer modules and invoke a mocked
+  USB picker. No real USB device is accessed. Missing firmware disables install
+  and download. English default, German switching, saved preference, URL override,
+  translated messages/metadata and preserved confirmation are checked.
 
-1. Modul tatsächlich klassischer ESP32, Flash mindestens 4 MB, CH340-Port und
-   Flashvorgang über USB. Erster Start, individueller Schlüssel, NVS-Speicherung.
-2. WLAN-Portal auf Handy/PC, falsches WLAN-Passwort und korrigierte Eingabe,
-   BOOT-Langdruck nach Start, Portal-Timeout, WLAN-Wechsel/-Wiederverbindung.
-3. Geschützte Web-/API-Endpunkte mit korrekten und falschen Anmeldedaten.
-4. Suche nach allen vier Lighthouse V2. Stationen anhand der MAC zuordnen;
-   zunächst eine Station einzeln prüfen: ON, dann **SLEEP**, nicht STANDBY.
-5. Einzel- und Gruppenbefehle mit allen vier Stationen. BLE-Reichweite,
-   Wiederholungen und Anzeige bei stromloser/unerreichbarer Station prüfen.
-6. Schnelle Folge ON → SLEEP: Der jüngste Auftrag muss zuletzt ausgeführt
-   werden. Neustart darf keinen Schaltbefehl auslösen; Zuordnung bleibt erhalten.
-7. Echo Dot 5: SSDP-Gerätesuche, fünf Hue-Lampen, Einzel-/Gruppen-Sprachbefehle,
-   Namensänderungen. Alexa-Zustand ist absichtlich optimistisch und bestätigt
-   keinen BLE-Erfolg.
-8. Längerer Betrieb: freier Heap, Web-Erreichbarkeit während BLE-Aufträgen,
-   Verhalten parallel zu SteamVR und nach Strom-/WLAN-Unterbrechungen.
+## Remaining hardware checks
 
-Ein erfolgreicher Build oder Browser mit simuliertem Backend ersetzt keine
-Hardwareprüfung. Die oben beschriebene Besitzer-Rückmeldung belegt den Start und
-die WLAN-Verbindung von 0.1.0, aber keinen erfolgreichen BLE-Start. Die Firmware
-wurde hier nicht auf ein Board geflasht; erfolgreiche Basisstations- oder
-Echo-Steuerung wurde noch nicht nachgewiesen.
+1. Confirm exact board/flash size, USB upload, key persistence and an actual
+   settings-preserving upgrade using the separate parts.
+2. Test correct/incorrect Wi-Fi credentials, portal timeout, BOOT recovery,
+   reconnect and USB information while the portal is active.
+3. Test web/session/API credentials on the device, personal-password storage and
+   USB password recovery.
+4. Discover and assign all four Lighthouse V2 stations. Check each station with
+   ON and **SLEEP**, never STANDBY.
+5. Verify individual/group actions, BLE range, retry behavior and unreachable or
+   unpowered stations; retest the intermittent failures reported by the owner.
+6. Test rapid ON → SLEEP requests: the newest target must execute last. Reboot
+   must preserve configuration without sending a power command.
+7. Check Echo Dot 5 discovery, five Hue lights, voice commands, renaming and
+   measured-state queries. An acknowledgement is not confirmation of BLE success,
+   and app caching remains controlled by Alexa.
+8. Check longer-running heap usage, HTTP responsiveness during BLE work,
+   concurrent SteamVR use and recovery after power/network interruptions.
+
+Builds and browser simulations do not replace hardware tests. No board is
+attached to this development environment. Owner feedback confirms startup/basic
+operation and intermittent BLE read failures, not complete validation of every
+feature and edge case.
