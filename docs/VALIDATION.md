@@ -1,5 +1,35 @@
 # Validation report — prototype 0.2.7
 
+## Additional 0.2.7 SLEEP monitoring sample
+
+The owner supplies a continuation from approximately 15:59:23 to 16:07:21
+(just under eight minutes). It contains no power commands and all successful
+readbacks are raw 0 (SLEEP). This is an idle-monitoring/recovery sample, not
+another switching or command-confirmation test.
+
+| Slot | Successful read reports | First worker attempt | Second worker attempt | Largest gap between successful readings |
+| --- | --- | --- | --- | --- |
+| 1 | 28 | 22 | 6 | 20 s |
+| 2 | 28 | 25 | 3 | 27 s |
+| 3 | 28 | 23 | 5 | 23 s |
+| 4 | 28 | 26 | 2 | 22 s |
+
+There are 112 successful read reports and 18 failed worker-attempt reports.
+Sixteen reads recover on their second worker attempt. One station-2 cycle
+exhausts both attempts at about 16:06:56, then a later cycle succeeds at
+16:07:05, nine seconds later. No two consecutive exhausted cycles are shown.
+Counts do not expose internal host retries and must not be presented as the
+physical link's first-attempt success rate.
+
+All eight logged Hue GETs report on=false, reachable=true, pending=false and
+source=measurement. Recorded gaps between successful readings remain below
+the 60-second expiry threshold. The evidence supports recovery from a failed
+read cycle without inventing state or prematurely expiring the previous reading.
+It does not establish the source of 574, continuous operation over hours/days,
+or behavior during another controller's simultaneous access. Firmware and radio
+settings remain unchanged; only this aggregate report and project instructions
+are updated.
+
 ## First 0.2.7 hardware confirmation run
 
 The owner reports further improvement and supplies approximately 3.5 minutes of

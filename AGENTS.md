@@ -271,7 +271,13 @@ read recovery and an interrupted read before a new SLEEP command). Do not count
 these as five failed commands or derive a physical-link failure rate: internal
 host retries are not logged individually. No shown power job fails. The new
 confirmation behavior is now observed on hardware; long-run reliability and
-other edge cases remain unverified. Keep 0.2.7 unchanged pending longer use.
+other edge cases remain unverified. A subsequent approximately eight-minute
+SLEEP-only excerpt contains 112 successful read reports (96 first worker attempt,
+16 second), one exhausted station-2 cycle that recovers 9 seconds later, and no
+power commands. Largest successful-reading gaps are 20/27/23/22 s for slots 1–4;
+all eight logged Hue GETs report measured SLEEP and reachable=true. This supports
+idle recovery/freshness behavior, not a new switching test or a physical-link
+success-rate claim. Keep 0.2.7 unchanged pending longer use.
 Keep `docs/VALIDATION.md` current and distinguish simulated, CI and real evidence.
 
 Inspect remote head/instructions and preserve owner edits/license; never force
