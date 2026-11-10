@@ -404,7 +404,7 @@ void bleWorker(void*) {
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
-  doc["version"] = "0.3.1";
+  doc["version"] = "0.3.2";
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -514,22 +514,11 @@ bool serveHueLights(const String& uri) {
           now - states[i].lastReadAttemptMs >= readInterval(states[i], now)) refreshRequested[i] = true;
       if (selected >= 0 && selected != static_cast<int>(i)) continue;
       JsonObject light = selected < 0 ? root.createNestedObject(String(hueKey(mac24, configs[i].id))) : root;
-      JsonObject state = stateOnly ? light : light.createNestedObject("state");
-      state["on"] = hueOn(states[i], now);
-      state["reachable"] = freshMeasurement(states[i], now);
-      state["alert"] = "none";
+      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.2", stateOnly);
+      JsonObject state = stateOnly ? light : light["state"].as<JsonObject>();
       traceOn = state["on"].as<bool>(); traceReachable = state["reachable"].as<bool>();
       tracePending |= states[i].pending || states[i].busy;
       traceTarget |= hueTargetPending(states[i], now);
-      if (!stateOnly) {
-        char unique[48]; snprintf(unique, sizeof(unique), "%s-%lu-00:11", mac.c_str(),
-                                 static_cast<unsigned long>(configs[i].id));
-        // Keep the first four legacy unique IDs byte-for-byte compatible.
-        if (configs[i].id <= 4) snprintf(unique, sizeof(unique), "%s-%02X-00:11", mac.c_str(), configs[i].id);
-        light["type"] = "On/off light"; light["name"] = configs[i].name;
-        light["modelid"] = "HASS321"; light["manufacturername"] = "Philips";
-        light["uniqueid"] = unique; light["swversion"] = "lighthouse-bridge-0.3.1";
-      }
     }
   }
   sendJson(200, doc);
@@ -830,7 +819,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.3.1";
+  doc["protocol"] = 1; doc["version"] = "0.3.2";
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -937,7 +926,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.3.1");
+  Serial.println("\nLighthouse Bridge 0.3.2");
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();

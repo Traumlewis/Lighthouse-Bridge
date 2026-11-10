@@ -2,6 +2,7 @@
 #include "bridge_core.h"
 #include <ArduinoJson.h>
 #include <string>
+#include <cstdio>
 
 namespace bridge {
 struct HueLightRoute {
@@ -38,6 +39,39 @@ inline HueLightRoute parseHueLightRoute(const char* uri, uint32_t mac24) {
   route.key = key;
   route.slot = static_cast<int>(id);
   return route;
+}
+
+// Espalexa discovery uses a zero-padded hexadecimal endpoint, including IDs
+// created after migration. Decimal/unpadded endpoints were introduced in 0.3.0.
+inline std::string hueUniqueId(const char* bridgeMac, uint32_t stationId) {
+  char unique[48];
+  if (stationId <= 255) {
+    std::snprintf(unique, sizeof(unique), "%s-%02X-00:11", bridgeMac, static_cast<unsigned>(stationId));
+  } else {
+    // Keep large monotonic IDs in a fixed-width EUI-64 + endpoint representation.
+    // The local prefix + bridge's existing 24-bit Hue identity + full station ID
+    // avoids truncation/reuse after many station removals and additions.
+    std::snprintf(unique, sizeof(unique), "02:%s:%02X:%02X:%02X:%02X-01", bridgeMac + 9,
+      static_cast<unsigned>((stationId >> 24) & 255), static_cast<unsigned>((stationId >> 16) & 255),
+      static_cast<unsigned>((stationId >> 8) & 255), static_cast<unsigned>(stationId & 255));
+  }
+  return unique;
+}
+
+inline void writeHueLight(JsonObject light, const StationConfig& config, const StationState& measured,
+                          uint32_t now, const char* bridgeMac, const char* version, bool stateOnly) {
+  JsonObject state = stateOnly ? light : light.createNestedObject("state");
+  state["on"] = hueOn(measured, now);
+  state["reachable"] = freshMeasurement(measured, now);
+  state["alert"] = "none";
+  if (!stateOnly) {
+    light["type"] = "On/off light";
+    light["name"] = std::string(config.name);
+    light["modelid"] = "HASS321";
+    light["manufacturername"] = "Philips";
+    light["uniqueid"] = hueUniqueId(bridgeMac, config.id);
+    light["swversion"] = version;
+  }
 }
 
 inline void appendHueError(JsonArray replies, unsigned type, const std::string& address, const char* description) {

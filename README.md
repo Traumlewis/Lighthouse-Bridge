@@ -16,6 +16,16 @@ Startup, reboot and Wi-Fi reconnection never send power commands automatically.
 Repository documentation is English. The installer and dashboard default to
 English and offer German; language changes preserve edits and connections.
 
+## Version 0.3.2
+
+Fix the Hue discovery identifier format for newly added stations. Versions 0.3.0
+and 0.3.1 formatted IDs above 4 as unpadded decimal endpoints instead of the
+previously working zero-padded hexadecimal representation. This affects the
+owner's newly assigned IDs 6–9. Existing first-four identities and numeric Hue
+keys are preserved; no station reassignment is needed. Install the 0.3.2 update,
+then ask Alexa to discover devices again. Actual Alexa rediscovery needs an owner
+retest; the regression and serialized responses are covered by host tests.
+
 ## Version 0.3.1
 
 The API key in the ESP32 dashboard now uses the same plain clickable text styling

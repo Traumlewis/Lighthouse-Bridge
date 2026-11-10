@@ -1,4 +1,4 @@
-# Local API — 0.3.1
+# Local API — 0.3.2
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -223,6 +223,13 @@ the measured value; duplicates do not extend the deadline. `reachable` always
 uses measured health, including failed cycles and measurement age. Dashboard and
 local API measurements are unchanged. This policy was explicitly chosen by the
 owner after Echo queried the opposite old value immediately after accepting PUT.
+Discovery `uniqueid` uses the pinned Espalexa two-digit uppercase hexadecimal
+endpoint for IDs 1–255, e.g. `AA:BB:CC:11:22:33-06-00:11`. This restores the
+format accidentally changed for new IDs in 0.3.0/0.3.1. Larger monotonic IDs use
+`02:<bridge MAC last three octets>:<four station-ID octets>-01`, a fixed EUI-64
+and endpoint representation; the numeric light key does not change. Metadata
+changes do not assign stations, enqueue commands or modify measurements.
+
 Only individual configured stations appear in the Hue collection. Existing first
 four light IDs/unique IDs are preserved. The old virtual group (station ID 5) is
 unavailable (Hue error 3), never reused; delete its cached Alexa app entry once.
@@ -269,7 +276,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.1","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.3.2","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

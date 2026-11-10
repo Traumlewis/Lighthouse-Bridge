@@ -1,6 +1,8 @@
 #include "hue_api.h"
 #include <cassert>
 #include <iostream>
+#include <regex>
+#include <set>
 
 using namespace bridge;
 static StationState states[kStations];
@@ -37,6 +39,47 @@ static void errorIs(const HueWriteReply& reply, unsigned type) {
 int main() {
   const uint32_t mac = 0x112233; // Synthetic bridge identity.
   for (unsigned i=0;i<kStations;++i) { ids[i]=i<4?i+1:i+2; configured[i]=true; }
+  // Exercise the production discovery serializer, not only PUT routing. IDs 6–9
+  // are the owner's reported failing setup after removing/re-adding stations.
+  const char* bridgeMac = "AA:BB:CC:11:22:33";
+  std::set<std::string> uniqueIds;
+  DynamicJsonDocument discovery(16384);
+  JsonObject collectionJson = discovery.to<JsonObject>();
+  StationState asleep;
+  recordRead(asleep, 0, 1000, "");
+  for (uint32_t id = 1; id <= 17; ++id) {
+    if (id == kRetiredGroupId) continue;
+    StationConfig config; config.id = id;
+    std::strcpy(config.name, "Station");
+    JsonObject light = collectionJson.createNestedObject(std::to_string(hueKey(mac, id)));
+    writeHueLight(light, config, asleep, 1100, bridgeMac, "test-version", false);
+    const std::string unique = light["uniqueid"].as<std::string>();
+    assert(std::regex_match(unique, std::regex("([0-9A-F]{2}:){5}[0-9A-F]{2}-[0-9A-F]{2}-00:11")));
+    char expected[48];std::snprintf(expected,sizeof(expected),"%s-%02X-00:11",bridgeMac,static_cast<unsigned>(id));
+    assert(unique == expected && uniqueIds.insert(unique).second);
+    assert(light["state"]["on"].is<bool>() && !light["state"]["on"].as<bool>());
+    assert(light["state"]["reachable"].as<bool>());
+    assert(light["name"] == "Station" && light["modelid"] == "HASS321");
+  }
+  assert(collectionJson.size() == 16);
+  assert(!collectionJson.containsKey(std::to_string(hueKey(mac, 5))));
+  assert(hueUniqueId(bridgeMac, 6) == "AA:BB:CC:11:22:33-06-00:11");
+  assert(hueUniqueId(bridgeMac, 10) == "AA:BB:CC:11:22:33-0A-00:11");
+  assert(hueUniqueId(bridgeMac, 255) == "AA:BB:CC:11:22:33-FF-00:11");
+  for (uint32_t id : {256U, 257U, 65536U, kMaxStationId}) {
+    const auto unique = hueUniqueId(bridgeMac,id);
+    assert(std::regex_match(unique,std::regex("([0-9A-F]{2}:){7}[0-9A-F]{2}-01")));
+    assert(uniqueIds.insert(unique).second);
+  }
+  // Serialize and parse after temporary buffers/strings leave scope.
+  std::string wire;serializeJson(discovery,wire);
+  DynamicJsonDocument parsed(16384);assert(!deserializeJson(parsed,wire));
+  assert(parsed[std::to_string(hueKey(mac,6))]["uniqueid"] == "AA:BB:CC:11:22:33-06-00:11");
+  discovery.clear();StationConfig config;config.id=6;
+  request(asleep,Target::On,1100);
+  writeHueLight(discovery.to<JsonObject>(),config,asleep,1101,bridgeMac,"test-version",true);
+  assert(discovery["on"].as<bool>() && discovery["reachable"].as<bool>());
+  assert(!discovery.containsKey("uniqueid") && asleep.observed==0 && asleep.observedMs==1000);
   assert(!parseHueLightRoute("/api/status", mac).matched);
   assert(!parseHueLightRoute("/api/test-user/config", mac).matched);
   assert(parseHueLightRoute("/api//lights", mac).matched);

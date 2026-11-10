@@ -109,6 +109,14 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Alexa exposes only individual entries with an ID and nonempty MAC. No virtual
   group light; station ID 5 is permanently retired. Cached VR Basisstationen must
   be deleted once by the owner in Alexa; the bridge cannot delete cloud entries.
+- Hue discovery serialization lives in `include/hue_api.h` and is host-tested.
+  IDs 1–255 use the pinned Espalexa zero-padded hexadecimal endpoint format
+  `bridge-MAC-%02X-00:11`, including newly added IDs 6–9. Do not use unpadded
+  decimal IDs: 0.3.0/0.3.1 introduced that regression for IDs >4. Larger IDs use
+  a fixed EUI-64 + endpoint representation (local prefix, existing 24-bit bridge
+  identity, full station ID); never truncate the monotonic ID or reuse identities.
+  Preserve old IDs 1–4 and numeric Hue keys. Test actual serialized collection
+  fields and string lifetimes as well as PUT acknowledgements.
 - Dynamic list: 0–16 entries. UI supports explicit Add/Remove and one MAC input
   with discovered datalist suggestions. Empty added entries are disabled and
   count toward capacity. Legacy empty slots are discarded during migration.
@@ -218,7 +226,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Current release **0.3.1**. USB WebFlasher updates use exactly four files at offsets:
+- Current release **0.3.2**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
   padding overwrites NVS even with eraseAll=false: this caused 0.1.x credential
@@ -341,3 +349,11 @@ Version 0.3.0 software checks add 16-entry configuration/migration/state tests,
 retired-group Hue behavior, OTA header/container corruption checks, dynamic UI,
 copy/name actions and simulated multipart success/failure. See docs/VALIDATION.md.
 No device is attached; retain the owner's earlier four-station evidence separately.
+
+Version 0.3.1 owner report: Alexa no longer finds newly assigned station IDs 6–9.
+Repeated Hue collection GETs reach the bridge with configured=4/fresh=4 initially;
+BLE reads recover intermittently. This is not evidence of a radio-caused discovery
+failure. Code inspection reproduces malformed/unpadded new unique IDs. Version
+0.3.2 corrects the format and tests serialized discovery metadata. Owner Alexa
+rediscovery remains required; no attached hardware validates the discovery fix.
+Never copy the credential-bearing raw log into the repository.

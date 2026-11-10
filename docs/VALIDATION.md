@@ -1,4 +1,29 @@
-# Validation report — 0.3.1
+# Validation report — 0.3.2
+
+## Version 0.3.2 Hue discovery identifier regression
+
+The owner reports Alexa cannot find the four stations on 0.3.1. The excerpt shows
+newly assigned persistent IDs 6–9, successful BLE readbacks, and repeated Hue
+collection GETs with configured=4/fresh=4 initially. Alexa can reach the bridge;
+that log does not contain the actual HTTP JSON or prove why Alexa rejects devices.
+Intermittent BLE 574 failures also occur, but do not establish a discovery cause.
+The raw excerpt contains credentials and is not committed.
+
+Code inspection reproduces a separate concrete discovery regression introduced in
+0.3.0: `uniqueid` for IDs >4 has an unpadded decimal endpoint (`-6-`) instead of
+the pinned Espalexa hexadecimal endpoint (`-06-`). Version 0.3.2 restores the
+previous formatting for IDs 1–255. Larger monotonic IDs have a fixed EUI-64 form
+instead of an overlong endpoint. Numeric keys, saved assignments and first-four
+identities are preserved. No BLE timing or power behavior changes.
+
+Native tests now use the production discovery serializer, not only the write-route
+parser: 16 entries, the owner's IDs 6–9, hexadecimal IDs 10/17/255, unique fixed
+formats for IDs beyond 255, no retired group, JSON roundtrip after temporary
+strings leave scope, and measured/accepted-target separation in state-only GETs.
+The firmware build and package checks exercise the corrected code. No Alexa or
+ESP32 is attached; the owner must retest actual device discovery after updating.
+This is a verified code/format regression fix, not a guarantee that every Alexa
+firmware will accept every identifier variant or that all discovery causes are fixed.
 
 ## Version 0.3.1 embedded key styling
 
