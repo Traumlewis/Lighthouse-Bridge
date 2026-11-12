@@ -11,3 +11,4 @@ header{gap:16px;flex-wrap:wrap}.header-actions{display:flex;align-items:center;g
 #copy-status{display:block;margin-top:8px;font-size:12px;color:var(--muted)}
 button.plain-key{background:transparent;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;overflow-wrap:anywhere}
 button.plain-key:disabled{opacity:1;cursor:default}
+.matter-stations{padding-left:1.2em;overflow-wrap:anywhere}

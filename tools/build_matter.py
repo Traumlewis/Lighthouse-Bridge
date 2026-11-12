@@ -10,7 +10,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.1-matter'
+VERSION = '0.2.0-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -63,6 +63,9 @@ def main():
     sketch.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'experimental/matter/MatterBridge/MatterBridge.ino', sketch)
     shutil.copy2(ROOT / 'partitions.csv', sketch)
+    production = (ROOT / 'src/main.cpp').read_text()
+    worker = production.split('void waitForBleCleanup() {', 1)[1].split('void statusRoute() {', 1)[0]
+    (sketch / 'shared_ble_worker.h').write_text('#pragma once\nvoid waitForBleCleanup() {' + worker)
     if not args.skip_compile:
         # The CLI selects the installed core; refuse silent upgrades/downgrades.
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']
@@ -73,7 +76,8 @@ def main():
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]
     validate_segments(segments)
-    if b'Lighthouse Matter prototype ' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]:
+    if (b'Lighthouse Matter prototype ' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]
+            or b'Lighthouse-Bridge Matter Test' not in segments[-1][1]):
         raise ValueError('Application is not this Matter prototype')
     output = ROOT / 'dist/matter'
     output.mkdir(parents=True, exist_ok=True)
@@ -92,7 +96,8 @@ def main():
     }, indent=2) + '\n')
     info = {'version': VERSION, 'arduino_esp32': CORE, 'nimble': '2.5.2',
             'app_bytes': len(segments[-1][1]), 'app_slot_bytes': APP_LIMIT,
-            'hardware_validated': False, 'stations': 1}
+            'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
+            'device_type': 'on_off_light'}
     (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     archive = output / f'lighthouse-bridge-{VERSION}.zip'
     temporary = archive.with_suffix('.zip.tmp')
@@ -105,7 +110,7 @@ def main():
         bundle.write(ROOT / 'VERSION.md', 'VERSION.md')
         bundle.write(ROOT / 'LICENSE', 'LICENSE')
         for path in ['experimental/matter/MatterBridge/MatterBridge.ino', 'partitions.csv',
-                     'include/bridge_core.h', 'include/station_config.h', 'tools/build_matter.py',
+                     'include/bridge_core.h', 'include/station_config.h', 'include/matter_config.h', 'src/main.cpp', 'tools/build_matter.py',
                      'experimental/matter/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():

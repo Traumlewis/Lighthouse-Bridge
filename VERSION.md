@@ -3,6 +3,30 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Matter prototype 0.2.0-matter
+
+Expose all configured stations with nonempty MACs as separate On/Off Lights,
+up to the existing capacity of 16. The bridge is named **Lighthouse-Bridge Matter
+Test** during testing; the intended final name is **Lighthouse-Bridge**. Saved
+station names remain unchanged. The owner confirms the previous single-station
+light version switches ON/OFF and displays the correct type/status; this next
+multi-station version needs hardware testing.
+
+Persist Matter endpoints by stable Hue identity + MAC, preserving endpoint 1 for
+the former single station and aggregator 2. New devices receive monotonically
+allocated endpoints; removal/replacement never transfers an old endpoint to a
+new physical station. Interrupted registry saves keep survivor identities safe.
+The BLE worker is generated from the production source, sharing its bounded
+attempts, sequential scheduling, cleanup and measured command confirmation.
+The USB panel lists all configured station measurements using their actual IDs.
+
+The same four split flash offsets, both app slots and NVS addresses are retained.
+Existing Matter credentials are kept. Alexa may need rediscovery/re-pairing of
+only this experimental bridge if it caches the old name or child list; restore
+its group/routine assignments if necessary. Keep Erase device unchecked.
+Dashboard, HTTP API and Wi-Fi update upload remain the next stage, pending the
+multi-station hardware test and further size optimization. Stable remains 0.3.9.
+
 ## Experimental Matter prototype 0.1.1-matter
 
 Expose the single bridged station as an **On/Off Light** instead of an On/Off

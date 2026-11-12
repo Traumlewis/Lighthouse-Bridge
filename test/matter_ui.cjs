@@ -12,8 +12,9 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
    window.serialRequests=0;window.queries=[];window.copied='';
    Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});
    document.execCommand=()=>{window.copied=document.activeElement.value;return true;};
-   const info={protocol:1,version,station_id:1,station_name:'Owner name',wifi_connected:true,
-    ready:true,paired:false,reachable:true,observed_raw:0,pairing_code:'34970112332',error:''};
+   const info={protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',station_id:1,station_name:'Owner name',wifi_connected:true,
+    ready:true,paired:false,reachable:true,observed_raw:0,pairing_code:'34970112332',error:'',
+    stations:[{id:1,name:'Owner name',reachable:true,observed_raw:0},{id:4,name:'Another station',reachable:true,observed_raw:11}]};
    const port={open:async function(){
     this.readable=new ReadableStream({start(c){window.usbController=c;}});
     this.writable=new WritableStream({write(bytes){const q=new TextDecoder().decode(bytes);window.queries.push(q);
@@ -21,6 +22,8 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
    },close:async()=>{}};
    window.fakePort=port;
    window.sendPaired=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,paired:true,pairing_code:null})+'\n'));
+   window.sendSleep=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,
+    stations:[info.stations[0],{...info.stations[1],observed_raw:0}]})+'\n'));
    Object.defineProperty(navigator,'serial',{configurable:true,value:{requestPort:async()=>{window.serialRequests++;return port;},getPorts:async()=>[],addEventListener:()=>{},removeEventListener:()=>{}}});
   },version);
   await page.route('https://flasher.test/Lighthouse-Bridge/**',async route=>{
@@ -48,14 +51,19 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
   await page.waitForFunction(()=>document.querySelector('#matter-code').textContent==='34970112332');
   assert.equal(await page.locator('#matter-install').isDisabled(),true,'reader owns the USB port');
   assert.equal(await page.locator('#matter-read').isDisabled(),true);
-  assert.match(await page.locator('#matter-station').textContent(),/Owner name/);
-  assert.match(await page.locator('#matter-measurement').textContent(),/SLEEP/);
+  assert.equal(await page.locator('#matter-station').textContent(),'2');
+  assert.equal(await page.locator('#matter-bridge').textContent(),'Lighthouse-Bridge Matter Test');
+  assert.equal(await page.locator('#matter-stations li').count(),2);
+  assert.match(await page.locator('#matter-stations').textContent(),/1 · Owner name.*SLEEP/);
+  assert.match(await page.locator('#matter-stations').textContent(),/4 · Another station.*AN/);
   await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),'34970112332');
   await page.locator('#language').selectOption('en');
   assert.equal(await page.locator('#matter-code').textContent(),'34970112332');
   assert.equal(await page.evaluate(()=>window.serialRequests),1,'language change keeps the connection');
   assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('34970112332')),false);
   assert.equal(requests.some(url=>url.includes('34970112332')),false);
+  await page.evaluate(()=>window.sendSleep());
+  await page.waitForFunction(()=>document.querySelector('#matter-stations li:last-child').textContent.includes('SLEEP'));
   await page.evaluate(()=>window.sendPaired());await page.waitForFunction(()=>document.querySelector('#matter-code').disabled);
   await page.locator('#matter-stop').click();await page.waitForFunction(()=>!document.querySelector('#matter-read').disabled);
   assert.equal(await page.locator('#matter-install').isEnabled(),true);

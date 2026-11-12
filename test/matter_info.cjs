@@ -11,6 +11,11 @@ const assert = require('node:assert/strict');
     {...info,paired:true},{...info,ready:false},{...info,reachable:'true'},{...info,version:'../../bad'}])
     assert.equal(parseMatterInfo(frame(bad)),null);
   assert.equal(parseMatterInfo('LH_INFO {}'),null);
+  const stations=Array.from({length:16},(_,i)=>({id:i+1,name:'Station '+(i+1),reachable:true,observed_raw:0}));
+  assert.equal(parseMatterInfo(frame({...info,bridge_name:'Lighthouse-Bridge Matter Test',stations})).stations.length,16);
+  for(const bad of [[...stations,stations[0]],[stations[0],stations[0]],
+    [{...stations[0],id:17}],[{...stations[0],reachable:'true'}],[{...stations[0],observed_raw:256}]])
+    assert.equal(parseMatterInfo(frame({...info,stations:bad})),null);
   let stream, closed=false, commands=[];
   const port={open:async()=>{},close:async()=>{closed=true;},
     readable:new ReadableStream({start(c){stream=c;}}),

@@ -45,6 +45,8 @@ jobs:
         run: |
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_config.cpp -o /tmp/lighthouse-config-test
           /tmp/lighthouse-config-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_matter_config.cpp -o /tmp/lighthouse-matter-config-test
+          /tmp/lighthouse-matter-config-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota.cpp -o /tmp/lighthouse-ota-test
           /tmp/lighthouse-ota-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota_receiver.cpp -o /tmp/lighthouse-ota-receiver-test

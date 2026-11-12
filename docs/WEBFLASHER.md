@@ -10,9 +10,9 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.1.1-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
-The prototype uses the saved Wi-Fi and the configured station with the lowest
-ID, so configure those with stable firmware first. Keep **Erase device unchecked**.
+`0.2.0-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+The prototype uses saved Wi-Fi and all configured stations (up to 16), so configure
+those with stable firmware first. Keep **Erase device unchecked**.
 It has no dashboard, local HTTP API or Wi-Fi update upload; return over USB.
 See the [prototype guide](../experimental/matter/README.md) for pairing and limits.
 
@@ -25,7 +25,8 @@ the prototype. Its ZIP includes source, checksums, version notes and licenses.
 
 After the installer releases USB, the experiment page sends only
 `LH_MATTER_INFO\n` through the shared serial watcher. Its separate validated frame
-parser exposes the setup code, station name/ID and measured status; no stable API
+parser exposes the setup code, bridge name and all configured station IDs/names
+with measured status; no stable API
 key is requested. Setup codes remain in browser memory. EN/DE changes preserve
 the connection and consent checkbox. Firmware installation stays disabled while
 the reader owns USB and when its manifest or any segment is unavailable/unsafe.

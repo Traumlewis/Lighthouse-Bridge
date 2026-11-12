@@ -34,12 +34,13 @@ for software checks and hardware evidence.
 
 An isolated [experimental Matter prototype](experimental/matter/README.md) is
 available through the [Matter test WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/matter.html).
-It tests **one previously configured station** on the same classic ESP32, with
+It tests **up to 16 previously configured stations** on the same classic ESP32, with
 the existing app slots/NVS layout. It replaces the running firmware for the test
 and has no dashboard, HTTP API or Wi-Fi update upload. Return to stable firmware
 over USB. Keep erasing unchecked in both directions. The owner reports basic
-operation with the first, outlet-profile prototype. The current On/Off Light
-profile still needs testing; this is not a confirmed fix for app status.
+operation, ON/OFF, light classification and status display in the single-station
+test. The multi-station update still needs a hardware test. Its bridge name is
+**Lighthouse-Bridge Matter Test**, with **Lighthouse-Bridge** planned after testing.
 
 ## First installation and upgrade
 

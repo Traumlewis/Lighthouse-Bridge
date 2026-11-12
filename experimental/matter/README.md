@@ -1,72 +1,82 @@
-# Experimental Matter prototype — 0.1.1-matter
+# Experimental Matter prototype — 0.2.0-matter
 
-This is a separate, single-station experiment for the original **ESP-WROOM-32 /
-ESP-32S with at least 4 MB flash**. It is not a replacement for stable 0.3.9.
-The owner reports that the first prototype works fundamentally on hardware,
-but Alexa correctly classified that version's advertised endpoint as an outlet.
-This update advertises an **On/Off Light** and needs a hardware retest. Detailed
-confirmation timing, runtime memory, radio reliability and app state updates
-remain unverified. Build/packaging/browser checks are separate software evidence.
-No Echo or ESP32 is attached to the development environment.
+This next test exposes **up to 16 configured Lighthouse V2 stations as separate
+On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
+The owner confirms that the prior single-station 0.1.1 test switches ON/OFF and
+shows the correct light type/status. Multiple stations, long-run reliability,
+specifically external state changes and the eventual full firmware still need
+hardware testing. No ESP32 or Echo is attached locally.
 
-## Try it using the existing WebFlasher
+The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
+finished bridge named **Lighthouse-Bridge** after testing. Station names are read
+from the saved configuration and are not translated or renamed.
 
-1. Use the stable firmware to save Wi-Fi and at least one Lighthouse V2 assignment.
-   Note which configured station has the lowest local ID: that is the only station
-   this prototype uses. Keep a copy of your configuration before testing.
-2. Open [the experimental WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/matter.html).
-   Connect the classic ESP32 with a USB data cable and install the prototype.
-   **Leave “Erase device” unchecked.** The prototype needs the saved configuration.
-3. Close the installer. The page reads the prototype's information over USB;
-   alternatively click **Read setup code & status**. The ESP32 joins its saved Wi-Fi.
-4. In Alexa, add a Matter device and enter the displayed setup code manually.
-   A compatible Matter-capable Echo must be on the same home network. The prototype
-   uses Espressif's test attestation identity, not a certified commercial identity;
-   Alexa may require accepting an uncertified test device or may reject pairing.
-5. Test ON and SLEEP for the single bridged on/off light endpoint. The bridge reports
-   actual BLE measurements and measured reachability. Acceptance queues a command;
-   ON is confirmed only by raw 11 and SLEEP only by raw 0. Booting remains active.
-   Serial command history distinguishes sent, confirmed and unconfirmed work.
-6. To return, use the stable USB WebFlasher with erasing unchecked. Remove the
-   experimental Matter device from Alexa when finished. Existing Hue entries are
-   separate from the new Matter endpoint and will be unavailable during the test.
+## Install and test
 
-### Updating the outlet prototype
+1. Keep Wi-Fi and up to 16 station assignments saved with stable firmware 0.3.9.
+   If these are already saved from your previous test, update directly. This
+   prototype reads the same record; it does not provide a station editor.
+2. Open [the Matter test WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/matter.html),
+   connect the classic ESP32 by USB, and install. **Leave Erase device unchecked.**
+3. Close the installer. The USB panel reads the setup code and every configured
+   station's measured state, with its actual fixed local ID. Alternatively click
+   **Read setup code & status**. The ESP32 joins its saved Wi-Fi.
+4. Existing Matter credentials and the first prototype station's identity are
+   retained. Check Alexa for the additional lights and the updated bridge name.
+   If Alexa caches the old list/name, remove only **this experimental Matter
+   bridge while the ESP32 is connected**, then pair it again with the displayed
+   USB code. Removing the bridge can remove all its children and their group/
+   routine assignments; restore these if necessary. Do not erase the ESP32.
+5. For a new pairing, add a Matter device in Alexa and enter the code manually.
+   Your Echo must support Matter and share the home network. Test attestation is
+   not commercial certification; Alexa may ask to accept an uncertified device.
+6. Test every station individually: ON, then SLEEP, and its Alexa status. Check
+   that no other station switches. If desired, put the lamps into an Alexa group
+   and test collective ON/SLEEP. The bridge does not create a virtual group light.
+   Allow for sequential BLE work and booting/confirmation; a sent command is not
+   the same as an observed steady ON (raw 11) or SLEEP (raw 0).
+7. Report the station count and any switching/status issue. Useful serial lines
+   start with `Matter command`, `Matter measurement`, or `Station`. Do not share
+   setup codes, API keys or credential-bearing logs.
 
-Version 0.1.0-matter advertised an On/Off Plug-in Unit. Version 0.1.1-matter
-changes that descriptor to On/Off Light while keeping the endpoint ID, unique ID,
-commissioning credentials and partition table. Update over USB with erasing
-unchecked. Alexa may retain the outlet type of an existing entry; if so, remove
-only this experimental Matter device while the ESP32 is connected and pair it
-again with the USB-displayed code. It is also possible to remove the old entry
-before updating. Groups/routines referencing it may need restoring. Do not erase
-the ESP32 or reset stable Wi-Fi/station settings to refresh the Alexa type.
+The next phase restores the dashboard, local HTTP API and Wi-Fi firmware upload
+after this multi-station test and additional size optimization. **They are not
+included yet.** The early full-services build probe still exceeds the fixed app
+slot, even with a gzip UI. Return to stable using the stable USB WebFlasher with
+erasing unchecked. Existing Hue entries are separate and unavailable during the
+Matter test. Changing assignments requires stable firmware for now.
 
-The prototype has no dashboard, local HTTP API, station editor, discovery UI or
-Wi-Fi firmware upload. Configure assignments before installing it. If you change
-the selected station in stable firmware, remove/re-pair the experimental Alexa
-device rather than assuming a cached Matter endpoint still refers to the old one.
-There is no automatic power command on boot, reboot or Wi-Fi reconnect.
+## Storage and identities
 
-## Storage and USB
+Both **1.875 MiB app slots**, NVS `0x9000..0xdfff`, OTA metadata and the unused
+filesystem region retain the exact stable partition table. USB writes only four
+separate files at `0x1000`, `0x8000`, `0xe000`, `0x10000`. No merged-at-zero image
+or `.lhota` is offered for this prototype. The application must fit `0x1e0000`.
 
-Both 1.875 MiB app slots, NVS `0x9000..0xdfff`, OTA metadata and the unused filesystem
-region retain the **exact stable partition table**. USB writes four separate files
-at `0x1000`, `0x8000`, `0xe000`, `0x10000`; no merged-at-zero image is offered.
-The application must fit `0x1e0000` bytes. The stable firmware's configuration is
-read through the shared migration/validation parser, without rewriting its record.
-Matter fabric storage and per-board commissioning credentials also use NVS, with
-the latter in a separate `lhmatter` namespace. Runtime persistence and returning
-between framework versions still require hardware testing.
+The shared station parser loads the stable record without rewriting it. The
+separate `lhmatter` namespace keeps per-board commissioning credentials and an
+atomic `endpoints` registry binding full stable Hue identity + MAC to a Matter
+endpoint. The original first station retains endpoint 1; aggregator 2 is reserved.
+Other endpoints start at 3 and increase monotonically. Reordering never renumbers
+survivors; a replacement MAC or new identity gets a new endpoint. Retired endpoints
+are not reused. Corrupt/exhausted registries fail closed, without erasing settings.
+Current+candidate checkpoints can hold 32 bindings while active capacity remains
+16. Stable local IDs remain 1–16 and are distinct from Matter endpoint IDs.
 
-`LH_MATTER_INFO\n` at 115200 baud returns `LH_MATTER_INFO {protocol:1,...}` with
-selected local ID/name, readiness/error, Wi-Fi, pairing state, unpaired setup code
-and measured station state/history. It does not expose the stable API key, Wi-Fi
-password or station MAC. The WebFlasher keeps the code in page memory and sends it
-only across physical USB; it never places codes in URLs, storage or network calls.
-Only one serial owner is allowed; disconnect the reader before flashing again.
+The original single-station migration assumes its saved assignment was retained.
+If you replaced assignments while running stable firmware between tests, refresh
+the experimental Alexa pairing rather than assuming its cached device is unchanged.
+Matter also persists fabric data; long-run NVS behavior and returning between
+framework versions remain hardware checks.
 
-## Build
+## USB and builds
+
+`LH_MATTER_INFO\n` at 115200 baud returns a `LH_MATTER_INFO` JSON frame with protocol
+1, version, bridge name, readiness/error, Wi-Fi, pairing state/code and a measured
+`stations` list. Legacy first-station fields remain for older readers. It exposes
+no station MAC, stable API key or Wi-Fi password. Codes stay in browser memory,
+never in URLs, storage or network calls. Disconnect USB reading before flashing.
+Language changes retain the USB connection and experimental consent checkbox.
 
 Install Arduino CLI **1.6.0**, then:
 
@@ -77,21 +87,17 @@ arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5'
 python3 tools/build_matter.py
 ```
 
-The stable PlatformIO build remains Arduino ESP32 2.0.17. The isolated prototype
-uses Arduino ESP32 3.3.12 and on-network commissioning, reserving NimBLE 2.5.2 for
-the sequential Lighthouse worker. Matter's CHIPoBLE commissioning is compile-time
-disabled for this classic-ESP32 build. Do not replace NimBLE with Arduino's BLE
-wrapper: a minimal Matter+Bluedroid probe already exceeded the existing app slot.
+The stable PlatformIO environment remains Arduino ESP32 2.0.17. The isolated build
+uses 3.3.12 with CHIPoBLE commissioning disabled, leaving NimBLE 2.5.2 to the one
+sequential Lighthouse worker. `tools/build_matter.py` generates that worker header
+from the production section of `src/main.cpp`; there is no second retry loop.
+The root request/measurement logic remains shared. Boot and reconnect never send
+automatic power commands. Matter command interception queues work; only observed
+OnOff/Reachable updates are reported on the Matter task.
 
-The build refuses a different installed core, oversized segments, non-classic
-images, any changed partition entries or writes touching NVS. `dist/matter/` holds
-the split images, per-image SHA-256 manifest/checksums and prototype ZIP. Generate
-both firmware packages before `python3 tools/build_pages.py`. CI publishes both
-choices through the existing Pages deployment; the stable manifest stays separate.
-
-The prototype uses the project's shared ON/SLEEP, command coalescing, generation,
-read-failure and confirmation rules. Its command handler accepts asynchronous
-work without changing the measured Matter OnOff attribute. Actual observations
-are reported on the Matter task; reachability uses the bridged-device cluster.
-The exact behavior with Alexa and the SDK command-handler interception must be
-verified on hardware before treating this as a working replacement.
+The build validates classic ESP32 images, both slots, all partition entries,
+sector bounds and per-image hashes. `dist/matter/` contains split images, manifest,
+checksums, source/notes/licenses ZIP and build metadata. Build both packages before
+`tools/build_pages.py`; the existing Pages workflow publishes separate stable and
+experimental choices. Software tests do not establish successful multi-station
+operation, runtime RAM margins, or Alexa discovery/cache behavior.

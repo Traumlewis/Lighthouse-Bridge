@@ -1,5 +1,46 @@
 # Validation report — 0.3.9
 
+## Experimental Matter 0.2.0-matter — multiple stations and agreed naming
+
+The owner explicitly confirms that the 0.1.1 single-station version switches
+ON/OFF, has the correct lamp type and displays the correct status. Its screenshot
+shows the parent Matter bridge and a separate lamp with OFF. This completes the
+agreed first test at the reported level, without proving external-controller
+updates, detailed confirmation timing or long-run reliability. No screenshot,
+setup code or raw credential-bearing log is committed.
+
+The next experiment exposes every configured station with a nonempty MAC as a
+separate On/Off Light, up to 16. The parent is named **Lighthouse-Bridge Matter
+Test**, with **Lighthouse-Bridge** agreed for after the test phase. Saved station
+names and local IDs remain unchanged. The prior first child remains endpoint 1;
+aggregator 2 stays reserved. A private, atomically stored registry binds full
+stable identity + MAC to monotonically allocated Matter endpoint IDs, preventing
+slot reuse or reordering from controlling a different physical device.
+
+Native registry tests exercise initial migration, retained identities after
+reordering, replacement MACs, interrupted-save checkpoints, returning to a retired
+MAC, all 16 stations/32 transition bindings, malformed registries and exhaustion.
+The build generates the exact production BLE-worker section from `src/main.cpp`;
+there is no independent retry/confirmation loop. USB frames preserve old fields
+and add the bridge name and a validated list of measured station IDs/names/states.
+The browser test covers separate rows and measured updates without power writes.
+
+The full local 0.2.0 binary is 1,826,992 bytes with 121,764 bytes of linker static
+RAM. It fits the unchanged 1,966,080-byte slot; these are not runtime heap margins.
+Multiple endpoints, retained fabric migration, Alexa's refresh of the name/child
+list, four-station switching and 16-station runtime operation need owner hardware
+tests. Prior one-station success must not be attributed to this changed adapter.
+The native identity/core tests, all 15 Python checks, actual USB parser/watcher
+checks and the complete simulated browser suite pass locally for this test build.
+
+The next dashboard/API/Wi-Fi-update phase has not shipped. A separate early size
+probe combined the existing services, an SDK Matter light and a gzip UI (14,412
+bytes). It used 1,990,075 flash bytes; compiling out WiFiManager's already-disabled
+debug output reduced this to 1,970,027, still 3,947 over the slot before the final
+multi-station adapter. Those temporary compile probes are not firmware releases
+and do not validate full integration. More optimization is required; the owner
+has explicitly retained both existing app slots.
+
 ## Experimental Matter 0.1.1-matter — light device type
 
 The owner reports that 0.1.0-matter works fundamentally on the physical ESP32,
@@ -12,8 +53,8 @@ Version 0.1.1-matter uses the pinned SDK's `MatterOnOffLight` wrapper, which cre
 the On/Off Light device type. The existing Matter endpoint/unique IDs, bridged
 reachability, per-board commissioning credentials and both app slots are retained.
 The existing command handler and measurement-only OnOff guard also remain.
-Alexa's classification refresh and operation with the new light descriptor need
-an owner retest; the old result must not be counted as validation of this update.
+The subsequent owner report above confirms the new light classification and
+basic switching/status; the old outlet result alone did not validate this update.
 Removing/re-pairing only the prototype entry while connected may be necessary;
 it does not require erasing stable Wi-Fi/station configuration.
 

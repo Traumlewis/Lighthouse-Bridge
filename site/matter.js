@@ -1,7 +1,7 @@
-import { translations } from './translations.js?v=matter-0.1.1';
-import { validMatterParts } from './flash-layout.mjs?v=matter-0.1.1';
-import { watchDeviceInfo } from './serial-info.mjs?v=matter-0.1.1';
-import { parseMatterInfo } from './matter-info.mjs?v=matter-0.1.1';
+import { translations } from './translations.js?v=matter-0.2.0';
+import { validMatterParts } from './flash-layout.mjs?v=matter-0.2.0';
+import { watchDeviceInfo } from './serial-info.mjs?v=matter-0.2.0';
+import { parseMatterInfo } from './matter-info.mjs?v=matter-0.2.0';
 
 const $ = id => document.getElementById(id);
 const supported = value => value === 'en' || value === 'de';
@@ -20,15 +20,26 @@ function render() {
   $('matter-usb-status').textContent = text(usbText[usbState] || usbState);
   $('matter-device').hidden = !info;
   if (!info) return;
-  $('matter-station').textContent = info.station_id ? `${info.station_id} · ${info.station_name}` : text('matter_no_station');
+  const stations = info.stations || (info.station_id ? [{id:info.station_id,name:info.station_name,
+    reachable:info.reachable,observed_raw:info.observed_raw}] : []);
+  $('matter-station').textContent = String(stations.length);
+  $('matter-bridge').textContent = info.bridge_name || 'Lighthouse Matter Test';
+  const list = $('matter-stations'); list.replaceChildren();
+  for (const station of stations) {
+    const item = document.createElement('li');
+    item.textContent = `${station.id} · ${station.name} — ` + measurement(station);
+    list.append(item);
+  }
   $('matter-code').textContent = info.pairing_code || '—';
   $('matter-code').disabled = !info.pairing_code;
   const errors = {CONFIGURE_STABLE_FIRST:'matter_need_config',WAITING_WIFI:'matter_wait_wifi'};
   $('matter-pair-state').textContent = info.error ? text(errors[info.error] || 'matter_device_error') + ' (' + info.error + ')' :
     text(info.paired ? 'matter_paired' : 'matter_enter_code');
-  $('matter-measurement').textContent = text(!info.reachable ? 'matter_unavailable' :
-    [1,8,9].includes(info.observed_raw) ? 'matter_starting' : info.observed_raw === 11 ? 'matter_on' :
-    info.observed_raw === 0 ? 'matter_sleep' : 'matter_other');
+  $('matter-measurement').textContent = stations.length ? '' : text('matter_no_station');
+}
+function measurement(station) {
+  return text(!station.reachable ? 'matter_unavailable' : [1,8,9].includes(station.observed_raw) ? 'matter_starting' :
+    station.observed_raw === 11 ? 'matter_on' : station.observed_raw === 0 ? 'matter_sleep' : 'matter_other');
 }
 function setLanguage(value, remember = false) {
   language = supported(value) ? value : 'en'; document.documentElement.lang = language; $('language').value = language;

@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.1.1-matter** is a separate, single-station Matter prototype in
+- Experimental **0.2.0-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -307,20 +307,36 @@ status change. Keep current facts, not a conversation log. User instructions win
   Matter command-handler interception queues commands without updating OnOff
   optimistically; measured OnOff and bridged Reachable updates run on the Matter
   task. No automatic power commands, extra phone app or raw credential logs.
-- The prototype advertises a bridged **On/Off Light** via `MatterOnOffLight`.
+- The prototype advertises separate bridged **On/Off Light** endpoints.
   Version 0.1.0-matter deliberately used an On/Off Plug-in Unit, which Alexa
   classified as an outlet. The owner reports basic operation works on hardware;
   specific command confirmations, external status synchronization and long-term
-  reliability are not established by that report. The 0.1.1 light profile needs
-  a hardware retest. Preserve endpoint/unique IDs and commissioning credentials;
+  reliability are not established by that report. The owner subsequently confirms
+  0.1.1 ON/OFF, light classification and status display. This is a single-station
+  owner test, not multi-station/long-run or specifically external-state evidence.
+  Preserve endpoint/unique IDs and commissioning credentials;
   Alexa may need removal/re-pairing of only the prototype device while connected
   to refresh its type. Groups/routines may need restoring. Never erase NVS for this.
-- Prototype scope is the configured station with lowest local ID, read through
+- Prototype scope is all 0–16 configured stations with nonempty MACs, read through
   the shared parser from the stable NVS record without rewriting it. It has no
   dashboard, local HTTP API, station editor, discovery UI or OTA upload. Set up
   stable Wi-Fi/assignments first. Install/return by USB with erasing unchecked;
   existing Hue entries are unavailable while the prototype runs. Its per-board
   setup credentials live under `lhmatter`; Matter also persists fabric data.
+  Test bridge name is exactly **Lighthouse-Bridge Matter Test**; the owner wants
+  **Lighthouse-Bridge** after the test phase. Never rename saved station names.
+- `include/matter_config.h` owns the persistent endpoint registry under
+  `lhmatter/endpoints`. Bind by full stable Hue identity + MAC, not local slot or
+  array position. Migrate the former first station to endpoint 1 and retain
+  aggregator 2; allocate other endpoint IDs monotonically from 3, never reuse a
+  retired endpoint. Validate the registry; fail closed on corruption/exhaustion.
+  Checkpoint current+proposed bindings (up to 32) so interrupted saves cannot
+  renumber survivors; current active capacity remains 16. No silent truncation.
+- The Matter build generates `shared_ble_worker.h` from the production worker
+  section of `src/main.cpp`; never maintain a second retry/confirmation loop.
+  All BLE work remains sequential. USB `LH_MATTER_INFO` adds a validated list of
+  measured stations and `bridge_name`, preserving the legacy first-station fields.
+  Show actual fixed local IDs and saved names; changes of language retain USB.
 - `tools/build_matter.py` writes split images/checksums/ZIP to `dist/matter/`;
   Pages validates exact partition-table equality, slot bounds, chip IDs and hashes.
   No prototype merged image or `.lhota`. `site/matter.js` / `matter-info.mjs` use
@@ -330,9 +346,15 @@ status change. Keep current facts, not a conversation log. User instructions win
 - No hardware is attached to the development environment. The owner's initial
   0.1.0 result supports basic operation; runtime memory, persistence/return across
   framework versions, prolonged BLE coexistence and exact Alexa status behavior
-  remain unverified, as does the updated 0.1.1 light profile.
+  remain unverified. The 0.1.1 lamp/switch/status report is positive owner evidence;
+  multi-station 0.2.0 still needs hardware testing before the next phase.
   Test attestation is not product certification. Do not claim a fix from a build
   or simulated browser test. Keep the prototype guide and validation report current.
+- The owner wants staged work: single-station status first, multiple Matter lamps
+  next, then dashboard/API/Wi-Fi updates. Stage 1 is owner-confirmed; 0.2.0 is the
+  next multi-station test. Stage 3 is not shipped. An early full-services size
+  probe with gzip UI still exceeded the slot (1,990,075 bytes, or 1,970,027 with
+  WiFiManager debug compiled out); more optimization is required. Keep slots fixed.
 
 - Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
@@ -396,6 +418,8 @@ g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/Arduino
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-test
 /tmp/lh-test
 python tools/package_release.py
+g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_matter_config.cpp -o /tmp/lh-matter-config-test
+/tmp/lh-matter-config-test
 python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py' -v
