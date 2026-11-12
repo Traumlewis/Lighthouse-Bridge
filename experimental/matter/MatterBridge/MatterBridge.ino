@@ -21,11 +21,11 @@
 
 using namespace bridge;
 using namespace chip::app::Clusters;
-constexpr char kVersion[] = "0.1.0-matter";
+constexpr char kVersion[] = "0.1.1-matter";
 SemaphoreHandle_t stateMutex;
 StationConfig station;
 StationState measured;
-MatterOnOffPlugin accessory;
+MatterOnOffLight accessory;
 bool matterStarted = false, stationLoaded = false;
 std::atomic<bool> workerStarted{false};
 std::atomic<bool> reportingMeasurement{false};
@@ -317,7 +317,7 @@ void setup() {
   if (!stationLoaded) { setupError = "CONFIGURE_STABLE_FIRST"; return; }
   WiFi.setSleep(true); // Set Arduino's cached coexistence policy before STA starts.
   WiFi.mode(WIFI_STA); WiFi.enableIPv6(); WiFi.begin();
-  Serial.println("Lighthouse Matter prototype 0.1.0; waiting for saved Wi-Fi.");
+  Serial.printf("Lighthouse Matter prototype %s; waiting for saved Wi-Fi.\n", kVersion);
 }
 
 void loop() {

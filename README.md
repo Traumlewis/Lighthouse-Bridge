@@ -37,8 +37,9 @@ available through the [Matter test WebFlasher](https://traumlewis.github.io/Ligh
 It tests **one previously configured station** on the same classic ESP32, with
 the existing app slots/NVS layout. It replaces the running firmware for the test
 and has no dashboard, HTTP API or Wi-Fi update upload. Return to stable firmware
-over USB. Keep erasing unchecked in both directions. Alexa pairing and actual
-hardware behavior remain unverified; this is not a confirmed fix for app status.
+over USB. Keep erasing unchecked in both directions. The owner reports basic
+operation with the first, outlet-profile prototype. The current On/Off Light
+profile still needs testing; this is not a confirmed fix for app status.
 
 ## First installation and upgrade
 

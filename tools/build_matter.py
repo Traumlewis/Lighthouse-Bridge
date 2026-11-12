@@ -10,7 +10,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-matter'
+VERSION = '0.1.1-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -73,7 +73,7 @@ def main():
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]
     validate_segments(segments)
-    if b'Lighthouse Matter prototype 0.1.0' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]:
+    if b'Lighthouse Matter prototype ' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]:
         raise ValueError('Application is not this Matter prototype')
     output = ROOT / 'dist/matter'
     output.mkdir(parents=True, exist_ok=True)

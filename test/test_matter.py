@@ -9,13 +9,13 @@ from urllib.parse import urlsplit, parse_qs
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_matter import validate_segments, APP_LIMIT
+from build_matter import validate_segments, APP_LIMIT, VERSION
 
 
 class MatterLayoutTests(unittest.TestCase):
     def parts(self):
         manifest = json.loads((ROOT / '_site/matter-manifest.json').read_text())
-        self.assertEqual(manifest['version'], '0.1.0-matter')
+        self.assertEqual(manifest['version'], VERSION)
         self.assertEqual([b['chipFamily'] for b in manifest['builds']], ['ESP32'])
         return [(p['offset'], (ROOT / '_site' / urlsplit(p['path']).path).read_bytes())
                 for p in manifest['builds'][0]['parts']]

@@ -1,9 +1,12 @@
-# Experimental Matter prototype — 0.1.0-matter
+# Experimental Matter prototype — 0.1.1-matter
 
 This is a separate, single-station experiment for the original **ESP-WROOM-32 /
 ESP-32S with at least 4 MB flash**. It is not a replacement for stable 0.3.9.
-Build, packaging and simulated browser checks do not validate an actual flash,
-Alexa pairing, runtime memory, radio reliability or app status synchronization.
+The owner reports that the first prototype works fundamentally on hardware,
+but Alexa correctly classified that version's advertised endpoint as an outlet.
+This update advertises an **On/Off Light** and needs a hardware retest. Detailed
+confirmation timing, runtime memory, radio reliability and app state updates
+remain unverified. Build/packaging/browser checks are separate software evidence.
 No Echo or ESP32 is attached to the development environment.
 
 ## Try it using the existing WebFlasher
@@ -20,13 +23,24 @@ No Echo or ESP32 is attached to the development environment.
    A compatible Matter-capable Echo must be on the same home network. The prototype
    uses Espressif's test attestation identity, not a certified commercial identity;
    Alexa may require accepting an uncertified test device or may reject pairing.
-5. Test ON and SLEEP for the single bridged on/off plug endpoint. The bridge reports
+5. Test ON and SLEEP for the single bridged on/off light endpoint. The bridge reports
    actual BLE measurements and measured reachability. Acceptance queues a command;
    ON is confirmed only by raw 11 and SLEEP only by raw 0. Booting remains active.
    Serial command history distinguishes sent, confirmed and unconfirmed work.
 6. To return, use the stable USB WebFlasher with erasing unchecked. Remove the
    experimental Matter device from Alexa when finished. Existing Hue entries are
    separate from the new Matter endpoint and will be unavailable during the test.
+
+### Updating the outlet prototype
+
+Version 0.1.0-matter advertised an On/Off Plug-in Unit. Version 0.1.1-matter
+changes that descriptor to On/Off Light while keeping the endpoint ID, unique ID,
+commissioning credentials and partition table. Update over USB with erasing
+unchecked. Alexa may retain the outlet type of an existing entry; if so, remove
+only this experimental Matter device while the ESP32 is connected and pair it
+again with the USB-displayed code. It is also possible to remove the old entry
+before updating. Groups/routines referencing it may need restoring. Do not erase
+the ESP32 or reset stable Wi-Fi/station settings to refresh the Alexa type.
 
 The prototype has no dashboard, local HTTP API, station editor, discovery UI or
 Wi-Fi firmware upload. Configure assignments before installing it. If you change

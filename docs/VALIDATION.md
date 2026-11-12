@@ -1,5 +1,29 @@
 # Validation report — 0.3.9
 
+## Experimental Matter 0.1.1-matter — light device type
+
+The owner reports that 0.1.0-matter works fundamentally on the physical ESP32,
+but Alexa identifies it as an outlet. That matches its deliberately advertised
+On/Off Plug-in Unit endpoint. This is positive owner evidence for initial basic
+operation, not a controlled timing/confirmation, long-run or external-status test.
+No raw serial data, pairing code or hardware identifier accompanies this report.
+
+Version 0.1.1-matter uses the pinned SDK's `MatterOnOffLight` wrapper, which creates
+the On/Off Light device type. The existing Matter endpoint/unique IDs, bridged
+reachability, per-board commissioning credentials and both app slots are retained.
+The existing command handler and measurement-only OnOff guard also remain.
+Alexa's classification refresh and operation with the new light descriptor need
+an owner retest; the old result must not be counted as validation of this update.
+Removing/re-pairing only the prototype entry while connected may be necessary;
+it does not require erasing stable Wi-Fi/station configuration.
+
+The local 0.1.1 binary is 1,814,992 bytes and passes the existing slot/partition
+validator. Inspection of the linked ELF finds `MatterOnOffLight::begin` and the
+SDK's `on_off_light::create`, with the former outlet wrapper absent. All 15
+Python checks, USB protocol checks, and the experimental/stable WebFlasher
+browser simulations pass. This validates the build and software flows, not
+Alexa's eventual classification of an already paired entry.
+
 ## Experimental Matter prototype 0.1.0-matter
 
 The isolated classic-ESP32 build uses Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2,
@@ -33,11 +57,12 @@ consent, EN/DE mobile layout, one USB owner, code copying/privacy, pairing-state
 updates and disabled installation on an unsafe manifest. These do not flash a
 device or communicate with an Echo.
 
-No physical ESP32/Echo validates commissioning, test-attestation acceptance,
-command-handler dispatch on a real controller, runtime memory, BLE/Wi-Fi/Matter
-coexistence, fabric storage, switching, app synchronization or NVS behavior when
-moving between Arduino framework versions. The prototype has no dashboard,
-HTTP API or Wi-Fi update upload. It is a test candidate, not a verified fix.
+No ESP32/Echo is attached locally. The later owner report above supports basic
+operation of this first prototype. It does not establish detailed command-handler
+dispatch/timing, runtime memory, sustained BLE/Wi-Fi/Matter coexistence, fabric
+storage, external-state synchronization or return across framework versions.
+The prototype has no dashboard, HTTP API or Wi-Fi update upload. It remains an
+experiment rather than a verified status-sync fix.
 
 ## Owner discovery/setup Offline report
 

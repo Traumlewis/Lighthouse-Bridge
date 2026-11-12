@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Matter prototype 0.1.1-matter
+
+Expose the single bridged station as an **On/Off Light** instead of an On/Off
+Plug-in Unit. Version 0.1.0-matter was correctly shown as an outlet because that
+was its advertised device type. The owner reports that the initial prototype
+works fundamentally on hardware; this does not establish detailed confirmation
+timing, external-state synchronization or long-run reliability.
+
+Existing Matter endpoint IDs, unique IDs, commissioning credentials and the
+partition layout are preserved. Alexa may retain the previously discovered outlet
+classification. If necessary, remove just the prototype's Matter device while the
+ESP32 is connected, then pair it again after installing this light-profile update.
+Group/routine membership may need restoring. Keep erasing unchecked when updating.
+The updated profile needs an owner hardware retest; stable firmware stays 0.3.9.
+
 ## Experimental Matter prototype 0.1.0-matter
 
 Add a separate classic-ESP32, single-station Matter experiment to the existing

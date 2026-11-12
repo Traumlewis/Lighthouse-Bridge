@@ -10,7 +10,7 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.1.0-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+`0.1.1-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
 The prototype uses the saved Wi-Fi and the configured station with the lowest
 ID, so configure those with stable firmware first. Keep **Erase device unchecked**.
 It has no dashboard, local HTTP API or Wi-Fi update upload; return over USB.

@@ -1,6 +1,6 @@
 # Local API — 0.3.9
 
-This reference applies to stable firmware. The separate `0.1.0-matter` experiment
+This reference applies to stable firmware. The separate `0.1.1-matter` experiment
 has no HTTP API or dashboard; its physical-USB protocol and limitations are
 documented in the [prototype guide](../experimental/matter/README.md).
 

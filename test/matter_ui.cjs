@@ -1,17 +1,18 @@
 const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const site=path.resolve(__dirname,'../_site');
+const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),'utf8')).version;
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{
   const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],requests=[];
   let unsafe=false;
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-  await page.addInitScript(()=>{
+  await page.addInitScript(version=>{
    window.serialRequests=0;window.queries=[];window.copied='';
    Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});
    document.execCommand=()=>{window.copied=document.activeElement.value;return true;};
-   const info={protocol:1,version:'0.1.0-matter',station_id:1,station_name:'Owner name',wifi_connected:true,
+   const info={protocol:1,version,station_id:1,station_name:'Owner name',wifi_connected:true,
     ready:true,paired:false,reachable:true,observed_raw:0,pairing_code:'34970112332',error:''};
    const port={open:async function(){
     this.readable=new ReadableStream({start(c){window.usbController=c;}});
@@ -21,7 +22,7 @@ const site=path.resolve(__dirname,'../_site');
    window.fakePort=port;
    window.sendPaired=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,paired:true,pairing_code:null})+'\n'));
    Object.defineProperty(navigator,'serial',{configurable:true,value:{requestPort:async()=>{window.serialRequests++;return port;},getPorts:async()=>[],addEventListener:()=>{},removeEventListener:()=>{}}});
-  });
+  },version);
   await page.route('https://flasher.test/Lighthouse-Bridge/**',async route=>{
    const relative=new URL(route.request().url()).pathname.slice('/Lighthouse-Bridge/'.length)||'index.html';
    const file=path.join(site,relative);
@@ -34,7 +35,7 @@ const site=path.resolve(__dirname,'../_site');
    return route.fulfill({contentType:type,body:fs.readFileSync(file)});
   });
   await page.goto('https://flasher.test/Lighthouse-Bridge/matter.html');
-  await page.waitForFunction(()=>document.querySelector('#matter-load').textContent.includes('0.1.0-matter'));
+  await page.waitForFunction(version=>document.querySelector('#matter-load').textContent.includes(version),version);
   await page.waitForFunction(()=>customElements.get('esp-web-install-button'));
   assert.equal(await page.locator('html').getAttribute('lang'),'en');
   assert.equal(await page.evaluate(()=>window.serialRequests),0);

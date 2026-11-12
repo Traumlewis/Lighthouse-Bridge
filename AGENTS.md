@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.1.0-matter** is a separate, single-station Matter prototype in
+- Experimental **0.1.1-matter** is a separate, single-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -307,6 +307,14 @@ status change. Keep current facts, not a conversation log. User instructions win
   Matter command-handler interception queues commands without updating OnOff
   optimistically; measured OnOff and bridged Reachable updates run on the Matter
   task. No automatic power commands, extra phone app or raw credential logs.
+- The prototype advertises a bridged **On/Off Light** via `MatterOnOffLight`.
+  Version 0.1.0-matter deliberately used an On/Off Plug-in Unit, which Alexa
+  classified as an outlet. The owner reports basic operation works on hardware;
+  specific command confirmations, external status synchronization and long-term
+  reliability are not established by that report. The 0.1.1 light profile needs
+  a hardware retest. Preserve endpoint/unique IDs and commissioning credentials;
+  Alexa may need removal/re-pairing of only the prototype device while connected
+  to refresh its type. Groups/routines may need restoring. Never erase NVS for this.
 - Prototype scope is the configured station with lowest local ID, read through
   the shared parser from the stable NVS record without rewriting it. It has no
   dashboard, local HTTP API, station editor, discovery UI or OTA upload. Set up
@@ -319,8 +327,10 @@ status change. Keep current facts, not a conversation log. User instructions win
   `LH_MATTER_INFO` through the shared serial watcher; pairing codes are physical
   USB + page memory only, never URLs/storage/network. Preserve one serial owner,
   EN/DE edits/connections and explicit experimental consent.
-- No attached hardware validates Matter pairing, runtime memory, flash/NVS
-  persistence across framework versions, BLE coexistence or Alexa app behavior.
+- No hardware is attached to the development environment. The owner's initial
+  0.1.0 result supports basic operation; runtime memory, persistence/return across
+  framework versions, prolonged BLE coexistence and exact Alexa status behavior
+  remain unverified, as does the updated 0.1.1 light profile.
   Test attestation is not product certification. Do not claim a fix from a build
   or simulated browser test. Keep the prototype guide and validation report current.
 
