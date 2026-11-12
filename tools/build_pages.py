@@ -10,6 +10,7 @@ import shutil
 
 from package_release import ROOT, VERSION
 from ota_package import unpack
+from build_matter import validate_segments, SEGMENTS, VERSION as MATTER_VERSION
 
 
 def build():
@@ -70,8 +71,26 @@ def build():
         'version': VERSION, 'commit': os.environ.get('GITHUB_SHA', ''),
         'sha256': checksum, 'esp_web_tools': upstream['version'],
     }, indent=2) + '\n')
+    matter = ROOT / 'dist/matter'
+    matter_manifest = json.loads((matter / 'manifest.json').read_text())
+    if matter_manifest['version'] != MATTER_VERSION or len(matter_manifest['builds']) != 1 or matter_manifest['builds'][0]['chipFamily'] != 'ESP32':
+        raise ValueError('Unexpected Matter prototype identity')
+    matter_segments = [(offset, (matter / f'lighthouse-matter-{name}.bin').read_bytes()) for name, offset, _ in SEGMENTS]
+    validate_segments(matter_segments)
+    if matter_segments[1][1] != (ROOT / 'dist/lighthouse-bridge-partitions.bin').read_bytes():
+        raise ValueError('Matter prototype changes the stable partition table')
+    expected_parts = [{'offset': offset, 'path': f'firmware/matter/lighthouse-matter-{name}.bin?sha=' +
+                      hashlib.sha256(data).hexdigest()} for (name, offset, _), (_, data) in zip(SEGMENTS, matter_segments)]
+    if matter_manifest['builds'][0]['parts'] != expected_parts:
+        raise ValueError('Unsafe Matter manifest or image checksum mismatch')
+    matter_output = firmware / 'matter'
+    matter_output.mkdir(exist_ok=True)
+    for file in matter.iterdir():
+        if file.is_file() and file.suffix != '.tmp' and file.name != 'manifest.json':
+            shutil.copy2(file, matter_output / file.name)
+    shutil.copy2(matter / 'manifest.json', output / 'matter-manifest.json')
     (output / '.nojekyll').touch()
-    print(f'GitHub Pages ready: {output}; four ESP32 segments preserve NVS; SHA256 {checksum}')
+    print(f'GitHub Pages ready: {output}; stable {VERSION} and experimental Matter {MATTER_VERSION}; unchanged slots/NVS; SHA256 {checksum}')
 
 
 if __name__ == '__main__':

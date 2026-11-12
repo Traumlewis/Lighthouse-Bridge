@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -52,12 +52,35 @@ jobs:
           python -m unittest discover -s test -p 'test_ota_package.py' -v
       - name: Package flash image and source
         run: python tools/package_release.py
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.6.0'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino/libraries
+          key: ${{ runner.os }}-matter-arduino-3.3.12-nimble-2.5.2-json-6.21.5
+      - name: Install isolated Matter prototype dependencies
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5'
+      - name: Build experimental Matter prototype with existing partition layout
+        run: python tools/build_matter.py
       - name: Build WebFlasher site
         run: python tools/build_pages.py
       - name: Test WebFlasher assets
-        run: python -m unittest discover -s test -p 'test_pages.py' -v
+        run: python -m unittest discover -s test -p 'test_*.py' -v
       - name: Check USB protocol and update layout
-        run: node test/serial_info.cjs
+        run: |
+          node test/serial_info.cjs
+          node test/matter_info.cjs
+      - name: Test simulated browser and USB flows
+        run: |
+          npm install --no-package-lock
+          npx playwright install --with-deps chromium
+          CHROMIUM_PATH="$(node -p "require('playwright').chromium.executablePath()")" npm test
       - uses: actions/upload-artifact@v4
         with:
           name: lighthouse-bridge-firmware
@@ -74,6 +97,8 @@ jobs:
           path: |
             .pio/build/esp32dev/firmware.elf
             .pio/build/esp32dev/firmware.map
+            .pio/matter-build/MatterBridge.ino.elf
+            .pio/matter-build/MatterBridge.ino.map
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

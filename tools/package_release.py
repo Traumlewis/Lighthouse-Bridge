@@ -57,7 +57,8 @@ def main():
         checksums = f"{checksum}  {merged.name}\n" + "".join(
             f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in segments.items())
         archive = args.output / f"lighthouse-bridge-v{VERSION}.zip"
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+        archive_tmp = archive.with_suffix(".zip.tmp")
+        with zipfile.ZipFile(archive_tmp, "w", zipfile.ZIP_DEFLATED) as bundle:
             bundle.write(merged, merged.name)
             bundle.writestr("SHA256SUMS", checksums)
             for name, data in segments.items():
@@ -66,7 +67,7 @@ def main():
                 if not file.is_file():
                     continue
                 relative = file.relative_to(ROOT)
-                if any(part in {".pio", "dist", "_site", "node_modules", ".venv", "__pycache__", ".git"} for part in relative.parts):
+                if any(part in {".pio", "dist", "_site", "node_modules", ".venv", ".tools", ".platformio", ".playwright", "__pycache__", ".git"} for part in relative.parts):
                     continue
                 if file.resolve() == archive.resolve():
                     continue
@@ -84,8 +85,9 @@ def main():
         for name, data in segments.items():
             (args.output / name).write_bytes(data)
         (args.output / "SHA256SUMS").write_text(checksums)
-        with zipfile.ZipFile(archive) as bundle:
+        with zipfile.ZipFile(archive_tmp) as bundle:
             assert bundle.testzip() is None
+        archive_tmp.replace(archive)
         print(f"Release: {archive}")
         print(f"Merged image: {len(payload)} bytes; all four flash segments verified.")
         print(f"SHA256: {checksum}")

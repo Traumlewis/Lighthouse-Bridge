@@ -1,0 +1,112 @@
+import { translations } from './translations.js?v=matter-0.1.0';
+import { validMatterParts } from './flash-layout.mjs?v=matter-0.1.0';
+import { watchDeviceInfo } from './serial-info.mjs?v=matter-0.1.0';
+import { parseMatterInfo } from './matter-info.mjs?v=matter-0.1.0';
+
+const $ = id => document.getElementById(id);
+const supported = value => value === 'en' || value === 'de';
+const languageKey = 'lighthouse-bridge.language';
+let language = 'en', ready = false, version = '', loadState = 'checking';
+let connection = null, starting = false, info = null, usbState = 'usb_idle', timeout;
+const text = key => translations[language][key];
+
+function render() {
+  $('matter-load').textContent = text(loadState) + (version ? ' · v' + version : '');
+  $('matter-load').classList.toggle('error', loadState === 'unavailable');
+  $('matter-install').disabled = !ready || !$('matter-confirm').checked || Boolean(connection) || starting;
+  $('matter-read').disabled = Boolean(connection) || starting;
+  $('matter-stop').hidden = !connection;
+  const usbText = {usb_idle:'matter_usb_idle',usb_wait:'matter_usb_wait',usb_timeout:'matter_usb_timeout'};
+  $('matter-usb-status').textContent = text(usbText[usbState] || usbState);
+  $('matter-device').hidden = !info;
+  if (!info) return;
+  $('matter-station').textContent = info.station_id ? `${info.station_id} · ${info.station_name}` : text('matter_no_station');
+  $('matter-code').textContent = info.pairing_code || '—';
+  $('matter-code').disabled = !info.pairing_code;
+  const errors = {CONFIGURE_STABLE_FIRST:'matter_need_config',WAITING_WIFI:'matter_wait_wifi'};
+  $('matter-pair-state').textContent = info.error ? text(errors[info.error] || 'matter_device_error') + ' (' + info.error + ')' :
+    text(info.paired ? 'matter_paired' : 'matter_enter_code');
+  $('matter-measurement').textContent = text(!info.reachable ? 'matter_unavailable' :
+    [1,8,9].includes(info.observed_raw) ? 'matter_starting' : info.observed_raw === 11 ? 'matter_on' :
+    info.observed_raw === 0 ? 'matter_sleep' : 'matter_other');
+}
+function setLanguage(value, remember = false) {
+  language = supported(value) ? value : 'en'; document.documentElement.lang = language; $('language').value = language;
+  document.title = text('matter_page_title');
+  document.querySelector('meta[name="description"]').content = text('matter_description');
+  document.querySelectorAll('[data-i18n]').forEach(node => { node.innerHTML = text(node.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(node => node.setAttribute('aria-label',text(node.dataset.i18nAriaLabel)));
+  if (remember) {
+    try { localStorage.setItem(languageKey, language); } catch (_) {}
+    const url = new URL(location.href); url.searchParams.set('lang',language); history.replaceState(null,'',url);
+  }
+  render();
+}
+let saved;
+try { saved = localStorage.getItem(languageKey); } catch (_) {}
+const requested = new URL(location.href).searchParams.get('lang');
+setLanguage(supported(requested) ? requested : saved);
+$('language').addEventListener('change',() => setLanguage($('language').value,true));
+$('matter-confirm').addEventListener('change',render);
+
+async function check() {
+  try {
+    const response = await fetch('matter-manifest.json',{cache:'no-store'});
+    if (!response.ok) throw new Error();
+    const manifest = await response.json(), parts = manifest.builds?.[0]?.parts;
+    if (manifest.builds?.length !== 1 || manifest.builds[0].chipFamily !== 'ESP32' ||
+        !/^\d+\.\d+\.\d+-matter$/.test(manifest.version) || !validMatterParts(parts)) throw new Error();
+    await Promise.all(parts.map(async part => {
+      const result = await fetch(new URL(part.path,response.url),{method:'HEAD',cache:'no-store'});
+      if (!result.ok) throw new Error();
+    }));
+    version = manifest.version; ready = true; loadState = 'ready';
+    $('matter-download').href = `firmware/matter/lighthouse-bridge-${version}.zip`;
+    $('matter-download').hidden = false;
+  } catch (_) { loadState = 'unavailable'; }
+  render();
+}
+import('./vendor/install-button.js').then(() => customElements.whenDefined('esp-web-install-button')).then(() => {
+  $('matter-installer').hidden = false;
+}).catch(() => { $('matter-module-error').hidden = false; });
+check();
+
+async function readInfo(knownPort) {
+  if (connection || starting) return;
+  if (!navigator.serial) { usbState = 'usb_unsupported'; render(); return; }
+  starting = true; info = null; usbState = 'usb_wait'; render();
+  let ended = false;
+  try {
+    const port = knownPort || await navigator.serial.requestPort();
+    const watcher = await watchDeviceInfo(port, value => {
+      clearTimeout(timeout); info = value; usbState = 'usb_ready'; render();
+    }, () => {
+      ended = true; clearTimeout(timeout); connection = null; starting = false;
+      if (usbState !== 'usb_timeout') usbState = info ? 'usb_disconnected' : 'usb_failed'; render();
+    }, {parse:parseMatterInfo,query:'LH_MATTER_INFO\n'});
+    if (!ended) connection = watcher;
+    if (!info && !ended) timeout = setTimeout(() => { usbState = 'usb_timeout'; render(); connection?.stop(); },45000);
+  } catch (error) { usbState = error.name === 'NotFoundError' ? 'usb_idle' : 'usb_failed'; }
+  finally { starting = false; render(); }
+}
+$('matter-read').addEventListener('click',() => readInfo());
+$('matter-stop').addEventListener('click',() => connection?.stop());
+document.addEventListener('closed',event => {
+  const dialog = event.target;
+  if (dialog.localName === 'ewt-install-dialog' && dialog.port) {
+    setTimeout(() => { if (!dialog.isConnected) readInfo(dialog.port); },700);
+  }
+});
+$('matter-code').addEventListener('click',async () => {
+  if (!info?.pairing_code) return;
+  try {
+    let copied = false;
+    try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(info.pairing_code); copied = true; } } catch (_) {}
+    if (!copied) {
+      const field = document.createElement('textarea'); field.value = info.pairing_code;
+      field.style.position = 'fixed'; field.style.opacity = '0'; document.body.append(field); field.select();
+      const ok = document.execCommand('copy'); field.remove(); if (!ok) throw new Error();
+    }
+    $('matter-copy-status').textContent = text('matter_copied');
+  } catch (_) { $('matter-copy-status').textContent = text('matter_copy_failed'); }
+});

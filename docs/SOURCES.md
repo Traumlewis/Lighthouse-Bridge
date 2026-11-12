@@ -60,3 +60,23 @@ The optional 0.3.9 profile uses the pinned Espalexa dimmable-device metadata
 Historical Home Assistant reports describe successful dimmable-profile workarounds
 for some Alexa devices, but are not validation for the owner's current Echo/app.
 The bridge's brightness handling remains explicitly binary ON/SLEEP.
+
+## Isolated Matter prototype
+
+- [Arduino ESP32 3.3.12](https://github.com/espressif/arduino-esp32/tree/3.3.12)
+  provides the prototype's Matter SDK and on-network Wi-Fi commissioning APIs.
+  Its classic-ESP32 build has CHIPoBLE disabled. The stable PlatformIO environment
+  continues to use Arduino ESP32 2.0.17.
+- [Espressif Matter documentation](https://docs.espressif.com/projects/arduino-esp32/en/latest/matter/matter.html)
+  describes commissioning and the target-specific BLE options. The prototype
+  reserves NimBLE-Arduino 2.5.2 for Lighthouse connections instead of using the
+  larger Arduino Bluedroid wrapper.
+- The SDK's `app/CommandHandlerInterface.h` and
+  `app/CommandHandlerInterfaceRegistry.h` provide a command override that prevents
+  falling through to default optimistic/timed OnOff handling. The prototype queues
+  physical work and separately reports observed OnOff and bridged-device Reachable.
+  Software inspection and compilation do not validate dispatch or Alexa behavior
+  on the owner's hardware.
+- [Alexa Matter support](https://developer.amazon.com/en-US/docs/alexa/smarthome/matter-support.html)
+  describes supported controller/device categories. A compatible Echo is required;
+  the prototype's test attestation is not commercial certification.

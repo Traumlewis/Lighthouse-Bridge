@@ -1,5 +1,8 @@
 .pio/
 .venv/
+.tools/
+.platformio/
+.playwright/
 __pycache__/
 dist/
 _site/

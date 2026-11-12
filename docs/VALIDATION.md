@@ -1,5 +1,83 @@
 # Validation report — 0.3.9
 
+## Experimental Matter prototype 0.1.0-matter
+
+The isolated classic-ESP32 build uses Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2,
+ArduinoJson 6.21.5 and the existing partition CSV. The owner explicitly declined
+larger/single app slots. Initial minimal Matter+Arduino-BLE and raw Bluedroid
+probes used 2,270,507 and 2,237,791 bytes respectively, exceeding the 1,966,080-byte
+slot. A Matter+NimBLE probe used 1,778,099 bytes and passed that build limit.
+The full local single-station prototype binary is 1,814,992 bytes, leaving
+151,088 bytes in the same slot. Its linker reports 115,756 bytes of static RAM.
+These figures are not a runtime free-heap or coexistence test. Native request,
+Hue, config and OTA tests, all 15 Python checks and the full browser/USB suite
+pass locally, including the experimental page's simulated installer handoff.
+
+The prototype reuses the shared configuration parser, measurement/queue logic,
+bounded read attempts, HCI 0x3e passive recovery and read-only confirmation. It
+reads saved assignments without rewriting the stable record and chooses the
+lowest assigned local ID. A Matter command handler queues ON/SLEEP; measured
+OnOff and bridged Reachable are updated on the Matter task. An attribute callback
+rejects OnOff changes outside the measurement-report path. Neither startup nor
+Wi-Fi reconnect invokes the power-command path.
+
+The package validator checks classic ESP32 chip headers, all four segment/sector
+bounds, both original app slots, exact partition entries and a prototype product
+marker. Pages also requires byte-identical stable/prototype partition tables and
+all image hashes. Python tests simulate installing the actual prototype segments
+and returning with stable segments while retaining saved NVS, and reject an
+oversized app, changed partition table, wrong chip and offset-zero image.
+Node checks run the actual USB frame parser/watcher with split frames and reject
+malformed data. Browser simulations check the separate manifest, experimental
+consent, EN/DE mobile layout, one USB owner, code copying/privacy, pairing-state
+updates and disabled installation on an unsafe manifest. These do not flash a
+device or communicate with an Echo.
+
+No physical ESP32/Echo validates commissioning, test-attestation acceptance,
+command-handler dispatch on a real controller, runtime memory, BLE/Wi-Fi/Matter
+coexistence, fabric storage, switching, app synchronization or NVS behavior when
+moving between Arduino framework versions. The prototype has no dashboard,
+HTTP API or Wi-Fi update upload. It is a test candidate, not a verified fix.
+
+## Owner discovery/setup Offline report
+
+The owner supplied a screenshot of Alexa's device-naming screen with all four
+individual stations labeled **Offline**, and an accompanying serial excerpt
+from 21:58:43 to 22:04:39. The owner recalls a status display in the same setup
+flow with 0.2.6. This is owner hardware evidence, not a locally reproduced or
+controlled firmware comparison; the exact running version and screenshot time
+are not included.
+
+At 21:59:10 every station receives two individual Hue GETs reporting
+`profile=standard`, `on=false`, `bri=0`, `reachable=true`, `pending=false`, and
+`source=measurement`. Successful BLE reads report raw 0 (SLEEP). At 21:59:56
+collection GETs report four configured stations and three fresh measurements;
+subsequent individual GETs correctly report only station 1 unreachable after
+exhausted read cycles. Stations 2–4 remain reachable. Station 1 recovers a
+successful read at 22:00:11 and returns reachable=true on later logged GETs.
+No Hue PUT is present in the excerpt, so it supplies no switching evidence.
+
+The sample establishes that discovery performs individual status GETs and the
+bridge reports all stations reachable in the first burst. BLE failures can
+explain the later station-1 reachability change, but do not establish a cause
+for all four Offline labels. Handler diagnostics do not prove how Alexa parsed
+or received the complete HTTP response. The compatibility profile is not tested
+by this standard-profile sample. Response compatibility, device identity and
+the reported difference from 0.2.6 remain under investigation; no fix is claimed.
+Only this sanitized summary is retained, not the raw log or screenshot.
+
+The owner's subsequent station-1 compatibility-profile test still displays
+"Device is unresponsive" in Alexa. In the supplied 22:10:27–22:13:26 excerpt,
+station-1 GET diagnostics at 22:10:39, 22:10:52, 22:11:22–23 and 22:13:24
+report `profile=compat`, `on=false`, `bri=0`, `reachable=true`, `pending=false`,
+and `source=measurement`. Collection GETs at 22:11:22 report `configured=4`
+and `fresh=4`. Station 1 repeatedly reads raw 0 successfully. No Hue PUT is
+shown, so this does not demonstrate a rejected or failed power command.
+The profile experiment has not resolved the owner's symptom in this test.
+The excerpt does not independently establish Alexa capability refresh or
+successful client receipt/parsing of the complete HTTP response. Neither BLE
+unreachability nor missing GETs explains the station-1 warning in this sample.
+
 ## Version 0.3.9 optional per-station LWB010 profile
 
 The owner reports 0.3.8 GET on=false/bri=0/reachable=true while the app still shows

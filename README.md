@@ -32,6 +32,14 @@ Repeat to turn Debug off. Cards keep their size; long diagnostics scroll inside.
 See [VERSION.md](VERSION.md) for the version history and [validation](docs/VALIDATION.md)
 for software checks and hardware evidence.
 
+An isolated [experimental Matter prototype](experimental/matter/README.md) is
+available through the [Matter test WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/matter.html).
+It tests **one previously configured station** on the same classic ESP32, with
+the existing app slots/NVS layout. It replaces the running firmware for the test
+and has no dashboard, HTTP API or Wi-Fi update upload. Return to stable firmware
+over USB. Keep erasing unchecked in both directions. Alexa pairing and actual
+hardware behavior remain unverified; this is not a confirmed fix for app status.
+
 ## First installation and upgrade
 
 1. Open the WebFlasher in Chrome/Edge on a computer and connect the supported
@@ -139,6 +147,7 @@ pio run
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-core
 /tmp/lh-core
 python tools/package_release.py
+python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py' -v
 node test/serial_info.cjs

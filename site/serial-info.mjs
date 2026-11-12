@@ -19,11 +19,12 @@ export function parseDeviceInfo(line) {
   } catch (_) { return null; }
 }
 
-export async function watchDeviceInfo(port, onInfo, onEnd) {
+export async function watchDeviceInfo(port, onInfo, onEnd, options = {}) {
   await port.open({baudRate:115200,bufferSize:8192});
   const reader = port.readable.getReader(), writer = port.writable.getWriter();
   let stopped = false, buffer = '', interval;
-  const query = () => writer.write(new TextEncoder().encode('LH_INFO\n')).catch(() => {});
+  const parse = options.parse || parseDeviceInfo;
+  const query = () => writer.write(new TextEncoder().encode(options.query || 'LH_INFO\n')).catch(() => {});
   const finished = (async () => {
     const decoder = new TextDecoder();
     try {
@@ -35,7 +36,7 @@ export async function watchDeviceInfo(port, onInfo, onEnd) {
         let position;
         while ((position = buffer.indexOf('\n')) >= 0) {
           const line = buffer.slice(0,position).replace(/\r$/, ''); buffer = buffer.slice(position+1);
-          if (line.length <= 4096) { const info = parseDeviceInfo(line); if (info) onInfo(info); }
+          if (line.length <= 4096) { const info = parse(line); if (info) onInfo(info); }
         }
         if (buffer.length > 4096) buffer = '';
       }

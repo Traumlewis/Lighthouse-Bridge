@@ -2,7 +2,7 @@
   "name": "lighthouse-bridge-tests",
   "private": true,
   "scripts": {
-    "test": "node test/web_ui.cjs && node test/web_flasher.cjs && node test/serial_info.cjs && node test/wifi_portal.cjs",
+    "test": "node test/web_ui.cjs && node test/web_flasher.cjs && node test/serial_info.cjs && node test/wifi_portal.cjs && node test/matter_info.cjs && node test/matter_ui.cjs",
     "test:usb": "node test/serial_info.cjs"
   },
   "devDependencies": {

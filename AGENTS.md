@@ -186,6 +186,22 @@ status change. Keep current facts, not a conversation log. User instructions win
   Never commit the raw response, which contains the owner's hardware MAC.
 - **Local Hue emulation cannot push status into the Alexa app.** Alexa controls
   its own polling/cache. Do not promise immediate app-state synchronization.
+- Owner's discovery/setup retest shows all four individual stations labeled Offline
+  in Alexa's naming screen. At 21:59:10 the supplied log has two GETs per station,
+  all profile=standard/on=false/bri=0/reachable=true with no pending command.
+  Later, station 1 legitimately becomes unreachable after exhausted BLE read
+  cycles; stations 2–4 still return reachable=true. These failures do not explain
+  all four Offline labels. No PUT appears in this excerpt. Exact firmware version
+  and screenshot-to-log timing are not captured; the optional compatibility profile
+  remains untested in this evidence. Owner recalls status displaying in 0.2.6;
+  a controlled old/current comparison and the regression cause remain open.
+- A subsequent station-1 compatibility-profile retest still reports Alexa
+  "Device is unresponsive". At 22:10:39, 22:10:52, 22:11:22–23 and 22:13:24
+  its GET diagnostics show profile=compat/on=false/bri=0/reachable=true,
+  pending=false/source=measurement; collections at 22:11:22 have fresh=4.
+  Station 1 has repeated successful SLEEP reads. No Hue PUT is shown.
+  This is negative owner evidence for the profile experiment, not a confirmed
+  fix; handler logs do not prove client receipt/parsing or capability refresh.
 - Keep Wi-Fi modem sleep enabled (`WIFI_PS_MIN_MODEM`) before BLE starts and
   after reconnect. Set Arduino's cached policy before STA starts, and check the
   driver result. `WiFi.setSleep(false)` / `WIFI_PS_NONE` caused the 0.1.0 startup
@@ -277,6 +293,37 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
+- Experimental **0.1.0-matter** is a separate, single-station Matter prototype in
+  `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
+  Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
+  owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
+  and the exact complete partition table for the prototype too**. NimBLE makes the
+  size feasible; the minimal Bluedroid probes exceeded the slot. Never package an
+  oversized build or substitute S2/S3/C3 firmware.
+- The isolated Arduino CLI build pins CLI 1.6.0, Arduino ESP32 3.3.12,
+  NimBLE-Arduino 2.5.2 and ArduinoJson 6.21.5. CHIPoBLE is compile-time disabled;
+  commissioning is on-network after saved Wi-Fi connects. The worker alone owns
+  NimBLE and uses shared ON/SLEEP/measurement/coalescing/confirmation logic.
+  Matter command-handler interception queues commands without updating OnOff
+  optimistically; measured OnOff and bridged Reachable updates run on the Matter
+  task. No automatic power commands, extra phone app or raw credential logs.
+- Prototype scope is the configured station with lowest local ID, read through
+  the shared parser from the stable NVS record without rewriting it. It has no
+  dashboard, local HTTP API, station editor, discovery UI or OTA upload. Set up
+  stable Wi-Fi/assignments first. Install/return by USB with erasing unchecked;
+  existing Hue entries are unavailable while the prototype runs. Its per-board
+  setup credentials live under `lhmatter`; Matter also persists fabric data.
+- `tools/build_matter.py` writes split images/checksums/ZIP to `dist/matter/`;
+  Pages validates exact partition-table equality, slot bounds, chip IDs and hashes.
+  No prototype merged image or `.lhota`. `site/matter.js` / `matter-info.mjs` use
+  `LH_MATTER_INFO` through the shared serial watcher; pairing codes are physical
+  USB + page memory only, never URLs/storage/network. Preserve one serial owner,
+  EN/DE edits/connections and explicit experimental consent.
+- No attached hardware validates Matter pairing, runtime memory, flash/NVS
+  persistence across framework versions, BLE coexistence or Alexa app behavior.
+  Test attestation is not product certification. Do not claim a fix from a build
+  or simulated browser test. Keep the prototype guide and validation report current.
+
 - Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:
   bootloader `0x1000`, partitions `0x8000`, boot-app0 `0xe000`, application `0x10000`.
 - **Never use a merged-at-zero image for a settings-preserving update.** Its
@@ -339,9 +386,11 @@ g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/Arduino
 g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-test
 /tmp/lh-test
 python tools/package_release.py
+python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py' -v
 node test/serial_info.cjs
+node test/matter_info.cjs
 npm test
 ```
 

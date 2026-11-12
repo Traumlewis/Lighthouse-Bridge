@@ -1,4 +1,4 @@
-# GitHub Pages / WebFlasher — 0.3.0
+# GitHub Pages / WebFlasher
 
 **https://traumlewis.github.io/Lighthouse-Bridge/**
 
@@ -6,6 +6,29 @@ ESP Web Tools 10.4.0 is vendored unchanged under `site/vendor/`, including its
 lazy-loaded modules and published integrity values in `UPSTREAM.json`. No runtime
 CDN is required. GitHub Pages provides HTTPS; `http://localhost` also works.
 Use Chrome or Edge on a computer.
+
+## Experimental Matter choice
+
+`matter.html` is a separate, explicitly experimental installer for
+`0.1.0-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+The prototype uses the saved Wi-Fi and the configured station with the lowest
+ID, so configure those with stable firmware first. Keep **Erase device unchecked**.
+It has no dashboard, local HTTP API or Wi-Fi update upload; return over USB.
+See the [prototype guide](../experimental/matter/README.md) for pairing and limits.
+
+`tools/build_matter.py` builds with the pinned Arduino CLI environment and packages
+`dist/matter/`. `tools/build_pages.py` verifies its four segments, classic ESP32
+headers, size limit, per-image hashes and exact equality of both partition tables,
+then creates `_site/matter-manifest.json` and `firmware/matter/`. Both app slots and
+the NVS addresses are retained. No merged factory image or `.lhota` is offered for
+the prototype. Its ZIP includes source, checksums, version notes and licenses.
+
+After the installer releases USB, the experiment page sends only
+`LH_MATTER_INFO\n` through the shared serial watcher. Its separate validated frame
+parser exposes the setup code, station name/ID and measured status; no stable API
+key is requested. Setup codes remain in browser memory. EN/DE changes preserve
+the connection and consent checkbox. Firmware installation stays disabled while
+the reader owns USB and when its manifest or any segment is unavailable/unsafe.
 
 ## Languages
 

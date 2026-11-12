@@ -1,7 +1,27 @@
 # Version history
 
-Release notes are listed newest first. Current firmware: **0.3.9**.
+Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
+
+## Experimental Matter prototype 0.1.0-matter
+
+Add a separate classic-ESP32, single-station Matter experiment to the existing
+WebFlasher at `matter.html`. Configure Wi-Fi/stations with stable firmware first;
+the prototype uses the assigned station with the lowest local ID. It exposes a
+bridged on/off plug endpoint and uses BLE observations for state/reachability.
+Matter command acceptance queues ON/SLEEP; it does not invent a measurement.
+There are no automatic power commands at boot or reconnect.
+
+The separate build pins Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2 and ArduinoJson
+6.21.5. Both 1.875 MiB app slots and all NVS/partition addresses stay unchanged.
+The USB-only installer uses four split images with SHA-256 URLs, plus a separate
+prototype ZIP. Pairing information is read over physical USB and kept in browser
+memory. The prototype has no dashboard, HTTP API or Wi-Fi update upload; return
+to stable 0.3.9 through the stable USB WebFlasher with erasing unchecked.
+
+This is software-tested experimental firmware. No attached ESP32 or Echo validates
+flashing, commissioning, runtime memory, NVS migration, radio behavior or app
+status. Test attestation credentials may require explicit acceptance by Alexa.
 
 ## Version 0.3.9
 
