@@ -1,5 +1,8 @@
+var diagnostic_events = []
+global.lh_diag = def (event, first, second) diagnostic_events.push([event, first, second]) end
 # Real pinned Berry plugin/data-model tests. Transport and clock are host fakes.
 class LighthouseTestClock
+  static var _debug_present = false
   def millis() return 0 end
   def publish_result(*args) end
   def version() return 0x01000000 end
@@ -118,3 +121,40 @@ single.plugins_config = {"1":{"type":"lighthouse","name":"Retained first","uniqu
 single.autoconf_device()
 assert(size(single.plugins) == 3 && single.find_plugin_by_endpoint(1) != nil)
 assert(size(calls) == 0, "empty/single startup must not send power")
+
+# Run the real numeric receive/root hooks without transport or packet contents.
+var root = single.find_plugin_by_endpoint(0)
+var invalid_command = LighthouseTestContext(0x30,0x7F)
+root.invoke_request(nil,nil,invalid_command)
+assert(diagnostic_events[-1] == [2,0x30,0x7F])
+var handler = matter.MessageHandler(single)
+handler.msg_received(bytes(), "private-peer-not-recorded", 5540)
+var saw_receive = false
+for event: diagnostic_events
+  assert(size(event)==3 && type(event[0])=="int" && type(event[1])=="int" && type(event[2])=="int")
+  if event[0]==0 saw_receive = true end
+end
+assert(saw_receive, "real receive hook runs without logging peer or payload")
+
+class LighthouseTestCommissioning
+  var mdns_pase_wifi
+  def init() self.mdns_pase_wifi = true end
+  def is_commissioning_open() return true end
+  def compute_manual_pairing_code() return "synthetic-code" end
+end
+class LighthouseTestSessions
+  def count_active_fabrics() return 2 end
+end
+class LighthouseTestInfo
+  var commissioning, sessions
+  def init()
+    self.commissioning = LighthouseTestCommissioning()
+    self.sessions = LighthouseTestSessions()
+  end
+end
+import json
+global.matter_device = LighthouseTestInfo()
+var info = json.load(global.lh_info())
+assert(info["code"]=="synthetic-code" && info["paired"] && info["open"])
+var metadata = diagnostic_events[-1]
+assert(metadata[0]==8 && metadata[1]==3 && metadata[2]==2)

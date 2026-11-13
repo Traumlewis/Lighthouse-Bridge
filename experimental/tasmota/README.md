@@ -1,4 +1,4 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.1-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.2-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
@@ -10,10 +10,23 @@ Owner 0.1.0 evidence confirms HTTP recovery and roughly 72–74 KiB free byte he
 at failed startup. Matter fails with import_error: the minimized binary omitted
 Berry's native mDNS module. Version 0.1.1 restores only that binding, keeping generic
 Tasmota discovery disabled, and validates linked native modules before packaging.
-Discovery/code controls stay unavailable while Matter startup has failed. Actual
-successful pairing, radio work and operating memory still need device retesting.
+Discovery/code controls stay unavailable while Matter startup has failed. Successful
+Alexa pairing and long-run operating memory remain unverified.
 A working 0.1.0 dashboard can receive the new Tasmota .lhota through its authenticated
 firmware-update controls; USB with erasing unchecked remains an alternative.
+
+Version 0.1.2 adds `Matter pairing diag:` serial summaries every 15 seconds.
+They contain boot-lifetime packet/error counters, last secure/IM opcodes and
+commissioning command masks, window/announcement flags, fabric count without IDs,
+local IPv6 presence and free byte heap. No peer
+addresses, codes, packet contents or raw exceptions are logged. Opcode 0xffff
+means unseen; masks set bit N when command N is received in cluster 0x30 or 0x3e.
+A completion counter records local handling, not Alexa receipt. The owner now
+confirms 0.1.1 startup, four-device discovery and one confirmed ON command, but
+Alexa returns GS014 during setup. This diagnostic release does not claim to fix it.
+For a retest, capture serial output before opening the commissioning window,
+through the Alexa error, and for another 20 seconds. Share the `Matter pairing diag:`
+lines; other serial output may contain setup credentials and must stay private.
 
 ## Included behavior
 
@@ -65,7 +78,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.1-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.2-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.

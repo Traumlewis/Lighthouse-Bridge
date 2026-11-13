@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota pairing diagnostics 0.1.2-tasmota
+
+Add bounded, numeric serial diagnostics for Matter commissioning without enabling
+raw Tasmota logging. Report packet reception, secure/IM opcodes, commissioning
+command masks, transport/errors, locally handled completion, IPv6 presence and
+byte heap every 15 seconds. Never log peer identities, packet contents, credentials
+or raw exception messages. Counters are cumulative since boot; 0xffff means no
+opcode observed. Protocol, identities, fabrics, partitions and BLE policy stay intact.
+
+Owner 0.1.1 evidence confirms startup, discovery of four stations, configuration
+restart and one measured/confirmed ON command. Alexa still returns GS014 after
+its connection screen on a reported fifth-generation 2022 Echo. The exact failing
+commissioning step is not established; this release collects evidence, not a
+verified fix. No hardware is attached in development.
+
 ## Experimental Tasmota mDNS dependency correction 0.1.1-tasmota
 
 Owner 0.1.0 hardware logs show HTTP recovery with about 72–74 KiB free byte heap,

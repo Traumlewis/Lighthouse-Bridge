@@ -1,5 +1,31 @@
 # Validation report — 0.3.9
 
+## Tasmota pairing diagnostics 0.1.2-tasmota
+
+Owner 0.1.1 hardware evidence reaches Matter/BLE ready, scans four devices,
+saves configuration with the planned restart, reads all four, and confirms one ON
+command with raw 11. Ready free byte heap is 68,600/69,340 bytes. Intermittent BLE
+574 cycles recover in the excerpt. No successful Alexa commissioning is shown;
+the owner reports GS014 after the app's connection screen with a fifth-generation
+2022 Echo. Neither the exact failed protocol step nor the post-error paired state
+is captured. This supersedes the earlier no-start result, not the pairing limitation.
+
+New fixed numeric hooks report receive/dispatch, root commissioning commands,
+send/unacked errors, receive exceptions, mDNS exceptions and locally handled
+CommissioningComplete. They never forward payloads, peer addresses, fabric IDs,
+secrets or exception strings. Serial summaries are limited to every 15 seconds,
+with saturating boot-lifetime counters, command masks and a 0xffff unseen-opcode
+sentinel. IPv6 presence, commissioning-window and announcement state are booleans;
+fabric count contains no IDs. Native coverage checks masks, ACK filtering,
+invalid events/shift bounds and saturation. Real pinned host Berry exercises the
+root command and receive hooks with synthetic traffic, checking integer-only
+metadata. Tests are software evidence, not a GS014 reproduction or hardware fix.
+
+The local build uses 1,706,384/1,966,080 app bytes and 73,060 static RAM bytes.
+The updated Tasmota native suite and all 25 Python tests pass. These linker
+figures do not establish runtime margins. All nine browser/USB programs pass
+with mock HTTP/serial and real embedded gzip rendering; no device was flashed.
+
 ## Tasmota native mDNS correction 0.1.1-tasmota
 
 Owner hardware evidence for 0.1.0 shows import_error in lh_begin, no ready worker

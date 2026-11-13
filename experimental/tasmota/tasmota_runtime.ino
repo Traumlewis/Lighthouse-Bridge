@@ -1,7 +1,9 @@
 // Lighthouse bindings for the pinned GPL-3.0-or-later Tasmota runtime.
 #include "tasmota_runtime.h"
 #include <esp_partition.h>
+#include <esp_heap_caps.h>
 #include "erased_flash.h"
+#include "tasmota_diagnostics.h"
 
 extern "C" bool lh_tasmota_mount_fs() {
   if (LittleFS.begin(false,"",5,"spiffs")) return true;
@@ -19,6 +21,26 @@ extern "C" void lh_tasmota_pump() {
   if (berry.vm && be_top(berry.vm) == 0) callBerryFastLoop(true);
 }
 extern "C" bool lh_tasmota_fs_ready() { return ffsp && ufs_type; }
+static bridge::TasmotaPairingDiagnostics lh_pairing_diag;
+static int lh_native_diag(bvm* vm) {
+  if (be_top(vm) == 3 && be_isint(vm,1) && be_isint(vm,2) && be_isint(vm,3))
+    lh_pairing_diag.record(be_toint(vm,1),be_toint(vm,2),be_toint(vm,3));
+  be_return_nil(vm);
+}
+static void lh_print_pairing_diag() {
+  static uint32_t last = 0;
+  if (millis()-last < 15000) return;
+  last = millis();
+  const auto& d = lh_pairing_diag;
+  Serial.printf("Matter pairing diag: rx=%lu secure_opcode=0x%04x im_opcode=0x%04x general_mask=0x%08lx credentials_mask=0x%08lx send_fail=%lu unacked=%lu rx_error=%lu mdns_error=%lu complete=%lu window=%s advertised=%s fabrics=%u ipv6_local=%s free_8bit=%lu\n",
+    static_cast<unsigned long>(d.received),d.secureOpcode,d.interactionOpcode,
+    static_cast<unsigned long>(d.generalCommands),static_cast<unsigned long>(d.credentialCommands),
+    static_cast<unsigned long>(d.sendFailures),static_cast<unsigned long>(d.unacked),
+    static_cast<unsigned long>(d.errors),static_cast<unsigned long>(d.mdnsErrors),
+    static_cast<unsigned long>(d.completed),d.windowOpen ? "open" : "closed",
+    d.advertised ? "yes" : "no",static_cast<unsigned>(d.fabrics),WiFi.linkLocalIPv6() != IPAddress(IPv6) ? "yes" : "no",
+    static_cast<unsigned long>(heap_caps_get_free_size(MALLOC_CAP_8BIT)));
+}
 static int lh_native_power(bvm* vm) {
   const bool valid = be_top(vm) == 2 && be_isint(vm,1) && be_isint(vm,2);
   const int endpoint = valid ? be_toint(vm,1) : 0;
@@ -57,6 +79,7 @@ extern "C" bool lh_tasmota_begin(const char* configuration) {
   WifiSetState(WiFi.status() == WL_CONNECTED);
   be_pop(berry.vm,be_top(berry.vm));
   be_regfunc(berry.vm,"lh_power",lh_native_power);
+  be_regfunc(berry.vm,"lh_diag",lh_native_diag);
   const char* dependencies[] = {"json","crypto","mdns","path","introspect","string","math"};
   for (const char* module : dependencies) {
     const bool available = be_getmodule(berry.vm,module);
@@ -80,6 +103,7 @@ extern "C" bool lh_tasmota_report(uint16_t endpoint,bool on,bool reachable) {
 }
 extern "C" bool lh_tasmota_info(char* json,size_t size) {
   if (!berry.vm || !json || !size) return false;
+  lh_print_pairing_diag();
   if (!lh_vm_function("lh_info")) return false;
   if (!lh_vm_result(0)) return false;
   const bool ok = be_isstring(berry.vm,-1) && strlen(be_tostring(berry.vm,-1)) < size;

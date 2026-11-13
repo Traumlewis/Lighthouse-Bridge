@@ -1,11 +1,26 @@
 #include "tasmota_commands.h"
 #include "erased_flash.h"
+#include "tasmota_diagnostics.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
 #include <cstring>
 using namespace bridge;
 int main() {
+  TasmotaPairingDiagnostics diag;
+  diag.record(0,0,0); diag.record(1,0,0x22); diag.record(1,0,0x10);
+  assert(diag.received==1 && diag.secureOpcode==0x22);
+  diag.record(1,1,5); assert(diag.interactionOpcode==5);
+  diag.record(2,0x30,4); diag.record(2,0x3e,6); diag.record(2,0x3e,32);
+  assert(diag.generalCommands==16 && diag.credentialCommands==64);
+  diag.record(3,0,0); diag.record(4,0,0); diag.record(5,0,0);
+  diag.record(6,0,0); diag.record(7,0,0); diag.record(99,0,0);
+  assert(diag.mdnsErrors==1 && diag.sendFailures==1 && diag.unacked==1 && diag.completed==1 && diag.errors==1);
+  diag.record(8,3,2); assert(diag.windowOpen && diag.advertised && diag.fabrics==2);
+  diag.record(8,4,0); assert(diag.windowOpen && diag.advertised && diag.fabrics==2);
+  diag.record(8,0,0); assert(!diag.windowOpen && !diag.advertised && diag.fabrics==0);
+  diag.received=UINT32_MAX; diag.record(0,0,0); assert(diag.received==UINT32_MAX);
+
   assert(matterLabelBytes("short") == 5);
   const std::string ascii(40,'a'); assert(matterLabelBytes(ascii.c_str())==32);
   const std::string cut=std::string(31,'a')+"€"; assert(matterLabelBytes(cut.c_str())==31);

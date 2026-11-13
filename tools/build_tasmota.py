@@ -11,7 +11,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = '6aadc3f171f5b501cc325dcd78daf3d625b01d32'
-VERSION = '0.1.1-tasmota'
+VERSION = '0.1.2-tasmota'
 UPSTREAM = ROOT / '.tools/tasmota-src'
 STAGE = ROOT / '.pio/tasmota-src'
 PROTOTYPE = ROOT / 'experimental/tasmota'
@@ -124,6 +124,35 @@ def prepare():
             source=replace_once(source,'#ifdef USE_DISCOVERY',
                 '#if defined(USE_DISCOVERY) || defined(USE_BERRY_MDNS)')
         write(STAGE/relative,source)
+    # Fixed numeric diagnostics never forward addresses, payloads or exceptions.
+    patch('lib/libesp32/berry_matter/src/embedded/Matter_MessageHandler.be',[
+        ('    var ret = false\n','    var ret = false\n    global.lh_diag(0, 0, 0)\n'),
+        ('        if !frame.decode_payload()    return false end',
+         '        if !frame.decode_payload()    return false end\n        global.lh_diag(1, frame.protocol_id, frame.opcode)'),
+        ('        frame.decode_payload()\n','        frame.decode_payload()\n        global.lh_diag(1, frame.protocol_id, frame.opcode)\n'),
+        ('      log("MTR: MessageHandler::msg_received exception: "+str(e)+";"+str(m), 2)',
+         '      global.lh_diag(7, 0, 0)\n      log("MTR: MessageHandler::msg_received exception: "+str(e)+";"+str(m), 2)')])
+    root='lib/libesp32/berry_matter/src/embedded/Matter_Plugin_1_Root.be'
+    source=original(root)
+    source=replace_once(source,'    var command = ctx.command\n',
+        '    var command = ctx.command\n    global.lh_diag(2, cluster, command)\n')
+    source=replace_once(source,'          self.device.commissioning.start_commissioning_complete_deferred(session)',
+        '          self.device.commissioning.start_commissioning_complete_deferred(session)\n          global.lh_diag(6, 0, 0)')
+    write(STAGE/root,source)
+    patch('lib/libesp32/berry_matter/src/embedded/Matter_UDPServer.be',[
+        ('    if ok\n','    if !ok global.lh_diag(4, 0, 0) end\n    if ok\n'),
+        ('          self.packets_sent.remove(idx)\n',
+         '          global.lh_diag(5, 0, 0)\n          self.packets_sent.remove(idx)\n')])
+    commissioning='lib/libesp32/berry_matter/src/embedded/Matter_z_Commissioning.be'
+    source=original(commissioning)
+    diagnostic_boundary='      log("MTR: Exception" + str(e) + "|" + str(m), 2)'
+    if source.count(diagnostic_boundary) != 6:
+        raise ValueError('Pinned commissioning exception boundaries changed')
+    source=source.replace(diagnostic_boundary,'      global.lh_diag(3, 0, 0)\n'+diagnostic_boundary)
+    write(STAGE/commissioning,source)
+    for name in ['Matter_MessageHandler.be','Matter_Plugin_1_Root.be','Matter_UDPServer.be','Matter_z_Commissioning.be']:
+        target=STAGE/'lib/libesp32/berry_matter/src/embedded'/name
+        write(target,replace_once(target.read_text(),'import matter\n','import matter\nimport global\n'))
     # The existing pinned minimal Arduino SDK omits SHA512, while the new HTTPUpdate
     # accepts it. No HTTPUpdate listener or OTA state machine is reachable here.
     write(STAGE / 'lighthouse-partitions.csv',(ROOT/'partitions.csv').read_bytes())

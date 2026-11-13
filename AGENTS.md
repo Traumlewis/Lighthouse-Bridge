@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.1-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.2-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -822,9 +822,36 @@ Never copy the credential-bearing raw log into the repository.
 - Failed startup intentionally withholds the BLE worker and pairing code; the
   displayed bridge name is configuration, not proof that Matter is running.
   Preserve authenticated HTTP/OTA recovery, station/endpoint identities, fabrics,
-  layout and no automatic power commands. Hardware Matter startup remains unproven.
+  layout and no automatic power commands. Hardware commissioning remains unproven;
+  the subsequent 0.1.1 startup retest is recorded below.
 
 - Local 0.1.1 validation: app 1,704,880/1,966,080 bytes, static RAM 73,004;
   linked-module check, 25 Python tests and nine browser/USB programs pass. The
-  prior fourteen native suites are unchanged. Runtime readiness remains a hardware
-  retest, not established by the successful build or mocked browser checks.
+  prior fourteen native suites were unchanged for that release. Subsequent hardware
+  evidence below establishes startup, separately from these software checks.
+
+## Tasmota 0.1.2 pairing diagnostics
+- Owner 0.1.1 evidence reaches Matter/BLE ready, discovers four stations, retains
+  config across the planned restart and confirms one ON command with observed 11.
+  Ready free_8bit is 68,600/69,340 bytes. This is specific startup/read/one-command
+  evidence, not long-run or successful Alexa pairing validation. Intermittent BLE
+  574 reads/recoveries remain. Never commit the raw credential-bearing attachment.
+- Owner reports Echo generation 5 (2022), consistent with Echo Dot 5, and GS014
+  after the app displays its connection-in-progress screen. Exact commissioning
+  phase and paired state remain unknown; do not infer completion from UI wording.
+- 0.1.2 adds fixed numeric Matter metadata/counters to the physical serial log every
+  15 seconds: received packets, last non-ACK secure/IM opcodes, General Commissioning
+  and Operational Credentials command bit masks, send failures, unacked packets,
+  receive exceptions, mDNS exceptions, locally handled CommissioningComplete,
+  commissioning-window/announcement flags, fabric count (no IDs), local IPv6
+  presence and free byte heap. Counters are cumulative since boot and
+  saturate. 0xffff means no opcode seen. No packet contents, peers, fabric IDs,
+  codes, passcodes, certificates, keys or raw exception text enter these diagnostics.
+- Keep generic Tasmota logs disabled. Diagnostic callbacks are main-thread-only,
+  accept integers only, never affect protocol decisions, power or persistence.
+  A handled completion is not proof that Alexa received/accepted the response.
+  This is a diagnostic release, not a demonstrated GS014 fix. No reset/identity
+  replacement is authorized by this evidence.
+- Local 0.1.2 build: 1,706,384/1,966,080 app bytes; static RAM 73,060 bytes.
+  Updated native diagnostic-policy coverage, 25 Python checks and nine browser/USB
+  programs pass; hardware pairing remains unresolved pending a diagnostic retest.

@@ -125,6 +125,8 @@ end
 def lh_info()
   var device = global.matter_device
   import json
+  global.lh_diag(8, (device.commissioning.is_commissioning_open() ? 1 : 0) |
+                   (device.commissioning.mdns_pase_wifi ? 2 : 0), device.sessions.count_active_fabrics())
   return json.dump({"code":device.commissioning.compute_manual_pairing_code(),
                     "paired":device.sessions.count_active_fabrics() > 0,
                     "open":device.commissioning.is_commissioning_open()})
