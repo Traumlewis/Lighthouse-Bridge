@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental scan allocation correction 0.3.6-matter
+
+The owner's 0.3.5 discovery abort decodes against the matching release ELF to an
+allocation failure while copying NimBLE's advertised-device result vector. Matter
+now collects raw legacy GAP reports into fixed worker-owned storage instead of
+retaining and copying heap objects for surrounding advertisers. Preserve five-
+second active discovery, two-second passive recovery, 16-entry capacity, MAC
+matching, Random connections, sequential ownership and read-only behavior.
+
+Parse complete/shortened local names with bounds checks, deduplicate by MAC and
+signal capacity overflow. Numeric start/end errors preserve earlier discovery
+results. Native tests exercise report floods without C++ allocations and worker
+completion/error paths. Real ESP32 discovery, coexistence and memory remain
+hardware checks. Stable firmware remains 0.3.9; both app slots are unchanged.
+
 ## Experimental status allocation correction 0.3.5-matter
 
 Replace the always-full 4512-byte status snapshot with checked small allocations

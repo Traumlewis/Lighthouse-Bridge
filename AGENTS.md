@@ -60,7 +60,9 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Pin NimBLE-Arduino **2.5.2** (Arduino ESP32 remains 2.0.17). Connection and
   scan durations use **milliseconds** in the 2.x API: `setConnectTimeout(3000)`,
   blocking `getResults(2000, false)` for recovery, `getResults(5000, false)` for
-  discovery. Results contain const device pointers; copy data before clearing.
+  discovery in stable firmware. Matter 0.3.6 uses the same durations with raw
+  legacy GAP scanning (see below), avoiding result-vector copies. Stable results
+  contain const device pointers; copy data before clearing.
   `deleteClient()` can be asynchronous in 2.x: never touch the pointer afterward.
   Wait for created-client count zero before any further scan/connection; keep
   bleActive true during deferred cleanup to block the Wi-Fi portal. If cleanup
@@ -293,7 +295,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.5-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.6-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -609,3 +611,32 @@ Never copy the credential-bearing raw log into the repository.
   all browser/USB simulations pass, including small-block allocation/cleanup and
   numeric AbortError normalization. Local app 1,965,952/1,966,080 bytes (128-byte
   flash reserve), static RAM 123,724 bytes; not runtime-memory validation.
+
+## Experimental 0.3.6 discovery abort follow-up
+
+- Owner's 0.3.5 log confirms a complete page transfer, then a real abort at discovery
+  completion. The retained release ELF matches the reported ELF SHA; decoded frames
+  identify `NimBLEScan::getResults` copying its advertised-device vector, failed
+  `operator new`, exception allocation and terminate. Core-dump storage errors
+  follow the abort; do not change partitions to address them. Do not retain raw logs.
+- Matter alone uses `matter_scan.h` and pinned NimBLE public legacy `ble_gap_disc`:
+  5000 ms active discovery / 2000 ms passive recovery, interval/window 97/67 ms,
+  duplicate filtering. One worker owns start/wait/lifetime; the host callback only
+  copies raw reports to fixed worker-owned storage. Atomic release/acquire completion
+  protects that lifetime; start failures return without waiting. No second worker.
+- `scan_capture.h` bounds AD-name parsing and 16-result MAC deduplication, flags
+  overflow and ignores unrelated advertisers. No advertised-device objects, result
+  vectors or strings are allocated by this capture path. Controller/host internals
+  still consume memory; no allocation-free-radio or runtime-headroom claim.
+- Recovery matches the assigned MAC, counts reports (not unique devices), classifies
+  HCI types explicitly and logs RSSI/observed type, never addresses/keys. Never
+  change persisted identity/address type or write power. Connections stay Random.
+  Native tests cover floods, all legacy types, malformed names, duplicate/capacity
+  behavior, completion and start/end errors. Failed discovery retains old results.
+- No automatic power commands, stack reductions, partition/NVS/auth changes.
+  Actual 0.3.6 scanning, BLE/Wi-Fi coexistence and multi-station operation remain
+  hardware tests. Stable 0.3.9 keeps its existing NimBLEScan path.
+- 0.3.6 local checks: both builds, eleven native programs, 16 Python checks and all
+  browser/USB flows pass. ELF symbols omit the old scan result-copy path. Local
+  app 1,962,720/1,966,080 bytes (3360 flash bytes reserve), static RAM 123,716;
+  these are not runtime heap margins or hardware scan validation.

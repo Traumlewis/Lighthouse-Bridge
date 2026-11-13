@@ -1,5 +1,46 @@
 # Validation report — 0.3.9
 
+## Experimental scan result allocation correction 0.3.6-matter
+
+Owner evidence for 0.3.5 contains a successful complete page transmission, active
+five-second discovery, then abort/CPU reset at completion. The retained CI ELF
+hash matches the reported ELF prefix. Decoding against that exact ELF identifies
+`discoverStations -> NimBLEScan::getResults -> vector<NimBLEAdvertisedDevice*>
+copy -> operator new -> exception allocation -> terminate`. One generic allocator
+frame has a remote-service pointer name due to shared optimized code; the concrete
+copy/return frames identify scan results, not GATT service discovery. This is
+allocation-failure evidence at scan return, not proof of a leak or a count of
+ambient advertisers. Core-dump write errors follow the originating abort. No raw
+log, device identifiers, key or pairing credentials are retained.
+
+The pinned 2.5.2 library stores surrounding advertised-device objects by default
+and returns its result vector by value. Matter 0.3.6 uses the public legacy GAP
+scan API of the same NimBLE host with fixed worker-owned collection instead.
+No advertised-object/result-vector/string allocation occurs in the capture path.
+Active discovery remains 5000 ms; passive recovery remains 2000 ms. Both retain
+97/67 ms interval/window, controller duplicate filtering and single-worker radio
+ownership. The GAP callback only parses/copies bounded reports; it never connects,
+locks production state, performs serial/network IO or writes power. The worker
+waits on atomic completion before using/releasing its context. Failed starts do
+not wait, completion codes are logged and failed discovery retains earlier data.
+
+The shared parser handles complete/shortened name fields, malformed lengths,
+canonical MAC order, repeated MAC updates, 16-result overflow and unrelated names.
+The recovery collector accepts only the assigned MAC and explicit ADV_IND or
+ADV_DIRECT_IND connectability, preserving observed type/RSSI without persisting
+changes. A host test compiles the actual Matter callback/runner against GAP/RTOS
+fakes, injects 4000 unrelated plus 4000 matching reports and asserts no C++
+allocation, correct mode/duration,
+completion ordering and start/end errors. These fakes do not exercise the actual
+controller/host allocator, callback scheduling or RF behavior on ESP32.
+Local builds pass for stable 0.3.9 and Matter 0.3.6. The Matter app is
+1,962,720/1,966,080 bytes (3360 bytes flash reserve), static RAM 123,716 bytes.
+All eleven native programs, 16 Python package/layout checks and all browser/USB
+suites pass. ELF symbol inspection confirms the old NimBLEScan::getResults/result
+copy path is absent from this Matter build. These checks do not measure runtime
+heap or actual RF behavior. Hardware discovery, memory/coexistence, OTA and
+multi-station reliability remain unverified.
+
 ## Experimental status heap correction 0.3.5-matter
 
 Owner 0.3.4 evidence confirms ready startup, visible OUT_OF_MEMORY/20, a failed

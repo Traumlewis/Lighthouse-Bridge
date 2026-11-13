@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.5-matter
+# Experimental Matter prototype — 0.3.6-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -52,6 +52,24 @@ New data-heap status fields/serial diagnostics exclude word-only internal IRAM.
 The former largest-block reading cannot prove ordinary allocation availability.
 Browser timeouts now display a translated network error instead of numeric 20.
 These are software corrections; successful hardware operation needs retesting.
+
+The owner's 0.3.5 page transfer completes and discovery starts, but the device
+then aborts at scan completion. The reported ELF hash matches the retained CI ELF;
+decoding identifies the advertised-device vector copy in NimBLEScan::getResults
+and allocation failure/terminate. Missing core-dump storage is a later diagnostic,
+not the originating stack frame. No raw log or credentials are retained.
+
+Version 0.3.6 uses the pinned NimBLE host's public legacy GAP discovery API for
+Matter only. The same BLE worker starts/waits for the five-second active discovery
+or two-second passive recovery scan. Its host callback copies only matching local
+names, MACs, types and RSSI into fixed worker-owned storage. It creates no advertised
+objects/result vectors; unrelated advertisers cannot fill that application buffer.
+Discovery remains 0–16 unique MACs with an explicit overflow flag. Recovery matches
+the assigned MAC only, classifies legacy connectability and keeps connections
+Random (1). Start/completion errors are logged numerically; failed discovery keeps
+previous results/timestamp. No power command, extra worker, stack reduction,
+partition change or identity reset is introduced. Host/controller internals still
+need runtime memory, and this software correction requires hardware retesting.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read

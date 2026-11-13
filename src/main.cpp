@@ -89,6 +89,9 @@ using FoundStation = StatusDiscovery;
 struct FoundStation { char name[48]; char mac[18]; uint8_t type; int rssi; };
 #endif
 FoundStation found[16]{};
+#ifdef LH_MATTER_BUILD
+#include "matter_scan.h"
+#endif
 unsigned foundCount = 0;
 bool foundTruncated = false;
 
@@ -220,7 +223,7 @@ bool queueHueTarget(int hueId, Target target) {
 #endif
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
-// block the HTTP/SSDP loop. One connection at a time for all four stations.
+// block the HTTP/SSDP loop. One connection at a time for up to 16 stations.
 void waitForBleCleanup() {
   // In NimBLE 2.x deleteClient() can defer destruction until disconnection.
   // Never dereference that client again, or start another scan/connection yet.
@@ -237,6 +240,21 @@ void waitForBleCleanup() {
 
 void refreshRetryAddress(StationConfig& config) {
   waitForBleCleanup();
+#ifdef LH_MATTER_BUILD
+  MatterScanCapture capture; capture.assigned = config.mac;
+  const int code = runMatterScan(capture,false,2000);
+  const auto& result = capture.recovery;
+  if (code) Serial.printf("Station %u: retry scan failed, BLE code=%d\n",config.id,code);
+  if (result.seen) {
+    config.addressType = 1;
+    Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=1, advertised_address_type=%u, adv_type=%u\n",
+      config.id,result.rssi,result.addressType,result.type);
+  } else if (result.matched) {
+    Serial.printf("Station %u: retry scan: address seen, RSSI=%d dBm, adv_type=%u, advertised_address_type=%u (not connectable)\n",
+      config.id,result.rssi,result.type,result.addressType);
+  } else Serial.printf("Station %u: retry scan: assigned address not seen within 2 seconds; reports_seen=%u\n",
+      config.id,result.reports);
+#else
   // A failed establishment (HCI 0x3e) needs a new radio opportunity, not a
   // longer GATT read timeout. Passive scanning avoids extra scan requests.
   auto* scan = NimBLEDevice::getScan();
@@ -274,6 +292,7 @@ void refreshRetryAddress(StationConfig& config) {
                           matched ? "address seen without connectable advertisement" : "assigned address not seen",
                           results.getCount());
   scan->clearResults();
+#endif
 }
 
 void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt, uint8_t addressType) {
@@ -327,6 +346,18 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
 void discoverStations() {
   waitForBleCleanup();
   Serial.println("BLE discovery: started (read-only, 5000 ms scan).");
+#ifdef LH_MATTER_BUILD
+  FoundStation next[16]{};
+  MatterScanCapture capture; capture.entries = next;
+  const int code = runMatterScan(capture,true,5000);
+  const unsigned count = capture.count;
+  const bool truncated = capture.truncated;
+  if (code) {
+    { Lock lock; scanning = false; }
+    Serial.printf("BLE discovery: failed, BLE code=%d\n",code);
+    return; // Retain earlier discovery results/timestamp on an incomplete scan.
+  }
+#else
   auto* scan = NimBLEDevice::getScan();
   scan->setActiveScan(true);
   scan->setInterval(97);
@@ -347,6 +378,7 @@ void discoverStations() {
     item.rssi = device->getRSSI();
   }
   scan->clearResults();
+#endif
   {
     Lock lock;
     memcpy(found, next, sizeof(found));
