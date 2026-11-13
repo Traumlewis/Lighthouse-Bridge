@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota Interaction Model diagnostics 0.1.5-tasmota
+
+Add numeric metadata for actual Matter attribute reads, write/command outcomes and
+controller status responses. Cover both solo and pull/batched paths, retaining
+original command IDs when handlers mutate response paths. An eight-record static
+buffer, explicit discard count and saturating totals keep logging bounded. Preserve
+first/last errors, subscription counts and RemoveFabric result counts. Capture only
+known numeric commissioning response enums, never certificate/key response contents.
+
+Owner 0.1.4 reaches locally handled CommissioningComplete after opening the renewed
+window, with IPv6 and no counted transport/mDNS errors, but Alexa still returns
+GS014. That does not establish success of later attribute discovery. New diagnostics
+do not alter capabilities, protocol behavior, identities, fabrics, PINs or BLE power.
+They require a fresh hardware trace; this is not a demonstrated Alexa fix.
+
 ## Experimental Tasmota manual pairing-code renewal 0.1.4-tasmota
 
 The Tasmota dashboard now explicitly generates a new setup code and opens its

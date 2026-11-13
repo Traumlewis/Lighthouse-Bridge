@@ -11,7 +11,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = '6aadc3f171f5b501cc325dcd78daf3d625b01d32'
-VERSION = '0.1.4-tasmota'
+VERSION = '0.1.5-tasmota'
 UPSTREAM = ROOT / '.tools/tasmota-src'
 STAGE = ROOT / '.pio/tasmota-src'
 PROTOTYPE = ROOT / 'experimental/tasmota'
@@ -156,6 +156,47 @@ def prepare():
         ('        frame.decode_payload()\n','        frame.decode_payload()\n        global.lh_diag(1, frame.protocol_id, frame.opcode)\n'),
         ('      log("MTR: MessageHandler::msg_received exception: "+str(e)+";"+str(m), 2)',
          '      global.lh_diag(7, 0, 0)\n      log("MTR: MessageHandler::msg_received exception: "+str(e)+";"+str(m), 2)')])
+    im_path='lib/libesp32/berry_matter/src/embedded/Matter_IM.be'
+    source=original(im_path)
+    source=replace_once(source,'import matter\n','import matter\nimport global\n')
+    source=replace_once(source,'class Matter_IM\n','''class Matter_IM
+  # Only known non-secret response enums; never inspect certificate/key fields.
+  def lh_response_status(cluster, command, res, status)
+    if res != nil
+      if type(res)=="instance" && ((cluster == 0x30 && (command == 0 || command == 2 || command == 4)) ||
+         (cluster == 0x3e && (command == 6 || command == 9 || command == 10)))
+        var code=res.findsubval(0)
+        if type(code)=="int" && code>0 && code<=255 return 0x200+code end
+      end
+      return 0
+    end
+    return status != nil ? status : 0x100
+  end
+''')
+
+    for signature in ['      res = pi.read_attribute(session, ctx, self.tlv_solo)',
+                      '      res = pi.read_attribute(msg.session, ctx, self.tlv_solo)']:
+        # Trace the attempt too: a throwing plug-in must leave an identifiable path.
+        source=replace_once(source,signature,
+            '      global.lh_diag(9, ctx.endpoint, ctx.cluster, ctx.attribute, 0x101)\n'+signature)
+    source=replace_once(source,'    # dispatch depending on the result of the `read_attribute` method',
+        '    global.lh_diag(9, ctx.endpoint, ctx.cluster, ctx.attribute, res != nil ? 0 : (ctx.status != nil ? ctx.status : 0x100))\n\n    # dispatch depending on the result of the `read_attribute` method')
+    solo_boundary='      res = pi.read_attribute(msg.session, ctx, self.tlv_solo)\n    end\n'
+    source=replace_once(source,solo_boundary,solo_boundary+
+        '    global.lh_diag(9, ctx.endpoint, ctx.cluster, ctx.attribute, res != nil ? 0 : (ctx.status != nil ? ctx.status : 0x100))\n')
+    source=replace_once(source,'        var res\n        if !query.timed_request',
+        '        var res\n        global.lh_diag(10, ctx.endpoint, ctx.cluster, ctx.command, 0x101)\n        if !query.timed_request')
+    source=replace_once(source,'        var params_log =',
+        '        global.lh_diag(10, q.command_path.endpoint, q.command_path.cluster, q.command_path.command, self.lh_response_status(q.command_path.cluster, q.command_path.command, res, ctx.status))\n        var params_log =')
+    source=replace_once(source,'    var status = val.findsubval(0, 0xFF)\n',
+        '    var status = val.findsubval(0, 0xFF)\n    global.lh_diag(11, status, 0)\n')
+    source=replace_once(source,'  def process_invoke_request_solo(msg, ctx)\n',
+        '  def process_invoke_request_solo(msg, ctx)\n    var request_ep=ctx.endpoint, request_cluster=ctx.cluster, request_command=ctx.command\n    global.lh_diag(10, request_ep, request_cluster, request_command, 0x101)\n')
+    source=replace_once(source,'\n    var params_log =',
+        '\n    global.lh_diag(10, request_ep, request_cluster, request_command, self.lh_response_status(request_cluster, request_command, res, ctx.status))\n    var params_log =')
+    source=replace_once(source,'  def write_single_attribute_status_to_bytes(ret, ctx, write_data)\n',
+        '  def write_single_attribute_status_to_bytes(ret, ctx, write_data)\n    global.lh_diag(12, ctx.endpoint, ctx.cluster, ctx.attribute, ctx.status != nil ? ctx.status : 0x100)\n')
+    write(STAGE/im_path,source)
     root='lib/libesp32/berry_matter/src/embedded/Matter_Plugin_1_Root.be'
     source=original(root)
     source=replace_once(source,'    var command = ctx.command\n',

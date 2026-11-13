@@ -1,4 +1,4 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.4-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.5-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
@@ -48,6 +48,19 @@ A closed window intentionally has no displayed code. Merely showing a code does
 not open a window. The owner 0.1.3 log shows IPv6/mDNS recovery but no open window
 or incoming packets during the new Alexa search. Actual new-code pairing still
 requires a device test. No reset is needed to try this workflow.
+
+Version 0.1.5 adds bounded `Matter IM diag:`, `Matter IM trace:` and
+`Matter IM errors:` serial metadata. It reports attribute/read/write/command paths and status
+codes without their contents, plus subscriptions and controller status failures.
+The newest eight pending paths are kept; discarded history is counted and the
+first/last errors are retained. R/W/C:endpoint/cluster/id=status uses numeric IDs:
+000=handler success, 100=ignored/deferred, 101=attempt without result; 201..2ff
+contains a commissioning response error enum after subtracting 0x200. Optional
+unsupported attributes may be normal. A success does not prove Alexa accepted it.
+For a retest, use one new-code pairing attempt and record the `Matter pairing diag:`
+and all `Matter IM` lines through 20 seconds after Alexa's result. Other serial
+output can contain setup credentials. Owner 0.1.4 reached local completion but
+still received GS014; this release adds evidence, not a verified pairing fix.
 
 ## Included behavior
 
@@ -99,7 +112,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.4-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.5-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.

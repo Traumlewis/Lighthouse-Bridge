@@ -1,5 +1,5 @@
 var diagnostic_events = []
-global.lh_diag = def (event, first, second) diagnostic_events.push([event, first, second]) end
+global.lh_diag = def (*args) diagnostic_events.push(args) end
 # Real pinned Berry plugin/data-model tests. Transport and clock are host fakes.
 class LighthouseTestClock
   static var _debug_present = false
@@ -33,7 +33,7 @@ class LighthouseTestDevice : global.Lighthouse_Device
   end
 end
 class LighthouseTestContext
-  var cluster, command, attribute, status
+  var cluster, command, attribute, status, endpoint, msg, TimedRequest, command_fields, log
   def init(cluster, command)
     self.cluster = cluster
     self.command = command
@@ -271,3 +271,84 @@ assert(failed && pairing.root_passcode==20202021 && pairing.root_discriminator==
 assert(json.load(global.lh_info())["code"]==nil, "cleanup failure cannot expose an incorrect bootstrap code")
 pairing.commissioning.fail_stop = false
 pairing.commissioning.stop_basic_commissioning()
+
+# Exercise actual IM read serialization, including explicit unsupported attributes.
+var im = matter.IM(single)
+var read_context = LighthouseTestContext(6,nil)
+read_context.endpoint = 1
+read_context.attribute = 0
+read_context.status = 0x86
+var read_bytes = im.read_single_attribute_to_bytes(single.find_plugin_by_endpoint(1),read_context,nil,false)
+assert(size(read_bytes)>0)
+var read_metadata = diagnostic_events[-1]
+assert(size(read_metadata)==5 && read_metadata[0]==9 && read_metadata[1]==1 && read_metadata[2]==6 && read_metadata[3]==0 && read_metadata[4]==0)
+read_context.attribute = 0x1234
+read_context.status = 0x86
+read_bytes = im.read_single_attribute_to_bytes(nil,read_context,nil,false)
+read_metadata = diagnostic_events[-1]
+assert(size(read_bytes)>0 && read_metadata[4]==0x86)
+for event: diagnostic_events
+  assert(size(event)==3 || size(event)==5)
+  for value: event assert(type(value)=="int", "metadata cannot contain attribute values, peer addresses or credential strings") end
+end
+
+class LighthouseTestFrame
+  var payload
+  def encode_frame(raw, destination) self.payload=raw.copy() end
+  def encrypt() end
+end
+class LighthouseTestWire
+  var session, raw
+  def init() self.raw=bytes() end
+  def build_response(*args) return LighthouseTestFrame() end
+end
+class LighthouseTestSender
+  var sent
+  def send_response_frame(frame) self.sent=frame.payload end
+end
+class LighthouseTestInvokeDevice
+  var message_handler
+  def init() self.message_handler=LighthouseTestSender() end
+  def invoke_request(session, fields, ctx)
+    if ctx.command==4
+      ctx.command=5
+      return matter.TLV.Matter_TLV_struct()
+    end
+    ctx.status=0x81
+    return nil
+  end
+end
+matter.get_command_name=def (*args) return nil end
+var invoking = LighthouseTestInvokeDevice()
+var invoke_im = matter.IM(invoking)
+var invoke_ctx = LighthouseTestContext(0x30,4)
+invoke_ctx.endpoint=0
+invoke_ctx.TimedRequest=false
+assert(invoke_im.process_invoke_request_solo(LighthouseTestWire(),invoke_ctx))
+var invoke_metadata=diagnostic_events[-1]
+assert(invoke_metadata[0]==10 && invoke_metadata[3]==4 && invoke_metadata[4]==0, "log original request command, not mutated response ID")
+invoke_ctx.command=6
+assert(invoke_im.process_invoke_request_solo(LighthouseTestWire(),invoke_ctx))
+invoke_metadata=diagnostic_events[-1]
+assert(invoke_metadata[3]==6 && invoke_metadata[4]==0x81, "protocol rejection must be visible without a transport exception")
+
+var noc_status = matter.TLV.Matter_TLV_struct()
+noc_status.add_TLV(0,6,3)
+assert(invoke_im.lh_response_status(0x3e,6,noc_status,0x81)==0x203)
+assert(invoke_im.lh_response_status(0x30,4,noc_status,0x81)==0x203)
+var certificate_response = matter.TLV.Matter_TLV_struct()
+certificate_response.add_TLV(0,0x10,bytes("AABB"))
+assert(invoke_im.lh_response_status(0x3e,2,certificate_response,0x81)==0, "never interpret certificate bytes as a status")
+assert(invoke_im.lh_response_status(0x30,4,true,0)==0, "diagnostics must preserve boolean success results")
+
+var write_result = matter.WriteResponseMessage()
+write_result.write_responses = []
+read_context.cluster = 0x3f
+read_context.attribute = 0
+read_context.status = 0x88
+im.write_single_attribute_status_to_bytes(write_result,read_context,"synthetic-sensitive-value-not-recorded")
+var write_metadata = diagnostic_events[-1]
+assert(write_metadata[0]==12 && write_metadata[2]==0x3f && write_metadata[3]==0 && write_metadata[4]==0x88)
+for event: diagnostic_events
+  for value: event assert(type(value)=="int") end
+end

@@ -22,9 +22,12 @@ extern "C" void lh_tasmota_pump() {
 }
 extern "C" bool lh_tasmota_fs_ready() { return ffsp && ufs_type; }
 static bridge::TasmotaPairingDiagnostics lh_pairing_diag;
+static bridge::TasmotaImDiagnostics lh_im_diag;
 static int lh_native_diag(bvm* vm) {
   if (be_top(vm) == 3 && be_isint(vm,1) && be_isint(vm,2) && be_isint(vm,3))
     lh_pairing_diag.record(be_toint(vm,1),be_toint(vm,2),be_toint(vm,3));
+  if (be_top(vm) == 5 && be_isint(vm,1) && be_isint(vm,2) && be_isint(vm,3) && be_isint(vm,4) && be_isint(vm,5))
+    lh_im_diag.record(be_toint(vm,1),be_toint(vm,2),be_toint(vm,3),be_toint(vm,4),be_toint(vm,5));
   be_return_nil(vm);
 }
 static void lh_print_pairing_diag() {
@@ -40,6 +43,31 @@ static void lh_print_pairing_diag() {
     static_cast<unsigned long>(d.completed),d.windowOpen ? "open" : "closed",
     d.advertised ? "yes" : "no",static_cast<unsigned>(d.fabrics),WiFi.linkLocalIPv6() != IPAddress(IPv6) ? "yes" : "no",
     static_cast<unsigned long>(heap_caps_get_free_size(MALLOC_CAP_8BIT)));
+  const auto& im = lh_im_diag;
+  Serial.printf("Matter IM diag: reads=%lu read_errors=%lu writes=%lu write_errors=%lu invokes=%lu invoke_errors=%lu subscriptions=%lu client_errors=%lu client_status=0x%02x client_last_error=0x%02x trace_discarded=%lu remove_fabric_requests=%lu\n",
+    static_cast<unsigned long>(im.reads),static_cast<unsigned long>(im.readErrors),
+    static_cast<unsigned long>(im.writes),static_cast<unsigned long>(im.writeErrors),
+    static_cast<unsigned long>(im.invokes),static_cast<unsigned long>(im.invokeErrors),
+    static_cast<unsigned long>(d.subscriptions),static_cast<unsigned long>(d.clientErrors),d.clientStatus,d.clientLastError,
+    static_cast<unsigned long>(im.discarded),static_cast<unsigned long>(im.removeFabricRequests));
+  if (im.count) {
+    char line[384]; size_t used = snprintf(line,sizeof(line),"Matter IM trace:");
+    for (unsigned i = 0; i < im.count; ++i) {
+      const auto& p = im.item(i);
+      const int size = snprintf(line+used,sizeof(line)-used," %c:%u/%08lx/%08lx=%03x",p.write ? 'W' : (p.command ? 'C' : 'R'),
+        static_cast<unsigned>(p.endpoint),static_cast<unsigned long>(p.cluster),static_cast<unsigned long>(p.id),static_cast<unsigned>(p.status));
+      if (size < 0 || static_cast<size_t>(size) >= sizeof(line)-used) break;
+      used += size;
+    }
+    Serial.println(line); lh_im_diag.clearPending();
+  }
+  if (im.hasError) {
+    const auto& first = im.firstError; const auto& last = im.lastError;
+    Serial.printf("Matter IM errors: first=%c:%u/%08lx/%08lx=%02x last=%c:%u/%08lx/%08lx=%02x\n",
+      first.write ? 'W':(first.command ? 'C':'R'),static_cast<unsigned>(first.endpoint),static_cast<unsigned long>(first.cluster),static_cast<unsigned long>(first.id),static_cast<unsigned>(first.status),
+      last.write ? 'W':(last.command ? 'C':'R'),static_cast<unsigned>(last.endpoint),static_cast<unsigned long>(last.cluster),static_cast<unsigned long>(last.id),static_cast<unsigned>(last.status));
+  }
+
 }
 static int lh_native_power(bvm* vm) {
   const bool valid = be_top(vm) == 2 && be_isint(vm,1) && be_isint(vm,2);

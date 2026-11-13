@@ -1,5 +1,42 @@
 # Validation report — 0.3.9
 
+## Tasmota Interaction Model diagnostics 0.1.5-tasmota
+
+Owner 0.1.4 evidence confirms an open advertised window, rx=79, secure opcode 0x32,
+IM opcode 1, local complete=1 and fabrics=1 with IPv6 and zero counted send,
+unacked, receive or mDNS errors. Alexa still reports GS014. A later attempt reaches
+rx=120/PASE opcode 0x24 and fabrics=0 without another completion, then a power-on
+reset. The owner reports removing both stations and the Matter bridge in Alexa
+before testing. Exact deletion-to-log timing is unknown. Do not infer automatic
+fabric rollback, new crypto failure or successful Alexa registration from this.
+
+The prior diagnostic counters omitted attribute/command/status failures. Added
+hooks cover solo and pull attribute evaluation plus solo/batched invoke responses and write-attribute statuses,
+preserving the original request IDs before response mutation. The recorder accepts
+integer metadata only, uses eight static records, counts discarded history and
+preserves first/last errors. Known General Commissioning and Operational Credentials
+response enums are explicitly allowlisted; certificate/CSR/nonce/key payloads are
+never interpreted as status. Native tests cover saturation, capacity/ordering,
+invalid inputs, 32-bit paths and client-error retention after a successful status.
+Real pinned host Berry tests exercise attribute data/status serialization and a
+command whose response ID differs from its request, including rejected commands.
+This uses synthetic transport/data and does not reproduce Alexa GS014 locally.
+
+Serial metadata remains on the 15-second cadence. R/W/C:endpoint/cluster/id=status
+contains no values or identities. 000 is a handler-level result, not proof of client
+receipt; 100=ignored/deferred, 101=attempt without recorded result. For 201..2ff,
+subtract 0x200 to get the whitelisted commissioning response error enum. Other
+<=ff codes are IM status. Unsupported optional attributes/commands can be normal.
+Read totals count evaluations, including repeated pull/subscription work. Actual
+hardware pairing and the precise failure cause remain unresolved.
+
+Local build: 1,710,672/1,966,080 application bytes; static RAM 73,348 bytes.
+The updated native diagnostics suite, all 25 Python checks and nine browser/USB
+programs pass. Real host tests include read-status serialization, a mutated invoke
+response ID, numeric commissioning error extraction, certificate-field exclusion
+and write-status metadata with a synthetic sensitive value excluded from records.
+These are software checks; actual late-stage Alexa behavior remains unverified.
+
 ## Tasmota manual pairing-code renewal 0.1.4-tasmota
 
 Owner 0.1.3 evidence now shows local IPv6 and zero mDNS errors after startup and

@@ -32,6 +32,30 @@ int main() {
   diag.record(8,0,0); assert(!diag.windowOpen && !diag.advertised && diag.fabrics==0);
   diag.received=UINT32_MAX; diag.record(0,0,0); assert(diag.received==UINT32_MAX);
 
+  TasmotaImDiagnostics trace;
+  trace.record(9,1,6,0,0x101); trace.record(9,1,6,0,0);
+  assert(trace.reads==1 && trace.count==1 && trace.item(0).status==0);
+  trace.record(9,0,0x28,0x1234,0x86);
+  assert(trace.readErrors==1 && trace.hasError && trace.firstError.id==0x1234);
+  trace.record(10,0,0x30,6,0x101); trace.record(10,0,0x30,6,0x81);
+  assert(trace.invokes==1 && trace.invokeErrors==1 && trace.lastError.command);
+  assert(trace.firstError.id==0x1234 && trace.lastError.id==6);
+  trace.record(9,0x10000,0,0,0); trace.record(99,0,0,0,0); trace.record(9,0,0,0,0x102);
+  assert(trace.reads==2 && trace.count==3);
+  trace.clearPending(); assert(trace.count==0 && trace.readErrors==1 && trace.hasError);
+  for(unsigned i=0;i<20;++i) trace.record(9,1,0xfff10001,i,0);
+  assert(trace.count==8 && trace.discarded==12 && trace.item(0).id==12 && trace.item(7).id==19);
+  assert(trace.item(0).cluster==0xfff10001);
+  trace.record(10,0,0x3e,10,0x203);
+  assert(trace.removeFabricRequests==1 && trace.invokeErrors==2 && trace.lastError.status==0x203);
+  const auto prior=trace.invokes;
+  trace.record(9,0,0,0,0x203); trace.record(10,0,0,0,0x300);
+  assert(trace.invokes==prior);
+  trace.reads=UINT32_MAX;trace.record(9,0,0,0,0);assert(trace.reads==UINT32_MAX);
+  trace.record(12,0,0x3f,0,0x88); assert(trace.writes==1 && trace.writeErrors==1 && trace.lastError.write);
+  diag.record(1,1,3); diag.record(11,0x86,0); assert(diag.subscriptions==1 && diag.clientErrors==1 && diag.clientStatus==0x86);
+  diag.record(11,0,0); assert(diag.clientErrors==1 && diag.clientStatus==0 && diag.clientLastError==0x86);
+
   assert(matterLabelBytes("short") == 5);
   const std::string ascii(40,'a'); assert(matterLabelBytes(ascii.c_str())==32);
   const std::string cut=std::string(31,'a')+"€"; assert(matterLabelBytes(cut.c_str())==31);

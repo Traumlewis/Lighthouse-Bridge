@@ -40,7 +40,7 @@ the reader owns USB and when its manifest or any segment is unavailable/unsafe.
 
 ## Experimental Tasmota choice
 
-`tasmota.html` offers the separate 0.1.4-tasmota firmware, with its own
+`tasmota.html` offers the separate 0.1.5-tasmota firmware, with its own
 `tasmota-manifest.json` and `firmware/tasmota/` images, .lhota, checksums and
 complete-source GPL ZIP. The shared installer code checks an explicit Tasmota
 filename prefix and version suffix; it cannot mix stable, SDK or Tasmota images.

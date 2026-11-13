@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.4-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.5-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -918,3 +918,38 @@ Never copy the credential-bearing raw log into the repository.
   25 Python checks, updated host Berry lifecycle cases and all nine browser/USB
   programs pass. Error/retry/private-fetch recovery is covered in the Tasmota
   dashboard; native checksum/crypto are mocked on the host. Hardware retest pending.
+
+## Tasmota 0.1.5 Interaction Model diagnostics
+- Owner 0.1.4 retest opens/advertises its window, reaches rx=79/CASE opcode 0x32,
+  IM opcode 1 and locally handled complete=1 with IPv6 present and zero counted
+  send/unacked/receive/mDNS errors, yet Alexa returns GS014. A later attempt reaches
+  rx=120 and fabrics=0; this is not a second completed commissioning. Owner says
+  both individual stations and the Matter bridge were already removed in Alexa.
+  Exact deletion timing is not captured; do not attribute fabric removal to an
+  automatic rollback or recommend repeated mass deletion based on this excerpt.
+- Existing counters do not include protocol response failures. 0.1.5 instruments
+  both solo/pull attribute reads, write statuses and solo/batched invokes, preserving original
+  command IDs before handlers mutate them into response IDs. Track client IM
+  status errors, Subscribe requests and completed RemoveFabric evaluations too.
+- Numeric-only five-argument diagnostics supplement the existing three-argument
+  callback. Store eight fixed-size pending path records, explicit discard count,
+  saturating totals and first/last errors. No heap allocation in the recorder.
+  Flush summaries/traces with the existing 15-second serial cadence; never log
+  values, command bodies, keys, certificates, peer/node/fabric identities or codes.
+- Trace format R/W/C:endpoint/cluster/id=status uses full 32-bit cluster/id. Status
+  000 means handler yielded a value/success, 100 means ignored/deferred, 101 is an
+  attempt without a recorded result. 201..2ff denotes a whitelisted nonzero
+  GeneralCommissioning/OperationalCredentials response enum (subtract 0x200).
+  Only those explicit numeric status fields are examined, never crypto responses.
+  Other <=ff statuses are IM status codes. Optional unsupported reads/commands
+  need not explain pairing failure. Success metadata does not prove encoding,
+  transmission or client acceptance. Attribute evaluations can repeat during pull
+  or subscription reporting; do not interpret totals as unique network requests.
+- Protocol capabilities, versions, identities, PIN windows, power and persistence
+  are unchanged. This is diagnostic evidence collection, not a claimed GS014 fix.
+  Native tests cover bounded records, overflow, saturation, error preservation,
+  32-bit IDs and status categories. Real host Berry tests exercise actual read and
+  solo-invoke encoding plus safe response-enum extraction using synthetic data.
+- Local 0.1.5 verification: app 1,710,672/1,966,080 bytes, static RAM 73,348;
+  updated native diagnostics suite, all 25 Python checks and nine browser/USB
+  programs pass. Hardware GS014 cause remains unresolved pending the new trace.
