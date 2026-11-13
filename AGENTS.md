@@ -295,7 +295,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.6-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.7-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -339,7 +339,8 @@ status change. Keep current facts, not a conversation log. User instructions win
   renumber survivors; current active capacity remains 16. No silent truncation.
 - The Matter sketch includes production `src/main.cpp` with `LH_MATTER_BUILD`;
   `matter_adapter.h` replaces Hue, never the sequential BLE worker/auth/OTA.
-  `tools/build_matter.py` gzip-compresses the shared embedded UI, sets C++ only
+  `tools/build_matter.py` uses Python 3.12 plus pinned Zopfli (requirements file)
+  to gzip-compress the shared embedded UI, sets C++ only
   `-Oz -flto` and C `-Oz`, links with LTO and disables WiFiManager debug output.
   Do not enable C LTO: the pinned SDK backtrace weak symbol fails to link.
   Additional registry/lamp objects use checked heap allocation. Static linker
@@ -486,6 +487,7 @@ g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-te
 python tools/package_release.py
 g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_matter_config.cpp -o /tmp/lh-matter-config-test
 /tmp/lh-matter-config-test
+python -m pip install -r tools/requirements-matter-build.txt
 python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py' -v
@@ -634,9 +636,49 @@ Never copy the credential-bearing raw log into the repository.
   Native tests cover floods, all legacy types, malformed names, duplicate/capacity
   behavior, completion and start/end errors. Failed discovery retains old results.
 - No automatic power commands, stack reductions, partition/NVS/auth changes.
-  Actual 0.3.6 scanning, BLE/Wi-Fi coexistence and multi-station operation remain
-  hardware tests. Stable 0.3.9 keeps its existing NimBLEScan path.
+  Owner now confirms a completed four-result 0.3.6 discovery; save/switch, long-run
+  coexistence and multi-station operation remain open. Stable 0.3.9 keeps its
+  existing NimBLEScan path.
 - 0.3.6 local checks: both builds, eleven native programs, 16 Python checks and all
   browser/USB flows pass. ELF symbols omit the old scan result-copy path. Local
   app 1,962,720/1,966,080 bytes (3360 flash bytes reserve), static RAM 123,716;
   these are not runtime heap margins or hardware scan validation.
+
+## Experimental 0.3.7 HTTP/configuration memory follow-up
+
+- Owner's 0.3.6 discovery completes with four results after five seconds and no
+  shown abort. HTTP writes still stall/fail with low byte-addressable heap; saving
+  reports unreachable. No save-phase evidence establishes whether it was accepted.
+  Wi-Fi status/reconnect diagnostics also occur; causality is not established.
+  Never retain the credential-bearing log or invent a leak/certified hardware fix.
+- Matter HTTP uses the pinned WebServer's protected write hooks and request args
+  via `MatterWebServer`, no private-layout casts. Move the plain body without a
+  full-body copy. Checked <=256-byte nonblocking sends yield/retry transient
+  EAGAIN/ENOMEM/ENOBUFS/EINTR with 2.5-second no-progress / 8-second writer budgets;
+  these are not hard end-to-end network guarantees. Close incomplete responses.
+  JSON has exact Content-Length; never infer full delivery merely from connected().
+- Matter save owns in-place request parsing (<=8192 bytes, bounded static arena),
+  copies validated configs to bounded stack storage, then frees input before NVS
+  phases. No restored-state array or full config/registry JsonDocument is allocated
+  on heap during save. Stream one counted/exact-sized NVS String at a time; registry
+  transition checkpoint still precedes the atomic station record. All 16 entries
+  and 32 bindings remain supported. Existing native identity/migration logic applies.
+- Keep old live config/history paired until reboot; do not reassign while an old BLE
+  read finishes. Reject occupied commands/scans, return assigned new IDs with
+  `restarting:true`, pause BLE/commands and start 1.5-second grace after the reply
+  serialization. New Config save phase/accepted/complete/8-bit heap logs omit secrets.
+- Matter UI queues JSON requests, skips background upload polling and handles an
+  accepted restart by stopping polling and checking private account reconnect up
+  to eight times, two seconds apart (request time can add delay), then reload/sign-in.
+  Preserve disabled power until fresh status and ignore older in-flight status errors.
+- Both C/C++ Matter build flags pin NimBLE max connections to 1, with a firmware
+  assertion. This matches the worker's one-client/cleanup invariant, not station
+  capacity. No stacks, MTU, mbuf/transport pools, retries or scan durations are shrunk.
+- `JsonStreamWriter` shares ArduinoJson code across counting/HTTP/NVS sinks without
+  heap type erasure. Build-only zopfli==0.2.3.post1 (Python 3.12 requirements) emits
+  standard gzip, round-trip checked. Keep C LTO disabled and both slots unchanged.
+- Runtime heap/stack high-water, hardware NVS/reboot/OTA and multi-station RF behavior
+  remain hardware checks. Software socket-pressure/browser simulations are not ESP32 tests.
+- 0.3.7 local validation: both builds, twelve native suites, 16 Python checks and
+  all browser/USB flows pass. App 1,965,440/1,966,080 bytes (640 flash bytes reserve),
+  static RAM 123,268 bytes; real device runtime/NVS/stack margins remain unmeasured.

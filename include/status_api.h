@@ -123,8 +123,8 @@ inline void writeStatusStation(JsonObject item, const StationConfig& config,
 }
 // This exact serializer is used by firmware and native tests. One snapshot owns
 // all string lifetimes and the measurement/uptime pair; no lock is held for IO.
-template<class Sink, size_t Capacity> bool streamStatus(const JsonDocument& header,
-    const StatusSnapshot& view, StatusWriter<Sink,Capacity>& writer, bool matter) {
+template<class Writer> bool streamStatus(const JsonDocument& header,
+    const StatusSnapshot& view, Writer& writer, bool matter) {
   if (!view.valid || header.overflowed()) return false;
   serializeJson(header,writer);
   if (!writer.dropLast('}')) return false;

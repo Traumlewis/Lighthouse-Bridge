@@ -3,6 +3,25 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental HTTP/save memory correction 0.3.7-matter
+
+The owner's 0.3.6 discovers four stations without the earlier scan abort, but
+HTTP transfers stall/fail and adding stations reports a connection error. Save
+handler completion is not established by that excerpt. Replace simultaneous large
+save allocations with owned zero-copy input, bounded stack parsing and separate
+streamed registry/station persistence. Retain old live assignments until restart
+and return assigned fixed IDs plus `restarting:true`; start the full restart grace
+period after response serialization. Preserve credentials and all identities.
+
+Check header/body socket writes, retry transient pressure within bounded writer
+budgets and give status an exact Content-Length. Serialize browser JSON requests,
+pause upload-time polling and quietly reconnect after an acknowledged restart.
+Use one simultaneous NimBLE connection for the existing sequential worker; keep
+16-station capacity, stacks, MTU and buffer pools. Share the buffered JSON serializer
+across counting/HTTP/NVS and use pinned Zopfli for standard gzip UI compression.
+Both app slots remain unchanged. Actual hardware memory/save/coexistence/OTA and
+multi-station reliability need retesting; stable firmware remains 0.3.9.
+
 ## Experimental scan allocation correction 0.3.6-matter
 
 The owner's 0.3.5 discovery abort decodes against the matching release ELF to an

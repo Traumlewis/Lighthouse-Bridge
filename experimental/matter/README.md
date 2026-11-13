@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.6-matter
+# Experimental Matter prototype — 0.3.7-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -70,6 +70,27 @@ Random (1). Start/completion errors are logged numerically; failed discovery kee
 previous results/timestamp. No power command, extra worker, stack reduction,
 partition change or identity reset is introduced. Host/controller internals still
 need runtime memory, and this software correction requires hardware retesting.
+
+The owner's 0.3.6 scan completes in five seconds with four results and no shown
+abort, but HTTP stalls/fails and saving reports a connection error. The excerpt
+does not identify a save-handler outcome. Version 0.3.7 removes overlapping large
+save buffers: take ownership of the HTTP body, parse it in-place, copy validated
+assignments to bounded stack storage, then release the body/parser before writing
+the registry checkpoint and station record in separate phases. Keep the old live
+assignment until the announced restart; return the new fixed IDs in the reply.
+Credentials, slot/Hue/Matter identities and atomic NVS record ordering are retained.
+
+HTTP headers and bodies now use checked 256-byte socket writes, yielding and
+retrying transient send pressure within bounded writer budgets. Status has a
+measured Content-Length instead of unchecked chunk writes. The Matter UI sends
+one JSON request at a time, pauses polling during uploads and handles an announced
+save restart with quiet reconnect checks before reloading. New `Config save`
+phase/acceptance/delivery/heap diagnostics contain no names, addresses or secrets.
+The NimBLE host is built for one simultaneous connection, matching the sequential
+worker without limiting the 16 assigned stations. Task stacks, MTU and buffer
+pool counts are unchanged. Build helpers use Python 3.12 and pinned Zopfli gzip
+compression to fit both unchanged app slots; decompression is checked byte-for-byte.
+Software checks do not establish actual runtime heap, NVS or RF reliability.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read
@@ -160,6 +181,7 @@ Install Arduino CLI **1.6.0**, then:
 arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
+python3 -m pip install -r tools/requirements-matter-build.txt
 python3 tools/build_matter.py
 ```
 
@@ -167,7 +189,7 @@ The stable PlatformIO environment remains Arduino ESP32 2.0.17. The isolated bui
 uses 3.3.12 with CHIPoBLE commissioning disabled, leaving NimBLE 2.5.2 to the one
 sequential Lighthouse worker. The sketch includes production `src/main.cpp` with the Matter adapter replacing
 Hue. There is no second worker, authentication or OTA implementation. The build
-gzip-compresses the shared UI, uses C++-only LTO and compiles out WiFiManager
+gzip-compresses the shared UI with pinned Zopfli, uses C++-only LTO and compiles out WiFiManager
 debug output. C must remain non-LTO with the pinned SDK.
 The root request/measurement logic remains shared. Boot and reconnect never send
 automatic power commands. Matter command interception queues work; only observed

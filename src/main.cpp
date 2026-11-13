@@ -27,6 +27,8 @@
 #include "web_ui_gzip.h"
 #include "status_api.h"
 #include "startup_sequence.h"
+#include "config_stream.h"
+#include "matter_http.h"
 #include "http_body.h"
 #include <esp_mac.h>
 #include <esp_heap_caps.h>
@@ -48,7 +50,12 @@
 #endif
 
 using namespace bridge;
+#ifdef LH_MATTER_BUILD
+MatterWebServer server(80);
+static_assert(CONFIG_BT_NIMBLE_MAX_CONNECTIONS == 1,"The sequential Matter worker needs one BLE connection");
+#else
 WebServer server(80);
+#endif
 #ifndef LH_MATTER_BUILD
 Espalexa alexa;
 #endif
@@ -105,9 +112,7 @@ uint32_t matterDataFree() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL |
 uint32_t matterDataLargest() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
 struct JsonHttpSink {
   size_t write(const uint8_t* data, size_t size) {
-    if (!server.client().connected()) return 0;
-    server.sendContent(reinterpret_cast<const char*>(data),size);
-    return server.client().connected() ? size : 0;
+    return server.writeBytes(data,size);
   }
 };
 #endif
@@ -121,7 +126,7 @@ void sendJson(int code, const JsonDocument& doc) {
 #ifdef LH_MATTER_BUILD
   server.setContentLength(measureJson(doc));
   server.send(code,"application/json; charset=utf-8","");
-  JsonHttpSink sink; StatusWriter<JsonHttpSink> writer(sink);
+  JsonHttpSink sink; JsonStreamWriter writer(sink);
   serializeJson(doc,writer);
   if (!writer.flush()) server.client().stop();
 #else
@@ -510,8 +515,10 @@ void bleWorker(void*) {
 }
 
 #ifdef LH_MATTER_BUILD
+#include "matter_config_io.h"
 #include "matter_adapter.h"
 #include "matter_status.h"
+#include "matter_config_route.h"
 #endif
 
 void statusRoute() {
@@ -795,9 +802,7 @@ void configureRoutes() {
                   unsigned(sizeof(WEB_UI_GZIP)), matterDataFree(), matterDataLargest());
     server.setContentLength(sizeof(WEB_UI_GZIP));
     server.send(200, "text/html; charset=utf-8", "");
-    auto client = server.client();
-    const size_t sent = writeHttpBody(client, WEB_UI_GZIP, sizeof(WEB_UI_GZIP));
-    if (sent != sizeof(WEB_UI_GZIP)) client.stop();
+    const size_t sent = server.writeBytes(WEB_UI_GZIP, sizeof(WEB_UI_GZIP));
     Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free_8bit=%u, largest_8bit=%u\n",
                   unsigned(sent), unsigned(sizeof(WEB_UI_GZIP)), sent == sizeof(WEB_UI_GZIP) ? "true" : "false",
                   unsigned(millis() - started), matterDataFree(), matterDataLargest());
@@ -900,6 +905,9 @@ void configureRoutes() {
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/config", HTTP_POST, [] {
+#ifdef LH_MATTER_BUILD
+    matterSaveConfiguration();
+#else
     if (!mutationAllowed()) return;
     if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; }
 #ifdef LH_MATTER_BUILD
@@ -956,6 +964,7 @@ void configureRoutes() {
 #endif
     doc.clear(); doc["saved"] = true; writeStationList(doc.createNestedArray("stations"), configs);
     sendJson(200, doc);
+#endif
   });
   server.on("/api/wifi", HTTP_POST, [] {
     if (!mutationAllowed()) return;

@@ -75,13 +75,17 @@ jobs:
           /tmp/lighthouse-http-body-test
           g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I experimental/matter/MatterBridge -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_scan.cpp -o /tmp/lighthouse-scan-test
           /tmp/lighthouse-scan-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I experimental/matter/MatterBridge -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_http_memory.cpp -o /tmp/lighthouse-http-memory-test
+          /tmp/lighthouse-http-memory-test
       - name: Install isolated Matter prototype dependencies
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
       - name: Build experimental Matter prototype with existing partition layout
-        run: python tools/build_matter.py
+        run: |
+          python -m pip install -r tools/requirements-matter-build.txt
+          python tools/build_matter.py
       - name: Build WebFlasher site
         run: python tools/build_pages.py
       - name: Test WebFlasher assets

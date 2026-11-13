@@ -291,18 +291,17 @@ void initializeMatterEndpoints(intptr_t) {
 // remain valid even if the subsequent station save is interrupted.
 bool matterPrepareConfiguration(const StationConfig* next, std::string& error) {
   if (!matterRegistryValid || matterInitializing || restartPending) { error = "MATTER_NOT_READY"; return false; }
-  std::unique_ptr<MatterRegistry> planned(new(std::nothrow) MatterRegistry);
-  if (!planned) { error = "OUT_OF_MEMORY"; return false; }
-  if (!planMatterRegistry(configs,next,(*matterRegistry),*planned,error)) return false;
-  DynamicJsonDocument doc(kMatterRegistryJsonCapacity);
-  writeMatterRegistry(doc.to<JsonObject>(),*planned);
-  if (doc.overflowed()) { error = "OUT_OF_MEMORY"; return false; }
-  String json; serializeJson(doc,json);
+  MatterRegistry planned;
+  if (!planMatterRegistry(configs,next,(*matterRegistry),planned,error)) return false;
+  String json;
+  if (!makeConfigString(json,[&](auto& writer) { return streamRegistry(writer,planned); })) {
+    error = "OUT_OF_MEMORY"; return false;
+  }
   Preferences own;
   if (!own.begin("lhmatter",false)) { error = "MATTER_STORAGE_FAILED"; return false; }
   const bool saved = own.putString("endpoints",json) == json.length(); own.end();
   if (!saved) { error = "MATTER_STORAGE_FAILED"; return false; }
-  (*matterRegistry) = *planned;
+  (*matterRegistry) = planned;
   return true;
 }
 void matterConfigurationChanged() {

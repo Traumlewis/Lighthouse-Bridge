@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.6-matter**, with the Matter-only private endpoints below. The separate
+**0.3.7-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -34,6 +34,14 @@ and queued/sending power commands remain visible. Debug text scrolls within a
 reserved card area; toggling does not change the layout. Triple-click its firmware version within 1.2 s
 to toggle debug details. This only changes browser presentation; all API fields
 and serial diagnostics remain available and BLE behavior is unchanged.
+
+Experimental 0.3.7 station-save success additionally returns `restarting:true`
+and the assigned public station list. The live config/status keeps the previous
+assignment until reboot. Wait for restart and refresh before addressing any slot.
+The restart grace period starts after response serialization; acceptance does not
+prove subsequent Matter startup. Registry checkpoint and station NVS writes keep
+the same ordering/keys. Failure leaves the current live assignment intact; an
+already stored transition checkpoint can safely advance reserved endpoint IDs.
 
 Experimental 0.3.5 additionally reports `free_data_heap` and `largest_data_block`
 for internal byte-addressable memory (`MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`).

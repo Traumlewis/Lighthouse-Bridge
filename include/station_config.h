@@ -107,15 +107,17 @@ inline void reconcileStationStates(const StationConfig* next, const StationConfi
     out[i].reading = false;
   }
 }
+inline void writeStationConfig(JsonObject item, const StationConfig& station, bool storage) {
+  item["id"] = station.id;
+  if (storage) item["hue_id"] = station.hueId;
+  item["name"] = station.name; item["mac"] = station.mac;
+  item["alexa_compat"] = station.alexaCompat;
+}
 inline void writeStationList(JsonArray array, const StationConfig* stations, bool storage = false) {
   for (unsigned i = 0; i < kStations; ++i) {
     if (!stations[i].id) continue;
     auto item = array.createNestedObject();
-    item["id"] = stations[i].id;
-    if (storage) item["hue_id"] = stations[i].hueId;
-    item["name"] = stations[i].name;
-    item["mac"] = stations[i].mac;
-    item["alexa_compat"] = stations[i].alexaCompat;
+    writeStationConfig(item,stations[i],storage);
   }
 }
 } // namespace bridge

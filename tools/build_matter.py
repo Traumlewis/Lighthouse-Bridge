@@ -13,7 +13,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.6-matter'
+VERSION = '0.3.7-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -76,8 +76,30 @@ def main():
     html = html.replace(api_end, "}catch(e){if(typeof e.code==='string')throw e;"
                         "throw Object.assign(new Error(t('NETWORK_ERROR')),{code:'NETWORK_ERROR'});"
                         "}finally{clearTimeout(timer);}")
+    save_followup = "  const data=await api('/api/status');statusNeedsReload=false;render(data);"
+    if html.count(save_followup) != 1:
+        raise ValueError('Expected one configuration-save follow-up')
+    html = html.replace(save_followup,
+        "  if(result.restarting){clearInterval(pollTimer);if(current){current.maintenance=true;render(current);}"
+        "message(()=>t('matterSaved'));waitMatterRestart();return;}\n" + save_followup)
+    html = html.replace("if(e.status!==401){$('connection')", "if(e.status!==401&&revision===configRevision&&!configSaving){$('connection')")
+    html = html.replace('||polling||configSaving)return;', '||polling||configSaving||otaBusy)return;')
+    # Keep only one JSON request in flight against the single HTTP server.
+    html = html.replace('loadAccount();const pollTimer=',
+        "let apiTail=Promise.resolve();const directApi=api;api=(...args)=>{"
+        "const next=apiTail.catch(()=>{}).then(()=>directApi(...args));apiTail=next;return next;};\n"
+        "async function waitMatterRestart(){for(let attempt=0;attempt<8;attempt++){"
+        "await new Promise(resolve=>setTimeout(resolve,2000));try{await api('/api/account');"
+        "location.reload();return;}catch(e){if(e.status===401){location.reload();return;}}}}\n"
+        'loadAccount();const pollTimer=')
     (sketch / 'matter-ui.html').write_text(html)
-    compressed = gzip.compress(html.encode(), mtime=0)
+    try:
+        from zopfli.gzip import compress as compress_gzip
+    except ImportError:
+        raise SystemExit('Install tools/requirements-matter-build.txt using Python 3.12 pip first')
+    compressed = compress_gzip(html.encode(), numiterations=15)
+    if gzip.decompress(compressed) != html.encode():
+        raise ValueError('Compressed dashboard round-trip failed')
     (sketch / 'web_ui_gzip.h').write_text('#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' +
         ','.join(str(byte) for byte in compressed) + '};\n')
     if not args.skip_compile:
@@ -86,9 +108,9 @@ def main():
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
             raise SystemExit(f'Install esp32:esp32@{CORE} using Arduino CLI first')
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', FQBN, '--build-property',
-                        'compiler.cpp.extra_flags=-DWM_NODEBUG -Oz -flto ' + ' '.join('-I' + str(path) for path in
+                        'compiler.cpp.extra_flags=-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', sketch]),
-                        '--build-property', 'compiler.c.extra_flags=-Oz',
+                        '--build-property', 'compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -Oz',
                         '--build-property', 'compiler.c.elf.extra_flags=-flto',
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]

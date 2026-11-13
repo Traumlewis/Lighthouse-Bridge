@@ -10,7 +10,7 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.3.6-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+`0.3.7-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
 The full test firmware retains saved settings and includes the production
 dashboard, discovery/editor, local API and Wi-Fi updates for up to 16 stations.
 New installations have a protected non-blocking Wi-Fi setup portal. The USB panel
@@ -25,7 +25,7 @@ See the [prototype guide](../experimental/matter/README.md) for pairing and limi
 headers, size limit, per-image hashes and exact equality of both partition tables,
 then creates `_site/matter-manifest.json` and `firmware/matter/`. Both app slots and
 the NVS addresses are retained. No merged factory image is offered for
-the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.6-matter.lhota`
+the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.7-matter.lhota`
 contains only the app for subsequent dashboard uploads; Pages checks it against
 the USB app image. Its ZIP includes source, checksums, version notes and licenses.
 
@@ -115,6 +115,7 @@ Pull requests are checked without deployment. Artifacts are
 ```sh
 pio run
 python tools/package_release.py
+python -m pip install -r tools/requirements-matter-build.txt
 python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_pages.py' -v
@@ -151,3 +152,8 @@ a custom device name controls both setup SSID and the .local address.
 Experimental 0.3.4 adds credential-free `Web UI begin/end` serial diagnostics for
 blank-page investigation and checked small binary writes. A complete send is not
 a browser rendering guarantee. Keep erasing unchecked when retesting by USB.
+
+Matter 0.3.7 save replies include `restarting:true`. The embedded UI keeps power
+controls disabled and checks reconnection before reloading/sign-in; it does not
+immediately request status during the expected restart. Use Python 3.12 for the
+Matter build helper and install its pinned build-only compression dependency.

@@ -1,5 +1,51 @@
 # Validation report — 0.3.9
 
+## Experimental HTTP/configuration memory correction 0.3.7-matter
+
+Owner evidence for 0.3.6 shows discovery completes in five seconds with four results
+and no shown scan abort. Subsequent page sends take seconds or fail, with low free
+byte-addressable memory and small contiguous blocks. The browser reports an error
+when adding stations, but the excerpt contains no handler save-phase result. Wi-Fi
+status/reconnect errors also occur; their relationship is not established. No raw
+log, address, key or other credential is retained. This does not establish a leak.
+
+Code inspection identifies unchecked partial JSON writes and a save path keeping
+request copies, a full JSON arena, proposed configs, restored states, saved JSON,
+planned registry, its full arena and a second JSON String live at once. The new
+Matter adapter uses protected WebServer hooks for checked <=256-byte socket writes
+and moves its protected plain argument into owned in-place JSON parsing. It retries
+transient send errors with bounded writer budgets and closes incomplete responses.
+The status serializer counts and sends the same immutable snapshot with fixed
+Content-Length. Type-erased buffered sinks share one serializer instantiation.
+
+The save path uses bounded stack parsing/configs and frees the request/parser before
+separate registry and station serialization. A full-size parser+config workspace
+is compile-time bounded to 4096 bytes on ESP32, not a stack high-water measurement.
+Only one counted/exact-reserved NVS String is live per phase. Keep transition
+checkpoint-before-station ordering, all 16/32 records, public ID fields and hidden
+Hue identities. Runtime configs remain paired with old readings until restart.
+The response contains new assigned IDs and restarting=true; grace starts after the
+response attempt. No power command, reset of settings or partition change occurs.
+
+The host tests compile the production HTTP adapter against WebServer/clock stubs
+with real local socketpairs, small send buffers, partial transmission, peer
+backpressure, no-progress/global writer budgets and millis wrap. They check moved
+body ownership, zero-copy 16 maximum-name station parsing, 32-binding restoration,
+exact counting/public replies and serialization failure. Browser tests check one
+JSON request in flight and an accepted save without fetching status into restart.
+Matter alone builds NimBLE for one simultaneous connection; MTU, pool counts and
+all stacks stay unchanged. This does not establish runtime heap headroom. Pinned
+build-only Zopfli emits standard gzip, checked against the original UI bytes.
+Local verification passes: both firmware builds, twelve native suites, 16 Python
+package/layout checks and all browser/USB suites. The Matter app is
+1,965,440/1,966,080 bytes (640 flash bytes reserve), static RAM 123,268 bytes.
+These linker figures do not establish free heap or stack high-water. Tests include
+real socket pressure with delayed draining and writer budgets, one browser JSON
+request in flight, 16/32 serialized/restored records and an announced restart that
+keeps power disabled without an immediate failing status fetch. Actual hardware
+HTTP/NVS/save, startup with saved stations, BLE/Wi-Fi coexistence and OTA remain
+unverified.
+
 ## Experimental scan result allocation correction 0.3.6-matter
 
 Owner evidence for 0.3.5 contains a successful complete page transmission, active

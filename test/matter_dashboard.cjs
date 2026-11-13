@@ -35,11 +35,23 @@ assert.ok(html.includes('Bridge '+version));
     finally{window.fetch=saved;}
    });
    assert.equal(aborted,'NETWORK_ERROR','numeric browser abort code 20 needs a readable error');
+   const peakRequests=await transportPage.evaluate(async()=>{
+    const saved=window.fetch;let active=0,peak=0;
+    window.fetch=async()=>{peak=Math.max(peak,++active);await new Promise(r=>setTimeout(r,40));--active;
+     return new Response('{}',{status:200,headers:{'Content-Type':'application/json'}});};
+    try{await Promise.all([api('/api/status'),api('/api/account')]);return peak;}
+    finally{window.fetch=saved;}
+   });
+   assert.equal(peakRequests,1,'Matter JSON requests must not hold simultaneous TCP connections');
   }finally{await transportPage.close();await new Promise(resolve=>transport.close(resolve));}
   for(const lang of ['en','de']){
    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],calls=[];
    page.on('pageerror',e=>errors.push(e.message));
    await page.addInitScript(()=>{document.execCommand=()=>{window.copied=document.activeElement.value;return true;};});
+   await page.addInitScript(()=>{
+    const timer=window.setTimeout;
+    window.setTimeout=(fn,ms,...args)=>ms===2000?0:timer(fn,ms,...args);
+   });
    let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true;
    const key='1234567890abcdef12345678',code='34970112332';
    const data={alexa_protocol:'matter',matter_ready:true,matter_paired:true,ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,stations:[{id:1,name:'Owner station',mac:'AA:BB:CC:DD:EE:01',configured:true,alexa_compat:true,reachable:true,observed:'sleep',observed_raw:0,observed_ms:89000}],discovered:[]};
@@ -55,6 +67,10 @@ assert.ok(html.includes('Bridge '+version));
     else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});windowOpen=true;status=202;result={accepted:true};}
     else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?'BLE_WORKER_FAILED':'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:code,commissioning_open:windowOpen,commissioning_pending:false,error:''};
     else if(uri==='/api/scan'){status=202;result={accepted:true};data.discovered=[{name:'LHB-test',mac:'AA:BB:CC:DD:EE:02',address_type:1,rssi:-60}];data.scan_finished_ms=90001;}
+    else if(uri==='/api/config'){
+     assert.equal(req.method(),'POST');
+     result={saved:true,restarting:true,stations:req.postDataJSON().stations.map((s,i)=>({...s,id:s.id||i+1}))};
+    }
     else if(uri==='/api/logout'){signedIn=false;result={logged_out:true};}
     else {status=404;result={error:'NOT_FOUND'};}
     await route.fulfill({status,json:result});
@@ -102,6 +118,18 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(calls.filter(c=>c.uri.startsWith('/api/matter')).some(c=>c.headers['x-api-key']),false);
    assert.equal(await page.evaluate(code=>JSON.stringify(localStorage).includes(code),code),false);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   data.ble_worker_available=true;data.ble_startup_error='';data.matter_ready=true;
+   await page.evaluate(()=>refresh());
+   await page.locator('#add-station').click();
+   await page.locator('#edit-mac-new-1').fill('AA:BB:CC:DD:EE:02');
+   const statusBeforeSave=calls.filter(c=>c.uri==='/api/status').length;
+   await page.locator('#save').click();
+   await page.waitForFunction(()=>document.getElementById('message').textContent===t('matterSaved'));
+   await page.waitForTimeout(300);
+   assert.equal(calls.filter(c=>c.uri==='/api/status').length,statusBeforeSave,
+    'an acknowledged restart must not immediately fetch status from the rebooting board');
+   assert.equal(await page.locator('#on-1').isDisabled(),true);
+   assert.equal(await page.locator('#save').isDisabled(),true);
    await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);
    assert.equal(await page.locator('#matter-code').textContent(),'');
    assert.equal(await page.locator('#matter-code').isHidden(),true);

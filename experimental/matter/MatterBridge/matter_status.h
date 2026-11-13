@@ -31,10 +31,11 @@ void matterStatusRoute() {
   header["uptime_ms"] = view.now; header["scanning"] = view.scanning;
   header["scan_finished_ms"] = view.scanFinishedMs; header["scan_truncated"] = view.foundTruncated;
   if (header.overflowed()) { fail(503,"OUT_OF_MEMORY"); return; }
+  CountSink count; JsonStreamWriter counter(count);
+  if (!streamStatus(header,view,counter,true)) { view.clear(); fail(503,"OUT_OF_MEMORY"); return; }
   server.sendHeader("Cache-Control","no-store");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.setContentLength(count.size);
   server.send(200,"application/json; charset=utf-8","");
-  JsonHttpSink sink; StatusWriter<JsonHttpSink> writer(sink);
-  if (streamStatus(header,view,writer,true)) server.sendContent("");
-  else server.client().stop();
+  JsonHttpSink sink; JsonStreamWriter writer(sink);
+  if (!streamStatus(header,view,writer,true)) server.client().stop();
 }
