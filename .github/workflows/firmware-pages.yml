@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -90,15 +90,24 @@ jobs:
           python tools/build_matter.py
       - uses: actions/cache@v4
         with:
-          path: .pio/tasmota-pio-core
-          key: ${{ runner.os }}-tasmota-2026.11.50-pioarduino-6.2.0.post1
-      - name: Build complete Tasmota Matter prototype
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.rustup/toolchains/esp
+          key: ${{ runner.os }}-rs-matter-esp-1.97.0.0-${{ hashFiles('experimental/rs-matter/rust/Cargo.lock') }}
+      - name: Install pinned ESP32 Rust toolchain
         run: |
-          python -m venv .tools/tasmota-venv
-          .tools/tasmota-venv/bin/pip install -r tools/requirements-tasmota-build.txt
-          .tools/tasmota-venv/bin/python tools/build_tasmota.py
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_tasmota.cpp -o /tmp/lighthouse-tasmota-test
-          /tmp/lighthouse-tasmota-test
+          mkdir -p .tools
+          curl -fsSL https://github.com/esp-rs/espup/releases/download/v0.19.0/espup-x86_64-unknown-linux-gnu -o .tools/espup
+          chmod +x .tools/espup
+          .tools/espup install --targets esp32 --toolchain-version 1.97.0.0 --export-file .tools/rs-export.sh
+      - name: Build complete rs-matter prototype
+        run: |
+          . .tools/rs-export.sh
+          CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py
+          CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path experimental/rs-matter/rust/Cargo.toml
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test
+          /tmp/lighthouse-rs-matter-test
       - name: Build WebFlasher site
         run: python tools/build_pages.py
       - name: Test WebFlasher assets
@@ -130,8 +139,8 @@ jobs:
             .pio/build/esp32dev/firmware.map
             .pio/matter-build/MatterBridge.ino.elf
             .pio/matter-build/MatterBridge.ino.map
-            .pio/tasmota-src/.pio/build/lighthouse/firmware.elf
-            .pio/tasmota-src/firmware.map
+            .pio/rs-matter-build/RsMatter.ino.elf
+            .pio/rs-matter-build/RsMatter.ino.map
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

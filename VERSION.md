@@ -3,6 +3,16 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Independent Rust prototype 0.1.0-rs-matter
+
+Replace the experimental Tasmota backend, builder and installer with the native
+Rust rs-matter implementation. The shared dashboard/API/authentication, sequential
+BLE worker and validated OTA receiver remain. Preserve the complete partition
+layout and retained station endpoint IDs. Independent protocol state uses NVS
+namespace lhrsmatter; switching engines requires new pairing, without erasing
+Wi-Fi, the own password, API key or station assignments. Stable and SDK Matter
+releases are unchanged. Alexa compatibility and runtime memory need hardware tests.
+
 ## Experimental Tasmota pairing-control UI correction 0.1.6-tasmota
 
 Automatic pairing-status refresh no longer disables/enables the two setup buttons

@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#ifdef LH_TASMOTA_BUILD
-#include "tasmota_runtime.h"
+#ifdef LH_RS_MATTER_BUILD
+#include "rs_runtime.h"
 #endif
-#if defined(LH_MATTER_BUILD) && !defined(LH_TASMOTA_BUILD)
+#if defined(LH_MATTER_BUILD) && !defined(LH_RS_MATTER_BUILD)
 #include <Matter.h>
 #elif !defined(LH_MATTER_BUILD)
 #include <Espalexa.h>
@@ -122,8 +122,8 @@ struct JsonHttpSink {
 };
 #endif
 void restartBridge() {
-#ifdef LH_TASMOTA_BUILD
-  if (!lh_tasmota_checkpoint()) Serial.println("Tasmota Matter checkpoint failed.");
+#ifdef LH_RS_MATTER_BUILD
+  // rs-matter commits every persistence mutation before acknowledging it.
 #endif
   ESP.restart();
 }
@@ -532,8 +532,8 @@ void bleWorker(void*) {
 
 #ifdef LH_MATTER_BUILD
 #include "matter_config_io.h"
-#ifdef LH_TASMOTA_BUILD
-#include "tasmota_matter_adapter.h"
+#ifdef LH_RS_MATTER_BUILD
+#include "rs_matter_adapter.h"
 #else
 #include "matter_adapter.h"
 #endif
@@ -729,8 +729,8 @@ void acceptOtaBytes(uint8_t* bytes, size_t count) {
   if (error) cancelOta(error);
 }
 void otaUpload() {
-#ifdef LH_TASMOTA_BUILD
-  lh_tasmota_pump();
+#ifdef LH_RS_MATTER_BUILD
+  lh_rs_pump();
 #endif
   auto& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
@@ -1003,7 +1003,7 @@ void configureRoutes() {
   });
   server.on("/api/matter/commissioning", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
-#ifdef LH_TASMOTA_BUILD
+#ifdef LH_RS_MATTER_BUILD
     StaticJsonDocument<64> request;
     if (!readBody(request)) return;
     if (!request.is<JsonObject>() || request.size()) { fail(400, "JSON_INVALID"); return; }

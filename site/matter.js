@@ -1,12 +1,12 @@
-import { translations } from './translations.js?v=tasmota-0.1.6';
-import { validMatterParts, validTasmotaParts } from './flash-layout.mjs?v=tasmota-0.1.6';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.6';
-import { parseMatterInfo } from './matter-info.mjs?v=tasmota-0.1.6';
+import { translations } from './translations.js?v=rs-matter-0.1.0';
+import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.0';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.0';
+import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.0';
 
 const $ = id => document.getElementById(id);
-const isTasmota = document.body.dataset.prototype === 'tasmota';
-const prototypeName = isTasmota ? 'tasmota' : 'matter';
-const validPrototypeParts = isTasmota ? validTasmotaParts : validMatterParts;
+const isRsMatter = document.body.dataset.prototype === 'rs-matter';
+const prototypeName = isRsMatter ? 'rs-matter' : 'matter';
+const validPrototypeParts = isRsMatter ? validRsMatterParts : validMatterParts;
 const supported = value => value === 'en' || value === 'de';
 const languageKey = 'lighthouse-bridge.language';
 let language = 'en', ready = false, version = '', loadState = 'checking';
@@ -52,8 +52,8 @@ function measurement(station) {
 }
 function setLanguage(value, remember = false) {
   language = supported(value) ? value : 'en'; document.documentElement.lang = language; $('language').value = language;
-  document.title = text(isTasmota ? 'tasmota_page_title' : 'matter_page_title');
-  document.querySelector('meta[name="description"]').content = text(isTasmota ? 'tasmota_description' : 'matter_description');
+  document.title = text(isRsMatter ? 'rs_matter_page_title' : 'matter_page_title');
+  document.querySelector('meta[name="description"]').content = text(isRsMatter ? 'rs_matter_description' : 'matter_description');
   document.querySelectorAll('[data-i18n]').forEach(node => { node.innerHTML = text(node.dataset.i18n); });
   document.querySelectorAll('[data-i18n-aria-label]').forEach(node => node.setAttribute('aria-label',text(node.dataset.i18nAriaLabel)));
   if (remember) {

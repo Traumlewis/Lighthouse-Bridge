@@ -14,6 +14,7 @@ class SourceArchiveTests(unittest.TestCase):
         self.assertFalse(source_path_allowed(Path('.codex-attachments/session/Log.txt')))
         self.assertFalse(source_path_allowed(Path('nested/.codex-attachments/secret.txt')))
         self.assertFalse(source_path_allowed(Path('nested/.cache/compiler-object')))
+        self.assertFalse(source_path_allowed(Path('experimental/rs-matter/rust/target/private-object')))
         self.assertTrue(source_path_allowed(Path('src/main.cpp')))
 
     def test_matter_zip_has_every_local_header_and_build_requirements(self):

@@ -758,228 +758,61 @@ Never copy the credential-bearing raw log into the repository.
   simulations pass. Matter app 1,963,600/1,966,080 bytes (2480 flash bytes reserve),
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
-## Experimental Tasmota prototype
-
-- Owner explicitly requests a complete separate Tasmota-based Matter prototype.
-  `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
-  configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.6-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
-- Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
-  2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
-  environment. Application NimBLE stays 2.5.2 with one connection and central/
-  observer only, using a configuration header after the upstream rename shim.
-  Never shrink stacks, MTU or pools to conceal insufficient hardware RAM.
-- Tasmota is GPL-3.0-or-later: prototype packages must include its license and
-  complete corresponding application source/build patches; stable license stays.
-- Disable Tasmota HTTP, console command input, MQTT, raw OTA, shared NVS settings,
-  automatic reset/erase, external preinit/autoexec and partition resize paths.
-  Lighthouse exclusively owns WLAN/portal, physical USB, authenticated HTTP and
-  validated inactive-slot OTA. Keep the exact complete dual-slot table.
-- The custom flash-solidified Berry light type only queues explicit On/Off/Toggle;
-  toggle requires a fresh measurement. Only measured C++ state updates OnOff and
-  Reachable. Keep command coalescing, generation checks and confirmation logic.
-- Reuse lhmatter endpoint registry and setup credentials; aggregator remains 2,
-  former first light remains 1, no endpoint renumbering. Tasmota fabric files are
-  separate in the existing 192-KiB filesystem. Existing SDK fabrics remain stored
-  for return; switching engines requires pairing the prototype anew.
-- Mount filesystem without formatting; initialize only if the entire fixed data
-  partition is erased. Fail closed on nonempty/corrupt storage, never auto-format
-  saved fabrics. No filesystem upload or factory image is an upgrade path.
-- No hardware attached. Build, host Berry, browser, RAM and multi-station device
-  verification must be recorded accurately before offering this prototype.
-
-- Tasmota additions are flash-solidified, including Lighthouse classes/closures.
-  Prune generic plugin registration to On/Off lights and replace its unused Matter
-  UI with an inert constructor; our authenticated dashboard owns setup. Disable
-  automatic tapp loading as well as external preinit/autoexec. Preserve Matter's
-  credential/session/security implementations and required light clusters.
-- The pinned NimBLE library has one local declaration-only compatibility fix:
-  ble_gap.c declares is_ble_hs_resolv_enabled as uint8_t to match its definition
-  under GCC 15 LTO. No BLE algorithm, stacks, MTU or packet pools are changed.
-  Tasmota WiFiSetSleepMode is disabled; production retains WIFI_PS_MIN_MODEM.
-- Planned restarts save fabric files and stop the engine. Only the main loop
-  touches Berry; checked HTTP writes and upload chunks may pump its fast loop
-  when the VM stack is empty. BLE worker callbacks never invoke Berry.
-- Tasmota local validation: all three firmware builds, fourteen native suites,
-  twenty-four Python checks (including real-host Berry zero/one/sixteen-light
-  composition and serialized light type/PartsList) and nine browser/USB programs
-  pass. App 1,700,960/1,966,080 bytes; static RAM 73,004 bytes versus SDK 123,284.
-  These are linker figures, not measured runtime free heap. Subsequent owner
-  startup/RAM evidence and the missing-dependency correction are recorded below.
-
-## Tasmota 0.1.1 native mDNS dependency
-
-- Owner 0.1.0 hardware evidence confirms usable HTTP recovery and free_8bit about
-  72–74 KiB at failed startup. lh_begin throws import_error. This is not operational
-  headroom evidence: the complete Matter model/radio worker never reaches ready.
-- The original linked ELF lacks be_native_module_mdns. The generic USE_DISCOVERY
-  switch gated Berry's registry entry, native C module and C++ mDNS functions.
-  0.1.1 enables those three using dedicated USE_BERRY_MDNS, while USE_DISCOVERY
-  stays disabled. Do not enable generic Tasmota discovery or tear down Matter DNS-SD.
-- Packaging validates json/crypto/mdns/path/introspect/string/math/matter modules
-  in the actual linked ELF. Boot probes required imports and logs only fixed module
-  names on failure. No raw exception message, pairing code or credentials in logs.
-- Failed startup intentionally withholds the BLE worker and pairing code; the
-  displayed bridge name is configuration, not proof that Matter is running.
-  Preserve authenticated HTTP/OTA recovery, station/endpoint identities, fabrics,
-  layout and no automatic power commands. Hardware commissioning remains unproven;
-  the subsequent 0.1.1 startup retest is recorded below.
-
-- Local 0.1.1 validation: app 1,704,880/1,966,080 bytes, static RAM 73,004;
-  linked-module check, 25 Python tests and nine browser/USB programs pass. The
-  prior fourteen native suites were unchanged for that release. Subsequent hardware
-  evidence below establishes startup, separately from these software checks.
-
-## Tasmota 0.1.2 pairing diagnostics
-- Owner 0.1.1 evidence reaches Matter/BLE ready, discovers four stations, retains
-  config across the planned restart and confirms one ON command with observed 11.
-  Ready free_8bit is 68,600/69,340 bytes. This is specific startup/read/one-command
-  evidence, not long-run or successful Alexa pairing validation. Intermittent BLE
-  574 reads/recoveries remain. Never commit the raw credential-bearing attachment.
-- Owner reports Echo generation 5 (2022), consistent with Echo Dot 5, and GS014
-  after the app displays its connection-in-progress screen. Exact commissioning
-  phase and paired state remain unknown; do not infer completion from UI wording.
-- 0.1.2 adds fixed numeric Matter metadata/counters to the physical serial log every
-  15 seconds: received packets, last non-ACK secure/IM opcodes, General Commissioning
-  and Operational Credentials command bit masks, send failures, unacked packets,
-  receive exceptions, mDNS exceptions, locally handled CommissioningComplete,
-  commissioning-window/announcement flags, fabric count (no IDs), local IPv6
-  presence and free byte heap. Counters are cumulative since boot and
-  saturate. 0xffff means no opcode seen. No packet contents, peers, fabric IDs,
-  codes, passcodes, certificates, keys or raw exception text enter these diagnostics.
-- Keep generic Tasmota logs disabled. Diagnostic callbacks are main-thread-only,
-  accept integers only, never affect protocol decisions, power or persistence.
-  A handled completion is not proof that Alexa received/accepted the response.
-  This is a diagnostic release, not a demonstrated GS014 fix. No reset/identity
-  replacement is authorized by this evidence.
-- Local 0.1.2 build: 1,706,384/1,966,080 app bytes; static RAM 73,060 bytes.
-  Updated native diagnostic-policy coverage, 25 Python checks and nine browser/USB
-  programs pass; hardware pairing remains unresolved pending a diagnostic retest.
-
-## Tasmota 0.1.3 network lifecycle
-- Owner 0.1.2 retest still reports Alexa GS014. Numeric diagnostics progress from
-  rx=0 to 35 to 79, complete=1, fabrics=1, secure opcode 0x32 and IM opcode 1.
-  General/credential masks finish at 0x55/0xc55. send_fail, unacked and rx_error
-  stay zero; mdns_error=1 exists before traffic and ipv6_local=no throughout.
-  This proves local CommissioningComplete handling, not successful Alexa setup.
-  Do not attribute the whole GS014 failure to IPv6 or mDNS from this evidence.
-- Pinned WiFiManager autoConnect with hostname stops STA; Arduino deletes its
-  interface event group and resets initial bits, losing the pre-portal IPv6 request.
-  Reapply IPv6 after connection and reconnect on the main thread, with a 30-second
-  missing-address retry. Do not disable modem sleep or require Internet IPv6.
-- Tasmota's Device constructor already starts on an available network. Make the
-  Lighthouse start override idempotent while UDP is listening, preserving explicit
-  start for deferred startup. This avoids duplicate hostname registration.
-- Refresh delegated hostname A/AAAA addresses after startup, address changes and
-  observed reconnects, on the main loop. Existing delegate names use the SDK's
-  mdns_delegate_hostname_set_address; new ones use add. Preserve bound services,
-  commissioning windows, credentials/fabrics/endpoints; never remove hosts or call
-  MDNS.end(), reset NVS or send automatic power. Failed refreshes retry after 2 s
-  with fixed error type and mDNS counter, not raw message/address logs.
-- GS014 remains a hardware retest. Software proof of the lifecycle defects does
-  not establish that these defects explain the Alexa app's final error.
-- Local 0.1.3 software verification: app 1,707,392/1,966,080 bytes, static RAM
-  73,124 bytes; updated native policy suite, all 25 Python checks and all nine
-  browser/USB programs pass. Real IPv6/mDNS/Alexa behavior remains unverified.
-
-## Tasmota 0.1.4 manual window-code renewal
-- Owner 0.1.3 retest now shows ipv6_local=yes/mdns_error=0, including recovery
-  after reconnect. The entire new search interval has window=closed/advertised=no
-  and rx=0 with one retained fabric. Alexa asks for a new setup code. This is a
-  closed-window sample, not a new failed PASE/CASE exchange or proof GS014 is fixed.
-- Owner explicitly requests manual setup-code rotation. In Tasmota only, POST
-  /api/matter/commissioning now replaces an active window with a fresh valid random
-  PIN/discriminator and opens 900 seconds of commissioning. Duplicate pending
-  requests coalesce; separate explicit activations replace the code. The SDK's
-  existing open/pending coalescing behavior stays as documented above.
-- Use pinned Tasmota passcode validation/generation, manual-code checksum and
-  SPAKE2+ verifier construction. Temporary root fields are restored on success and
-  failure before leaving Berry. Do not save the per-window PIN/discriminator to
-  NVS or files, alter bootstrap credentials, reset fabrics/endpoints/stations or
-  send power. The local-owner action uses Tasmota's Basic commissioning path;
-  do not label it a controller-created Enhanced Commissioning Window.
-- Expose a code only for an actually open matching window; saved code/salt markers
-  distinguish a locally generated window from another administrator's window.
-  Closed, failed, pending and unknown enhanced windows expose null. A ready bridge
-  may validly have no code. A fresh code differs from bootstrap and prior local code.
-- Personal-password session, Origin and JSON checks protect the existing POST;
-  Tasmota additionally requires an empty JSON object. No API key/bootstrap access.
-  General status/account, logs and URLs contain no code. Keep raw engine logs off.
-- The Tasmota-only dashboard transform relabels the button New code & open pairing
-  window, with EN/DE instructions. Clear a stale code before requesting renewal,
-  poll private read-only info while open/pending, stop on closure/logout and clear
-  timers/secrets on logout. A failed request clears pending UI and allows retry.
-  Default stable/SDK HTML stays unchanged; SDK gzip equality is checked locally.
-- Host Berry tests exercise renewal, old/new code distinction, verifier PIN capture,
-  original-field restoration, failure closure, expiry and foreign-window privacy.
-  Native cryptography/checksum are host stubs; production uses pinned real bindings.
-  Browser tests use mocks. Actual fresh-code Alexa pairing remains a hardware test.
-- Local 0.1.4 verification: app 1,708,272/1,966,080 bytes, static RAM 73,124;
-  25 Python checks, updated host Berry lifecycle cases and all nine browser/USB
-  programs pass. Error/retry/private-fetch recovery is covered in the Tasmota
-  dashboard; native checksum/crypto are mocked on the host. Hardware retest pending.
-
-## Tasmota 0.1.5 Interaction Model diagnostics
-- Owner 0.1.4 retest opens/advertises its window, reaches rx=79/CASE opcode 0x32,
-  IM opcode 1 and locally handled complete=1 with IPv6 present and zero counted
-  send/unacked/receive/mDNS errors, yet Alexa returns GS014. A later attempt reaches
-  rx=120 and fabrics=0; this is not a second completed commissioning. Owner says
-  both individual stations and the Matter bridge were already removed in Alexa.
-  Exact deletion timing is not captured; do not attribute fabric removal to an
-  automatic rollback or recommend repeated mass deletion based on this excerpt.
-- Existing counters do not include protocol response failures. 0.1.5 instruments
-  both solo/pull attribute reads, write statuses and solo/batched invokes, preserving original
-  command IDs before handlers mutate them into response IDs. Track client IM
-  status errors, Subscribe requests and completed RemoveFabric evaluations too.
-- Numeric-only five-argument diagnostics supplement the existing three-argument
-  callback. Store eight fixed-size pending path records, explicit discard count,
-  saturating totals and first/last errors. No heap allocation in the recorder.
-  Flush summaries/traces with the existing 15-second serial cadence; never log
-  values, command bodies, keys, certificates, peer/node/fabric identities or codes.
-- Trace format R/W/C:endpoint/cluster/id=status uses full 32-bit cluster/id. Status
-  000 means handler yielded a value/success, 100 means ignored/deferred, 101 is an
-  attempt without a recorded result. 201..2ff denotes a whitelisted nonzero
-  GeneralCommissioning/OperationalCredentials response enum (subtract 0x200).
-  Only those explicit numeric status fields are examined, never crypto responses.
-  Other <=ff statuses are IM status codes. Optional unsupported reads/commands
-  need not explain pairing failure. Success metadata does not prove encoding,
-  transmission or client acceptance. Attribute evaluations can repeat during pull
-  or subscription reporting; do not interpret totals as unique network requests.
-- Protocol capabilities, versions, identities, PIN windows, power and persistence
-  are unchanged. This is diagnostic evidence collection, not a claimed GS014 fix.
-  Native tests cover bounded records, overflow, saturation, error preservation,
-  32-bit IDs and status categories. Real host Berry tests exercise actual read and
-  solo-invoke encoding plus safe response-enum extraction using synthetic data.
-- Local 0.1.5 verification: app 1,710,672/1,966,080 bytes, static RAM 73,348;
-  updated native diagnostics suite, all 25 Python checks and nine browser/USB
-  programs pass. Hardware GS014 cause remains unresolved pending the new trace.
-
-## Tasmota 0.1.6 stable pairing controls
-- Owner 0.1.5 UI report: Check/Show code displays a bridge name without a code;
-  active-window polling repeatedly disables/enables both buttons. The supplied
-  trace reaches rx=35/PASE opcode 0x24, no complete, and one invoke error at
-  endpoint 0 / cluster 0x30 / command 6, status 0x81. Certificate-chain requests
-  and AttestationRequest follow it. No later result is captured in this excerpt.
-- Command 6 is optional SetTCAcknowledgements. This build advertises TC feature
-  off, matching the reference CHIP server's UnsupportedCommand behavior when TC
-  is disabled. Do not automatically acknowledge terms, fake TC support or claim
-  that this probe alone explains GS014; following requests demonstrate progress.
-- Tasmota-only UI marks automatic private-info polling as background work so it
-  does not toggle button disabled state. A manual action during that fetch queues
-  once; renewal takes priority over a read. The existing JSON request queue still
-  serializes network IO. Logout cancels timers and queued actions using epochs.
-- Preserve unchanged name/status/code text nodes during background refresh, so
-  code selection and accessible status announcements stay stable. Manual renewal
-  and real pending state still disable the appropriate controls.
-- The read-only button is labeled Show active code / pairing status in EN/DE.
-  A closed window explicitly says no active code and names the renewal action.
-  Unknown-window code errors give an actionable renewal hint. Never fabricate or
-  expose a code when closed; GET/status/language changes do not rotate credentials.
-- Browser tests hold actual generated-page HTTP reads and invoke the scheduled
-  timer callback, observing zero button/text mutations during unchanged polling.
-  Manual Show and renewal during a held background fetch must execute afterwards,
-  with no unintended POST for read-only actions. Host Berry verifies TC remains
-  unadvertised and the optional probe stays unsupported. GS014 remains unresolved.
-- Local software verification: app 1,710,816/1,966,080 bytes, static RAM
-  73,348 bytes; 25 Python tests and all nine browser programs pass. Browser
-  checks use simulated HTTP/USB; no physical pairing or flash was performed.
+## Independent rs-matter prototype
+- The owner replaced the Tasmota experiment with **0.1.0-rs-matter**. Its source,
+  Berry runtime, builder, dedicated tests and public installer are removed. Stable
+  0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
+- `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
+  a no_std Rust static library. Pin project-chip/rs-matter revision
+  43f61585a439f1a1e90924b696a6280850ef0145 and commit Cargo.lock. Pin Espressif Rust
+  1.97.0.0 / espup 0.19.0, Arduino ESP32 3.3.12 and the existing library versions.
+  It targets xtensa-esp32-none-elf and links only to the classic ESP32 app.
+  No Tasmota/Berry or C++ CHIP protocol stack is linked into this prototype.
+- Preserve the exact partition table, both 1.875 MiB app slots, four USB offsets,
+  own-password sessions, API key, OTA validation and stable station assignments.
+  `lhmatter/endpoints` keeps the existing registry/identities and aggregator 2.
+- Rust owns Matter fabrics, ACLs and protocol state in independent `lhrsmatter`
+  NVS blobs, committed before successful persistence returns. Former engine fabric
+  formats are incompatible: pairing again is required when changing engines.
+  Do not erase prior NVS/fabrics or the old data partition automatically.
+- Commission only over the saved WLAN connection. The Matter network driver does
+  not initialize or release Bluetooth. The single production NimBLE worker stays
+  its sole owner. Matter commands queue measured-state ON/SLEEP/Toggle through
+  the shared command policy; no boot/reconnect/virtual optimistic power writes.
+- Rust polling and FFI entry points run only on the foreground Arduino task.
+  No FFI polling from the BLE worker/interrupts; global Rust state cannot be used
+  concurrently or re-entrantly. Networking is nonblocking and network IO holds no
+  stateMutex. The executor polls every foreground loop and drives Embassy timers.
+- Root/aggregator/bridged Descriptor metadata use actual retained endpoint IDs,
+  not array positions. OnOff and Reachable read current C++ measurements and
+  notify changes from the Rust handler; command acceptance never changes them.
+- Manual private setup-code renewal remains personal-session/Origin/JSON gated,
+  coalesces pending requests and opens a fresh 15-minute Basic window. Track the
+  exact window identity; closed, pending or unknown enhanced windows expose no
+  cached code. Codes remain transient and clear with logout/restart.
+- `tools/build_rs_matter.py` builds/packages split images, OTA/checksums/source ZIP
+  in `dist/rs-matter`; `site/rs-matter.html` replaces the Tasmota page. Validate
+  complete partition equality, app-slot bounds and identical OTA payloads before
+  offering artifacts. Keep Rust dependency resolution locked in CI.
+- rs-matter owns DNS-SD and advertises the saved custom hostname; never stop it
+  via MDNS.end(). Retain all usable interface IPv6 addresses and re-read network
+  state after reconnect. HTTP remains accessible by IP for recovery.
+- All full-build, browser and host checks are software evidence only. No physical
+  ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
+  prolonged 16-station coexistence remain unverified. The former Tasmota owner's
+  GS014 report does not establish rs-matter compatibility or a verified fix.
+- Local validation: app 1,829,712/1,966,080 bytes, static RAM 66,812 bytes; four
+  real-Rust host tests (startup/persistence/window/expiry/sparse model with host
+  shims), fourteen native C++ programs, 22 Python checks and nine browser/USB
+  programs pass. The Arduino foreground stack is 24 KiB; BLE remains 8 KiB.
+  Explicit Matter timed commands issue one expiry request, cancelled if a newer
+  command generation supersedes it; they never create a startup timer or resend.
+- The saved Wi-Fi configuration remains owned by Lighthouse. Seed rs-matter's
+  Network Commissioning store from it; never acknowledge a connection to different
+  credentials as successful just because the current link is connected. Reapply
+  IPv6 policy and modem sleep after connection/reconnection without power writes.
+- CI allows 45 minutes for all three firmware variants and native Rust tests.
+  Source archives exclude Rust target directories and private attachments and
+  include dependency licenses. Packaging refuses stale source fingerprints.
+- No commissioning window is advertised on startup. The personal-session renewal
+  action opens it only after both rs-matter and the BLE worker are ready.

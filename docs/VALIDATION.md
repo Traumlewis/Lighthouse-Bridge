@@ -1,5 +1,29 @@
 # Validation report — 0.3.9
 
+## Independent rs-matter prototype 0.1.0-rs-matter
+
+The owner explicitly replaced the Tasmota experiment. Its active firmware,
+installer, runtime, packaging and tests have been removed. Historical Tasmota
+results below describe the retired implementation and are not evidence for the
+new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
+its no_std library links with the existing production C++ dashboard/API/OTA and
+single NimBLE worker. The final local build is 1,829,712/1,966,080 app bytes, with 66,812 static RAM
+bytes. Runtime Rust objects are allocated separately; these linker figures do not
+establish operational headroom. The Arduino foreground task reserves 24 KiB and
+the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.
+
+Four real-Rust host tests pass, including actual stack startup with synthetic
+network/NVS shims, correct verifier/manual-code agreement, renewal, expiry, 0/16
+and sparse endpoint models, invalid configuration rejection and no startup/window
+power commands. Explicit timed commands expire once and yield to superseding
+command generations. These tests do not exercise a physical network or flash.
+All fourteen native C++ programs, 22 Python checks and nine simulated browser/USB
+programs pass locally. The stable firmware also builds. Packaging checks exact
+partition equality, classic chip ID, slot bounds, identical OTA payload and
+rebuild sources; Cargo dependency licenses are included with ZIP-safe timestamps. No device is
+attached and no successful Alexa pairing, runtime heap margin or physical update
+has been established for rs-matter.
+
 ## Tasmota pairing-control UI correction 0.1.6-tasmota
 
 Owner 0.1.5 evidence: window opens and advertises with IPv6 present and no

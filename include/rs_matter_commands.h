@@ -9,7 +9,7 @@ inline size_t matterLabelBytes(const char* name) {
 }
 struct MatterCommandAcceptance { unsigned station = 0; bool on = false; };
 // Caller holds the shared state lock. The result never mutates observations.
-inline MatterCommandAcceptance acceptTasmotaCommand(const StationConfig* configs, StationState* states,
+inline MatterCommandAcceptance acceptRsMatterCommand(const StationConfig* configs, StationState* states,
     const MatterRegistry& registry, uint16_t endpoint, unsigned command, uint32_t now,
     bool ready, bool blocked) {
   MatterCommandAcceptance result;

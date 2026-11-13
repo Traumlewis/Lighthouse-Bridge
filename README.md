@@ -32,9 +32,9 @@ Repeat to turn Debug off. Cards keep their size; long diagnostics scroll inside.
 See [VERSION.md](VERSION.md) for the version history and [validation](docs/VALIDATION.md)
 for software checks and hardware evidence.
 
-A separate [Tasmota Matter prototype](experimental/tasmota/README.md) is available
-through its [own WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/tasmota.html).
-It combines Tasmota's Berry Matter engine with the complete Lighthouse dashboard,
+A separate [rs-matter prototype](experimental/rs-matter/README.md) is available
+through its [own WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/rs-matter.html).
+It combines the independent Rust rs-matter implementation with the complete Lighthouse dashboard,
 authentication, API, BLE worker and OTA receiver. The original app slots/NVS and
 station/endpoint identities are retained. Changing Matter engines requires a new
 pairing; the previous fabric data stays stored for return. Actual RAM headroom,
@@ -161,14 +161,10 @@ g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lh-co
 /tmp/lh-core
 python tools/package_release.py
 python tools/build_matter.py
-python3.12 -m venv .tools/tasmota-venv
-.tools/tasmota-venv/bin/pip install -r tools/requirements-tasmota-build.txt
-.tools/tasmota-venv/bin/python tools/build_tasmota.py
-python tools/build_pages.py
-python -m unittest discover -s test -p 'test_*.py' -v
-node test/serial_info.cjs
-npm install
-npm test
+espup install --targets esp32 --toolchain-version 1.97.0.0 --export-file .tools/rs-export.sh
+. .tools/rs-export.sh
+python -m pip install -r tools/requirements-matter-build.txt
+python tools/build_rs_matter.py
 ```
 
 CI also runs native Hue, configuration-migration and OTA-header tests (ArduinoJson

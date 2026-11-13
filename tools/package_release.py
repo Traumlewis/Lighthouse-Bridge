@@ -15,7 +15,7 @@ VERSION = "0.3.9"
 
 def source_path_allowed(relative):
     return not any(part in {".pio", "dist", "_site", "node_modules", ".venv", ".tools", ".platformio",
-                           ".playwright", "__pycache__", ".git", ".codex-attachments", ".cache", ".pytest_cache"} for part in relative.parts)
+                           ".playwright", "__pycache__", ".git", ".codex-attachments", ".cache", ".pytest_cache", "target"} for part in relative.parts)
 
 
 def main():

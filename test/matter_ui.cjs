@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const site=path.resolve(__dirname,'../_site');
-const prototypeName=process.env.LH_PROTOTYPE==='tasmota'?'tasmota':'matter';
+const prototypeName=process.env.LH_PROTOTYPE==='rs-matter'?'rs-matter':'matter';
 const version=JSON.parse(fs.readFileSync(path.join(site,prototypeName+'-manifest.json'),'utf8')).version;
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});

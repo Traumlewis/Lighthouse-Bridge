@@ -1,16 +1,16 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.6-tasmota**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.0-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
-The Tasmota variant uses the same API/auth/state semantics. Its private Matter
-information additionally reports `engine: "tasmota-berry"` and the current
-`engine_heap_bytes` (Berry-managed allocation size, not total free system RAM). Setup
-credentials and stable endpoint IDs are shared with the SDK prototype; fabrics
-are separate and changing engines requires pairing again. See the
-[Tasmota guide](../experimental/tasmota/README.md).
+The rs-matter variant uses the same API/auth/state semantics and additionally
+reports `engine: "rs-matter"` in personal-session Matter information. Its own
+protocol state is saved in `lhrsmatter`; station endpoints remain in `lhmatter`.
+Fabric formats are not imported between engines, so switching requires a new
+pairing. Wi-Fi, own password, API key and station assignments are retained. See
+the [rs-matter guide](../experimental/rs-matter/README.md).
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -414,9 +414,9 @@ requests rejected. `BLE_NO_MEMORY` reports a guarded client-allocation attempt,
 without sending power or changing observed readings. The saved station record and
 endpoint/fabric identities are not cleared to recover from failed startup.
 
-### Tasmota manual pairing-code renewal
+### rs-matter manual pairing-code renewal
 
-In 0.1.6-tasmota, personal-session `POST /api/matter/commissioning` with `{}`
+In 0.1.0-rs-matter, personal-session `POST /api/matter/commissioning` with `{}`
 generates a fresh code and opens a 15-minute window, replacing any active local
 window. Pending duplicate calls coalesce. It returns 202 without a code; poll the
 personal-session `GET /api/matter` until `commissioning_pending` is false and

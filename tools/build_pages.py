@@ -11,7 +11,7 @@ import shutil
 from package_release import ROOT, VERSION
 from ota_package import unpack
 from build_matter import validate_segments, SEGMENTS, VERSION as MATTER_VERSION
-from build_tasmota import VERSION as TASMOTA_VERSION
+from build_rs_matter import VERSION as RS_MATTER_VERSION
 
 
 def build():
@@ -92,30 +92,34 @@ def build():
         if file.is_file() and file.suffix != '.tmp' and file.name != 'manifest.json':
             shutil.copy2(file, matter_output / file.name)
     shutil.copy2(matter / 'manifest.json', output / 'matter-manifest.json')
-    tasmota = ROOT / 'dist/tasmota'
-    tasmota_manifest = json.loads((tasmota / 'manifest.json').read_text())
-    if tasmota_manifest['version'] != TASMOTA_VERSION or len(tasmota_manifest['builds']) != 1 or tasmota_manifest['builds'][0]['chipFamily'] != 'ESP32':
-        raise ValueError('Unexpected Tasmota prototype identity')
-    tasmota_segments = [(offset,(tasmota / f'lighthouse-tasmota-{name}.bin').read_bytes()) for name,offset,_ in SEGMENTS]
-    validate_segments(tasmota_segments)
-    if tasmota_segments[1][1] != (ROOT/'dist/lighthouse-bridge-partitions.bin').read_bytes():
-        raise ValueError('Tasmota changes the complete partition table')
-    if unpack((tasmota / f'lighthouse-bridge-{TASMOTA_VERSION}.lhota').read_bytes()) != tasmota_segments[-1][1]:
-        raise ValueError('Tasmota OTA payload differs from application')
-    expected_parts = [{'offset':offset,'path':f'firmware/tasmota/lighthouse-tasmota-{name}.bin?sha='+hashlib.sha256(data).hexdigest()}
-                      for (name,offset,_),(_,data) in zip(SEGMENTS,tasmota_segments)]
-    if tasmota_manifest['builds'][0]['parts'] != expected_parts:
-        raise ValueError('Unsafe Tasmota manifest or checksum mismatch')
-    for line in (tasmota/'SHA256SUMS').read_text().splitlines():
+    rs_matter = ROOT / 'dist/rs-matter'
+    rs_manifest = json.loads((rs_matter / 'manifest.json').read_text())
+    if rs_manifest['version'] != RS_MATTER_VERSION or len(rs_manifest['builds']) != 1 or rs_manifest['builds'][0]['chipFamily'] != 'ESP32':
+        raise ValueError('Unexpected rs-matter prototype identity')
+    rs_segments = [(offset,(rs_matter / f'lighthouse-rs-matter-{name}.bin').read_bytes()) for name,offset,_ in SEGMENTS]
+    validate_segments(rs_segments)
+    if rs_segments[1][1] != (ROOT/'dist/lighthouse-bridge-partitions.bin').read_bytes():
+        raise ValueError('rs-matter changes the complete partition table')
+    if unpack((rs_matter / f'lighthouse-bridge-{RS_MATTER_VERSION}.lhota').read_bytes()) != rs_segments[-1][1]:
+        raise ValueError('rs-matter OTA payload differs from application')
+    expected_parts = [{'offset':offset,'path':f'firmware/rs-matter/lighthouse-rs-matter-{name}.bin?sha='+hashlib.sha256(data).hexdigest()}
+                      for (name,offset,_),(_,data) in zip(SEGMENTS,rs_segments)]
+    if rs_manifest['builds'][0]['parts'] != expected_parts:
+        raise ValueError('Unsafe rs-matter manifest or checksum mismatch')
+    for line in (rs_matter/'SHA256SUMS').read_text().splitlines():
         digest,name=line.split()
-        if Path(name).name!=name or hashlib.sha256((tasmota/name).read_bytes()).hexdigest()!=digest:
-            raise ValueError('Tasmota checksum mismatch')
-    tasmota_output = firmware/'tasmota'; tasmota_output.mkdir(exist_ok=True)
-    for file in tasmota.iterdir():
-        if file.is_file() and file.suffix!='.tmp' and file.name!='manifest.json': shutil.copy2(file,tasmota_output/file.name)
-    shutil.copy2(tasmota/'manifest.json',output/'tasmota-manifest.json')
+        if Path(name).name!=name or hashlib.sha256((rs_matter/name).read_bytes()).hexdigest()!=digest:
+            raise ValueError('rs-matter checksum mismatch')
+    rs_output = firmware/'rs-matter'; rs_output.mkdir(exist_ok=True)
+    for file in rs_matter.iterdir():
+        if file.is_file() and file.suffix!='.tmp' and file.name!='manifest.json': shutil.copy2(file,rs_output/file.name)
+    shutil.copy2(rs_matter/'manifest.json',output/'rs-matter-manifest.json')
+    # Retired experiment artifacts must also disappear on incremental builds.
+    for name in ['tasmota.html','tasmota-manifest.json']:
+        (output/name).unlink(missing_ok=True)
+    shutil.rmtree(firmware/'tasmota',ignore_errors=True)
     (output / '.nojekyll').touch()
-    print(f'GitHub Pages ready: {output}; stable {VERSION} and experiments {MATTER_VERSION} / {TASMOTA_VERSION}; unchanged slots/NVS; SHA256 {checksum}')
+    print(f'GitHub Pages ready: {output}; stable {VERSION} and experiments {MATTER_VERSION} / {RS_MATTER_VERSION}; unchanged slots/NVS; SHA256 {checksum}')
 
 
 if __name__ == '__main__':
