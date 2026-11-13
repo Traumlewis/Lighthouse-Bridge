@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.0-matter
+# Experimental Matter prototype — 0.3.1-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -6,6 +6,14 @@ The owner confirms that the prior single-station 0.1.1 test switches ON/OFF and
 shows the correct light type/status. Multiple stations, long-run reliability,
 specifically external state changes and this full integration still need
 hardware testing. No ESP32 or Echo is attached locally.
+
+The owner reports that full 0.3.0 loaded the web page but returned a memory error
+for status, showed no Matter section and no discovery results/logs. Version 0.3.1
+replaces the large status JSON allocation/text copy with a bounded snapshot and
+streamed response. The Matter section is also independent of general status.
+This is a software correction pending owner hardware retesting, not a claim of
+confirmed full operation. Discovery now logs queue/start/end; memory diagnostics
+report free/largest/minimum heap without credentials or device identifiers.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read

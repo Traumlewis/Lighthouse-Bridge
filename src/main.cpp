@@ -25,6 +25,7 @@
 #include "web_ui.h"
 #else
 #include "web_ui_gzip.h"
+#include "status_api.h"
 #endif
 #include "password_hash.h"
 
@@ -73,7 +74,11 @@ bool alexaReady = false;
 bool scanPending = false, scanning = false;
 bool refreshRequested[kStations]{};
 uint32_t scanFinishedMs = 0;
+#ifdef LH_MATTER_BUILD
+using FoundStation = StatusDiscovery;
+#else
 struct FoundStation { char name[48]; char mac[18]; uint8_t type; int rssi; };
+#endif
 FoundStation found[16]{};
 unsigned foundCount = 0;
 bool foundTruncated = false;
@@ -83,16 +88,32 @@ struct Lock {
   ~Lock() { xSemaphoreGive(stateMutex); }
 };
 
+#ifdef LH_MATTER_BUILD
+struct JsonHttpSink {
+  size_t write(const uint8_t* data, size_t size) {
+    if (!server.client().connected()) return 0;
+    server.sendContent(reinterpret_cast<const char*>(data),size);
+    return server.client().connected() ? size : 0;
+  }
+};
+#endif
 void sendJson(int code, const JsonDocument& doc) {
   if (doc.overflowed()) {
     server.sendHeader("Cache-Control", "no-store");
     server.send(500, "application/json", "{\"error\":\"OUT_OF_MEMORY\"}");
     return;
   }
-  String body;
-  serializeJson(doc, body);
   server.sendHeader("Cache-Control", "no-store");
-  server.send(code, "application/json; charset=utf-8", body);
+#ifdef LH_MATTER_BUILD
+  server.setContentLength(measureJson(doc));
+  server.send(code,"application/json; charset=utf-8","");
+  JsonHttpSink sink; StatusWriter<JsonHttpSink> writer(sink);
+  serializeJson(doc,writer);
+  if (!writer.flush()) server.client().stop();
+#else
+  String body; serializeJson(doc,body);
+  server.send(code,"application/json; charset=utf-8",body);
+#endif
 }
 void fail(int code, const char* message) {
   StaticJsonDocument<256> doc;
@@ -291,6 +312,7 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
 
 void discoverStations() {
   waitForBleCleanup();
+  Serial.println("BLE discovery: started (read-only, 5000 ms scan).");
   auto* scan = NimBLEDevice::getScan();
   scan->setActiveScan(true);
   scan->setInterval(97);
@@ -319,6 +341,7 @@ void discoverStations() {
     scanning = false;
     scanFinishedMs = millis();
   }
+  Serial.printf("BLE discovery: completed, found=%u, truncated=%s\n",count,truncated ? "true" : "false");
 }
 
 void bleWorker(void*) {
@@ -439,18 +462,17 @@ void bleWorker(void*) {
 
 #ifdef LH_MATTER_BUILD
 #include "matter_adapter.h"
+#include "matter_status.h"
 #endif
 
 void statusRoute() {
+#ifdef LH_MATTER_BUILD
+  matterStatusRoute();
+#else
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
   doc["version"] = LH_FIRMWARE_VERSION;
-#ifdef LH_MATTER_BUILD
-  doc["alexa_protocol"] = "matter";
-  doc["matter_ready"] = matterReady.load();
-  doc["matter_paired"] = matterPaired.load();
-  doc["matter_error"] = matterError.load();
-#endif
+
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -512,6 +534,7 @@ void statusRoute() {
     }
   }
   sendJson(200, doc);
+#endif
 }
 
 #ifndef LH_MATTER_BUILD
@@ -743,7 +766,10 @@ void configureRoutes() {
   });
   server.on("/api/account", HTTP_GET, [] {
     if (!authenticated(true, true)) return;
-    StaticJsonDocument<384> doc;
+    StaticJsonDocument<512> doc;
+#ifdef LH_MATTER_BUILD
+    doc["alexa_protocol"] = "matter"; doc["matter_ready"] = matterReady.load();
+#endif
     doc["password_required"] = !webHash.length();
     doc["setup_ssid"] = apName; doc["hostname"] = hostname;
     doc["device_name"] = customDeviceName;
@@ -800,13 +826,19 @@ void configureRoutes() {
   });
   server.on("/api/scan", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-    { Lock lock; if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; } if (!scanning) scanPending = true; }
+    bool queued = false;
+    { Lock lock; if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; } if (!scanning) { queued = !scanPending; scanPending = true; } }
+    if (queued) Serial.println("BLE discovery: queued (read-only).");
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/config", HTTP_POST, [] {
     if (!mutationAllowed()) return;
     if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; }
+#ifdef LH_MATTER_BUILD
+    DynamicJsonDocument doc(kStationJsonCapacity);
+#else
     DynamicJsonDocument doc(16384);
+#endif
     if (!readBody(doc)) return;
     std::unique_ptr<StationConfig[]> next(new (std::nothrow) StationConfig[kStations]);
     std::unique_ptr<StationState[]> restored(new (std::nothrow) StationState[kStations]);
@@ -818,6 +850,7 @@ void configureRoutes() {
     }
     doc.clear(); doc["next_id"] = counter;
     writeStationList(doc.createNestedArray("stations"), next.get(), true);
+    if (doc.overflowed()) { fail(503,"OUT_OF_MEMORY"); return; }
     String saved; serializeJson(doc, saved);
     bool busy = false, persisted = false;
 #ifdef LH_MATTER_BUILD
@@ -960,10 +993,14 @@ void startServices() {
   if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
   const String saved = prefs.getString("stations", "");
 #ifdef LH_MATTER_BUILD
-  bool validSavedConfig = !saved.length();
+  bool validSavedConfig = !saved.length() && !prefs.isKey("stations");
 #endif
   if (saved.length()) {
+#ifdef LH_MATTER_BUILD
+    DynamicJsonDocument doc(kStationJsonCapacity);
+#else
     DynamicJsonDocument doc(16384);
+#endif
     std::unique_ptr<StationConfig[]> restored(new StationConfig[kStations]);
     std::string error;
     if (!deserializeJson(doc, saved)) {
@@ -1006,6 +1043,10 @@ void startServices() {
   Serial.printf("Web interface: http://%s/ or http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
   servicesStarted = true;
   Serial.println("Lighthouse Bridge ready.");
+#ifdef LH_MATTER_BUILD
+  Serial.printf("Memory ready: free=%u, largest=%u, minimum=%u, status_snapshot_bytes=%u\n",
+    ESP.getFreeHeap(),ESP.getMaxAllocHeap(),ESP.getMinFreeHeap(),static_cast<unsigned>(sizeof(StatusSnapshot)));
+#endif
   emitDeviceInfo();
 }
 

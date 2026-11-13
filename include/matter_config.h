@@ -5,6 +5,8 @@ namespace bridge {
 constexpr uint16_t kMatterAggregatorEndpoint = 2;
 constexpr uint32_t kMatterEndpointLimit = 0xfffe;
 constexpr unsigned kMatterBindingCapacity = kStations * 2;
+constexpr size_t kMatterRegistryJsonCapacity = JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(kMatterBindingCapacity) +
+  kMatterBindingCapacity * (JSON_OBJECT_SIZE(3) + 18) + 256;
 struct MatterBinding {
   uint32_t hueId = 0;
   char mac[18]{};

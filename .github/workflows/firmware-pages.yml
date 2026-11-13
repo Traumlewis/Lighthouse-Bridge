@@ -63,6 +63,10 @@ jobs:
             ~/.arduino15
             ~/Arduino/libraries
           key: ${{ runner.os }}-matter-arduino-3.3.12-nimble-2.5.2-json-6.21.5-wm-2.0.17
+      - name: Check bounded Matter status serialization
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_status.cpp -o /tmp/lighthouse-status-test
+          /tmp/lighthouse-status-test
       - name: Install isolated Matter prototype dependencies
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json

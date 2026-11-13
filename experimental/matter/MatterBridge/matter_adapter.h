@@ -121,9 +121,10 @@ void reportMeasurements(intptr_t) {
 
 bool loadRegistry(Preferences& own) {
   const String saved = own.getString("endpoints","");
+  if (own.isKey("endpoints") && !saved.length()) { matterError = "MATTER_STORAGE_FAILED"; return false; }
   std::string error;
   if (saved.length()) {
-    DynamicJsonDocument doc(8192);
+    DynamicJsonDocument doc(kMatterRegistryJsonCapacity);
     MatterRegistry checkpoint;
     if (deserializeJson(doc,saved) || !parseMatterRegistry(doc.as<JsonVariantConst>(),checkpoint,error)) {
       matterError = "MATTER_REGISTRY_INVALID"; return false;
@@ -132,7 +133,7 @@ bool loadRegistry(Preferences& own) {
       matterError = "MATTER_IDS_EXHAUSTED"; return false;
     }
   } else if (!seedMatterRegistry(configs,(*matterRegistry),error)) { matterError = "MATTER_IDS_EXHAUSTED"; return false; }
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(kMatterRegistryJsonCapacity);
   writeMatterRegistry(doc.to<JsonObject>(),(*matterRegistry));
   if (doc.overflowed()) { matterError = "OUT_OF_MEMORY"; return false; }
   String json; serializeJson(doc,json);
@@ -230,7 +231,7 @@ bool matterPrepareConfiguration(const StationConfig* next, std::string& error) {
   std::unique_ptr<MatterRegistry> planned(new(std::nothrow) MatterRegistry);
   if (!planned) { error = "OUT_OF_MEMORY"; return false; }
   if (!planMatterRegistry(configs,next,(*matterRegistry),*planned,error)) return false;
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(kMatterRegistryJsonCapacity);
   writeMatterRegistry(doc.to<JsonObject>(),*planned);
   if (doc.overflowed()) { error = "OUT_OF_MEMORY"; return false; }
   String json; serializeJson(doc,json);
@@ -258,7 +259,8 @@ void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   else doc["pairing_code"] = nullptr;
 }
 void emitMatterInfo() {
-  DynamicJsonDocument doc(8192);
+  DynamicJsonDocument doc(JSON_OBJECT_SIZE(24) + JSON_ARRAY_SIZE(kStations) +
+    kStations * (JSON_OBJECT_SIZE(6) + 41) + 256);
   matterPrivateInfo(doc,!matterPaired.load());
   doc["station_id"] = 0; doc["station_name"] = "";
   doc["reachable"] = false; doc["observed_raw"] = -1;

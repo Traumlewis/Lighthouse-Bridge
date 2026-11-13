@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.0-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.1-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -342,6 +342,23 @@ status change. Keep current facts, not a conversation log. User instructions win
   Do not enable C LTO: the pinned SDK backtrace weak symbol fails to link.
   Additional registry/lamp objects use checked heap allocation. Static linker
   size does not prove runtime memory headroom. Keep both app slots unchanged.
+- Owner hardware evidence for full 0.3.0-matter is negative: the HTML loads,
+  status reports OUT_OF_MEMORY, discovery has no visible result/log and the
+  Matter panel is absent. Do not describe the full version as working from the
+  earlier single-light test. Version 0.3.1-matter removes the fixed 32-KiB status
+  document and complete response String. `include/status_api.h` owns a coherent,
+  bounded (<6 KiB) heap snapshot and the host-tested 256-byte streaming serializer;
+  each JSON item uses bounded stack storage. Never hold stateMutex during network
+  IO, truncate stations/results or split uptime from measurement capture.
+  `matter_status.h` streams the production route using that helper. Small Matter
+  JSON replies also stream without a full-body String. Config and registry JSON
+  capacities derive from all 16 stations/32 transition bindings, tested with
+  maximum names/MACs and serialized restoration. Preserve all existing fields.
+- Personal-session `/api/account` identifies Matter and readiness without a code,
+  so the setup-code panel remains reachable if general status fails. Bootstrap
+  sessions still cannot show the panel or retrieve the code. Scan queue/start/end
+  logs are read-only and contain no device identifiers. Startup/status expose
+  free heap/largest block/minimum for diagnosis, never claim hardware RAM margins.
 - The authenticated dashboard retrieves the manual code on explicit GET
   `/api/matter`; a personal-password web session is required, never API key or
   bootstrap. General status contains no pairing code. POST
@@ -360,12 +377,12 @@ status change. Keep current facts, not a conversation log. User instructions win
   0.1.0 result supports basic operation; runtime memory, persistence/return across
   framework versions, prolonged BLE coexistence and exact Alexa status behavior
   remain unverified. The 0.1.1 lamp/switch/status report is positive owner evidence;
-  multi-station and full 0.3.0-matter still need hardware testing.
+  multi-station and full 0.3.1-matter still need hardware testing.
   Test attestation is not product certification. Do not claim a fix from a build
   or simulated browser test. Keep the prototype guide and validation report current.
 - The owner now requests the full dashboard/API/OTA integration and web-accessible
   Matter setup code without waiting for the multi-station hardware test.
-  The single-station 0.1.1 test is owner-confirmed. Full 0.3.0-matter behavior,
+  The single-station 0.1.1 test is owner-confirmed. Full 0.3.1-matter behavior,
   actual OTA, runtime memory and multi-station operation remain hardware checks.
 
 - Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:

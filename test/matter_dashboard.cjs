@@ -13,7 +13,7 @@ assert.ok(html.includes('Bridge '+version));
    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],calls=[];
    page.on('pageerror',e=>errors.push(e.message));
    await page.addInitScript(()=>{document.execCommand=()=>{window.copied=document.activeElement.value;return true;};});
-   let signedIn=false,windowOpen=false;
+   let signedIn=false,windowOpen=false,statusFails=true;
    const key='1234567890abcdef12345678',code='34970112332';
    const data={alexa_protocol:'matter',matter_ready:true,matter_paired:true,ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,stations:[{id:1,name:'Owner station',mac:'AA:BB:CC:DD:EE:01',configured:true,alexa_compat:true,reachable:true,observed:'sleep',observed_raw:0,observed_ms:89000}],discovered:[]};
    await page.route('http://bridge.test/**',async route=>{
@@ -22,11 +22,12 @@ assert.ok(html.includes('Bridge '+version));
     let result={},status=200;
     if(uri==='/api/login'){signedIn=true;result={password_required:false};}
     else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
-    else if(uri==='/api/account')result={password_required:false,api_key:key,setup_ssid:'Lighthouse-Setup-EXAMPLE',hostname:data.hostname};
-    else if(uri==='/api/status')result=data;
+    else if(uri==='/api/account')result={password_required:false,api_key:key,setup_ssid:'Lighthouse-Setup-EXAMPLE',hostname:data.hostname,alexa_protocol:'matter',matter_ready:true};
+    else if(uri==='/api/status'){if(statusFails){status=503;result={error:'OUT_OF_MEMORY'};}else result=data;}
     else if(uri==='/api/refresh'){status=202;result={accepted:true};}
     else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});windowOpen=true;status=202;result={accepted:true};}
     else if(uri==='/api/matter')result={ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:code,commissioning_open:windowOpen,commissioning_pending:false,error:''};
+    else if(uri==='/api/scan'){status=202;result={accepted:true};data.discovered=[{name:'LHB-test',mac:'AA:BB:CC:DD:EE:02',address_type:1,rssi:-60}];data.scan_finished_ms=90001;}
     else if(uri==='/api/logout'){signedIn=false;result={logged_out:true};}
     else {status=404;result={error:'NOT_FOUND'};}
     await route.fulfill({status,json:result});
@@ -36,6 +37,7 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await page.locator('#matter-code').textContent(),'');
    await page.locator('#login-password').fill('personal password');await page.locator('#login-form button').click();
    await page.waitForFunction(()=>!document.getElementById('matter-settings').hidden);
+   assert.equal(await page.locator('#stations article').count(),0,'failed status must not hide the independent Matter controls');
    assert.equal(calls.filter(c=>c.uri==='/api/matter').length,0,'code retrieved only by explicit action');
    await page.locator('#matter-settings summary').click();
    await page.locator('#matter-show').click();
@@ -46,6 +48,10 @@ assert.ok(html.includes('Bridge '+version));
    await page.locator('#language').selectOption(lang==='en'?'de':'en');assert.equal(await page.locator('#matter-code').textContent(),code);
    await page.locator('#matter-open').click();
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('open')||document.getElementById('matter-status').textContent.includes('offen'));
+   statusFails=false;await page.evaluate(()=>refresh());
+   await page.waitForFunction(()=>document.getElementById('card-1'));
+   await page.locator('#configuration summary').click();await page.locator('#scan').click();
+   await page.waitForFunction(()=>document.getElementById('scan-results').textContent.includes('LHB-test'));
    assert.equal(calls.filter(c=>c.uri==='/api/power').length,0);
    assert.equal(calls.filter(c=>c.uri.startsWith('/api/matter')).some(c=>c.headers['x-api-key']),false);
    assert.equal(await page.evaluate(code=>JSON.stringify(localStorage).includes(code),code),false);

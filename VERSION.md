@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental memory correction 0.3.1-matter
+
+Fix the full Matter dashboard's fixed 32-KiB status allocation and additional
+whole-response String. Status now streams measured snapshots in 256-byte blocks,
+with bounded per-item JSON storage and no network IO under the state lock.
+Retain all 16 stations, discovery results, timestamps and measured semantics.
+Use configuration/registry JSON capacities sized for their full supported data.
+
+Identify Matter through the authenticated account endpoint, making setup-code
+controls available even if general status fails. Preserve personal-password
+access and code privacy. Add read-only discovery queue/start/end logs and
+non-secret memory diagnostics. The owner's 0.3.0 full-firmware report establishes
+the memory error/missing panel; this correction still needs an ESP32 retest.
+Both app slots, NVS locations and identities remain unchanged. Stable stays 0.3.9.
+
 ## Experimental full firmware 0.3.0-matter
 
 Combine the production dashboard, station editor/discovery, authenticated local

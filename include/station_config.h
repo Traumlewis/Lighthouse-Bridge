@@ -5,6 +5,11 @@
 #include <algorithm>
 
 namespace bridge {
+// Bounded JSON storage for all 16 assignments, including legacy address_type,
+// copied names/MACs and interned field names. Independent of request body length.
+constexpr size_t kStationJsonCapacity = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(kStations) +
+  kStations * (JSON_OBJECT_SIZE(6) + 41 + 18) + 256;
+
 inline int stationIndex(const StationConfig* stations, uint32_t id) {
   for (unsigned i = 0; i < kStations; ++i) if (id && stations[i].id == id) return i;
   return -1;

@@ -13,7 +13,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.0-matter'
+VERSION = '0.3.1-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -124,7 +124,8 @@ def main():
         bundle.write(ROOT / 'VERSION.md', 'VERSION.md')
         bundle.write(ROOT / 'LICENSE', 'LICENSE')
         for path in ['experimental/matter/MatterBridge/MatterBridge.ino',
-                     'experimental/matter/MatterBridge/matter_adapter.h', 'partitions.csv',
+                     'experimental/matter/MatterBridge/matter_adapter.h',
+                     'experimental/matter/MatterBridge/matter_status.h', 'partitions.csv',
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
                      'src/main.cpp', 'tools/build_matter.py', 'tools/ota_package.py',
                      'experimental/matter/README.md', 'VERSION.md', 'LICENSE']:

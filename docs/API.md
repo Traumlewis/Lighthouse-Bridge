@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.0-matter**, with the Matter-only private endpoints below. The separate
+**0.3.1-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -47,10 +47,16 @@ and serial diagnostics remain available and BLE behavior is unchanged.
   `409 MATTER_NOT_READY`. Poll GET for completion/error. Opens a Basic
   Commissioning Window for 15 minutes over DNS-SD only; existing open/pending
   windows coalesce. No fabric reset, BLE commissioning or station power writes.
+- The personal-session account response identifies Matter with `alexa_protocol`
+  and `matter_ready`, independently of status. It never includes the pairing code.
+- Matter status is streamed in bounded chunks from one coherent snapshot. It
+  includes `largest_free_block` and `min_free_heap` alongside `free_heap` for
+  diagnosis. No whole-response JSON allocation is required.
 - Matter status adds `alexa_protocol:"matter"`, `matter_ready`, `matter_paired`
   and `matter_error`. General status never includes the setup code;
   `alexa_started` denotes Matter readiness in this build. The API's measured
-  station fields retain their production meaning; Matter has no Hue target view.
+  station fields retain their production meaning; Matter has no Hue target view
+  and returns `alexa_target_pending:false`.
 - In the experimental build, station configuration saves checkpoint persistent
   Matter identities, save assignments, pause new BLE work and restart 1.5 seconds
   after responding. Refresh integrations and sign in again after the restart.

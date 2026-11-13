@@ -1,5 +1,44 @@
 # Validation report — 0.3.9
 
+## Experimental Matter memory correction 0.3.1-matter
+
+Owner hardware evidence for full 0.3.0: the HTML page loads, but the interface
+reports "The bridge has too little free memory. Try again." The Matter section
+is absent. Bluetooth discovery produces no visible results/logs. No startup heap
+values or complete trace are available; these observations do not independently
+establish that the radio never scanned. The old discovery path had no success
+logs, and the UI needs the failed status response to display results.
+
+Code inspection finds a fixed 32768-byte status JSON document plus a second full
+serialized String. OUT_OF_MEMORY is returned when that document cannot populate.
+The Matter panel was gated by the same failing status response. Version 0.3.1
+removes these allocations and uses a single coherent snapshot below 6144 bytes,
+bounded per-item stack JSON and 256-byte HTTP chunks. A personal-session account
+flag makes the panel independent of status. The code still requires the personal
+password; neither public status nor the account flag contains a pairing code.
+
+Native tests exercise the exact production serializer with all 16 stations and
+16 results, escaped/UTF-8 names, long errors, fixed IDs, true measurements during
+pending commands, read phases, millis wrap/staleness, empty lists and failed
+writes. Chunk sizes 1/2/7/16/256/4096 cover boundaries. Capacity tests serialize and
+restore 16 maximum-length station names/MACs and all 32 registry checkpoint
+bindings using the production capacity constants. The browser reproduces failed
+status while retrieving/copying the code and opening the pairing window, then
+recovers status and displays discovery results without power calls.
+
+The local corrected app is 1,961,168 bytes in the unchanged 1,966,080-byte
+slot (4,912 bytes of flash reserve), with 123,732 bytes of linker static RAM.
+All seven native test programs, 16 Python package/layout checks and the complete
+mock browser/USB suite pass locally. The new browser regression keeps the Matter
+panel/code usable while status returns OUT_OF_MEMORY, then verifies status and
+discovery recovery without power calls.
+These figures do not measure runtime free heap. Startup logs and status now add
+free/largest/minimum heap values for the next owner test.
+
+Actual low-memory behavior, discovery, Matter and uploads on the owner's ESP32
+remain a required retest. Software tests do not validate physical runtime memory
+headroom. Partitions, NVS and station/Matter identities remain unchanged.
+
 ## Experimental full Matter 0.3.0-matter
 
 The owner requested dashboard, API, OTA and web retrieval of the setup code now,

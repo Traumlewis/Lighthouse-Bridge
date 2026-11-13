@@ -126,7 +126,7 @@ async function refresh(){if(!loggedIn||account?.password_required||polling||conf
 async function loadAccount(){
  try{account=await api('/api/account');loggedIn=true;$('login-panel').hidden=true;$('logout').hidden=false;
  $('password-panel').hidden=!account.password_required;$('dashboard').hidden=account.password_required;$('cancel-password').hidden=account.password_required;
- if(!account.password_required){$('api-key').textContent=account.api_key;$('setup-ssid').textContent=account.setup_ssid;$('device-name').value=account.device_name||account.hostname||'';await refresh();await api('/api/refresh',{});}
+ if(!account.password_required){$('api-key').textContent=account.api_key;$('setup-ssid').textContent=account.setup_ssid;$('device-name').value=account.device_name||account.hostname||'';renderMatter();await refresh();await api('/api/refresh',{});}
  }catch(e){if(e.status!==401)message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}
 }
 async function power(station,state){try{await api('/api/power',{station,state});message(()=>t('requested')+': '+(station==='all'?t(state):t('station')+' '+station+' · '+t(state)));await refresh();}catch(e){message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}}
@@ -154,8 +154,8 @@ async function copyText(value){
  }catch(_){throw new Error(t('copyFailed'));}}
 
 function renderMatter(){
- const visible=loggedIn&&!account?.password_required&&current?.alexa_protocol==='matter';$('matter-settings').hidden=!visible;if(visible)document.querySelector('[data-t=otaDownload]').href='https://traumlewis.github.io/Lighthouse-Bridge/matter.html';
- $('matter-show').disabled=matterBusy;$('matter-open').disabled=matterBusy||!visible||!current?.matter_ready;
+ const visible=loggedIn&&!account?.password_required&&(current?.alexa_protocol||account?.alexa_protocol)==='matter';$('matter-settings').hidden=!visible;if(visible)document.querySelector('[data-t=otaDownload]').href='https://traumlewis.github.io/Lighthouse-Bridge/matter.html';
+ $('matter-show').disabled=matterBusy;$('matter-open').disabled=matterBusy||!visible||!(matterInfo?.ready??current?.matter_ready??account?.matter_ready);
  if(!matterInfo)return;
  $('matter-name').textContent=matterInfo.bridge_name||'';
  $('matter-code').textContent=matterInfo.pairing_code||'';$('copy-matter-code').hidden=!matterInfo.pairing_code;
