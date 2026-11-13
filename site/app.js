@@ -1,6 +1,6 @@
-import { translations } from './translations.js?v=tasmota-0.1.3';
-import { validUpdateParts } from './flash-layout.mjs?v=tasmota-0.1.3';
-import { watchDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.3';
+import { translations } from './translations.js?v=tasmota-0.1.4';
+import { validUpdateParts } from './flash-layout.mjs?v=tasmota-0.1.4';
+import { watchDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.4';
 
 const installer = document.getElementById('installer');
 const install = document.getElementById('install');

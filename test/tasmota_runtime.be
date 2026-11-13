@@ -138,16 +138,17 @@ end
 assert(saw_receive, "real receive hook runs without logging peer or payload")
 
 class LighthouseTestCommissioning
-  var mdns_pase_wifi, hostname_wifi
+  var mdns_pase_wifi, hostname_wifi, commissioning_salt
   def init() self.mdns_pase_wifi = true end
   def is_commissioning_open() return true end
+  def is_root_commissioning_open() return true end
   def compute_manual_pairing_code() return "synthetic-code" end
 end
 class LighthouseTestSessions
   def count_active_fabrics() return 2 end
 end
 class LighthouseTestInfo
-  var commissioning, sessions
+  var commissioning, sessions, setup_window_code, setup_window_salt, root_passcode, root_discriminator
   def init()
     self.commissioning = LighthouseTestCommissioning()
     self.sessions = LighthouseTestSessions()
@@ -197,3 +198,76 @@ assert(size(global.lh_mdns_calls)==2)
 assert(global.lh_mdns_calls[0][0]=="synthetic-host" && global.lh_mdns_calls[0][1]=="" && global.lh_mdns_calls[0][2]=="192.0.2.1")
 assert(global.lh_mdns_calls[1][0]=="synthetic-host" && global.lh_mdns_calls[1][1]=="fe80::1")
 assert(global.matter_device.sessions.count_active_fabrics()==2 && size(calls)==0)
+
+# The active window captures a fresh verifier while bootstrap fields are restored.
+import crypto
+# Native checksum/crypto bindings are host fakes; production keeps pinned bindings.
+var checksum = module("checksum")
+checksum.checksum = def (value) return "0" end
+matter.Verhoeff = checksum
+var entropy = 100
+crypto.random = def (length)
+  entropy += 1
+  var value = bytes()
+  for i: 1..length value.add(entropy,1) end
+  return value
+end
+class LighthouseTestRotation : matter.Commissioning
+  var fail, fail_stop, captured_passcode, captured_discriminator, duration
+  def init(device)
+    self.device = device
+    self.fail = false
+    self.fail_stop = false
+  end
+  def stop_basic_commissioning()
+    if self.fail_stop raise "test_error", "synthetic stop failure" end
+    self.commissioning_open = nil
+    self.commissioning_salt = nil
+    self.mdns_pase_wifi = false
+  end
+  def start_root_basic_commissioning(duration)
+    self.duration = duration
+    self.captured_passcode = self.device.root_passcode
+    self.captured_discriminator = self.device.root_discriminator
+    self.commissioning_salt = crypto.random(16)
+    self.commissioning_open = 900000
+    self.mdns_pase_wifi = true
+    if self.fail raise "test_error", "synthetic failure" end
+  end
+end
+var pairing = global.matter_device
+pairing.root_passcode = 20202021
+pairing.root_discriminator = 1234
+pairing.commissioning = LighthouseTestRotation(pairing)
+var bootstrap_code = pairing.commissioning.compute_manual_pairing_code()
+assert(json.load(global.lh_info())["code"]==nil, "closed windows expose no code")
+global.lh_commission()
+var first_code = json.load(global.lh_info())["code"]
+assert(size(first_code)==11 && first_code!=bootstrap_code)
+assert(pairing.root_passcode==20202021 && pairing.root_discriminator==1234)
+assert(pairing.commissioning.captured_passcode!=20202021 && pairing.commissioning.duration==900)
+global.lh_commission()
+var second_code = json.load(global.lh_info())["code"]
+assert(size(second_code)==11 && second_code!=first_code && second_code!=bootstrap_code)
+pairing.commissioning.stop_basic_commissioning()
+assert(json.load(global.lh_info())["code"]==nil, "closing invalidates the displayed window code")
+global.lh_commission()
+pairing.commissioning.commissioning_salt = crypto.random(16)
+pairing.commissioning.commissioning_admin_fabric = true
+assert(json.load(global.lh_info())["code"]==nil, "another administrator's window must not expose our old code")
+pairing.commissioning.fail = true
+var failed = false
+try global.lh_commission() except .. failed = true end
+assert(failed && pairing.root_passcode==20202021 && pairing.root_discriminator==1234)
+assert(!pairing.commissioning.is_commissioning_open() && pairing.setup_window_code==nil)
+assert(pairing.sessions.count_active_fabrics()==2 && size(calls)==0, "rotation must not remove fabrics or send power")
+
+pairing.commissioning.fail = false
+global.lh_commission()
+pairing.commissioning.fail_stop = true
+failed = false
+try global.lh_commission() except .. failed = true end
+assert(failed && pairing.root_passcode==20202021 && pairing.root_discriminator==1234)
+assert(json.load(global.lh_info())["code"]==nil, "cleanup failure cannot expose an incorrect bootstrap code")
+pairing.commissioning.fail_stop = false
+pairing.commissioning.stop_basic_commissioning()

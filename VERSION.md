@@ -3,6 +3,24 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota manual pairing-code renewal 0.1.4-tasmota
+
+The Tasmota dashboard now explicitly generates a new setup code and opens its
+15-minute pairing window in one manual action. Each separate activation replaces
+the active code; pending duplicate requests coalesce. Use the pinned code generator,
+checksum and verifier implementation. Per-window credentials stay in RAM; original
+bootstrap credentials, fabrics, endpoints and stations remain intact. Expiry,
+closure, failure and reboot invalidate the temporary code. A ready bridge with a
+closed window returns no code. Other administrators' enhanced windows never expose
+an old local code. No automatic renewal or power command is added.
+
+The authenticated POST requires an empty JSON object. UI clears stale codes before
+renewal, polls private status while open/pending and clears timers/state on logout.
+Changes to embedded presentation apply only to Tasmota; stable/SDK UI stays intact.
+Owner 0.1.3 evidence confirms IPv6/mDNS recovery but shows a closed window, no
+commissionable advertisement and zero incoming packets during the new Alexa search.
+The new-code workflow still needs device validation; no Alexa success is claimed.
+
 ## Experimental Tasmota network lifecycle 0.1.3-tasmota
 
 Reapply the IPv6 request after WiFiManager connects and after observed reconnects;

@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.3-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.4-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -881,3 +881,40 @@ Never copy the credential-bearing raw log into the repository.
 - Local 0.1.3 software verification: app 1,707,392/1,966,080 bytes, static RAM
   73,124 bytes; updated native policy suite, all 25 Python checks and all nine
   browser/USB programs pass. Real IPv6/mDNS/Alexa behavior remains unverified.
+
+## Tasmota 0.1.4 manual window-code renewal
+- Owner 0.1.3 retest now shows ipv6_local=yes/mdns_error=0, including recovery
+  after reconnect. The entire new search interval has window=closed/advertised=no
+  and rx=0 with one retained fabric. Alexa asks for a new setup code. This is a
+  closed-window sample, not a new failed PASE/CASE exchange or proof GS014 is fixed.
+- Owner explicitly requests manual setup-code rotation. In Tasmota only, POST
+  /api/matter/commissioning now replaces an active window with a fresh valid random
+  PIN/discriminator and opens 900 seconds of commissioning. Duplicate pending
+  requests coalesce; separate explicit activations replace the code. The SDK's
+  existing open/pending coalescing behavior stays as documented above.
+- Use pinned Tasmota passcode validation/generation, manual-code checksum and
+  SPAKE2+ verifier construction. Temporary root fields are restored on success and
+  failure before leaving Berry. Do not save the per-window PIN/discriminator to
+  NVS or files, alter bootstrap credentials, reset fabrics/endpoints/stations or
+  send power. The local-owner action uses Tasmota's Basic commissioning path;
+  do not label it a controller-created Enhanced Commissioning Window.
+- Expose a code only for an actually open matching window; saved code/salt markers
+  distinguish a locally generated window from another administrator's window.
+  Closed, failed, pending and unknown enhanced windows expose null. A ready bridge
+  may validly have no code. A fresh code differs from bootstrap and prior local code.
+- Personal-password session, Origin and JSON checks protect the existing POST;
+  Tasmota additionally requires an empty JSON object. No API key/bootstrap access.
+  General status/account, logs and URLs contain no code. Keep raw engine logs off.
+- The Tasmota-only dashboard transform relabels the button New code & open pairing
+  window, with EN/DE instructions. Clear a stale code before requesting renewal,
+  poll private read-only info while open/pending, stop on closure/logout and clear
+  timers/secrets on logout. A failed request clears pending UI and allows retry.
+  Default stable/SDK HTML stays unchanged; SDK gzip equality is checked locally.
+- Host Berry tests exercise renewal, old/new code distinction, verifier PIN capture,
+  original-field restoration, failure closure, expiry and foreign-window privacy.
+  Native cryptography/checksum are host stubs; production uses pinned real bindings.
+  Browser tests use mocks. Actual fresh-code Alexa pairing remains a hardware test.
+- Local 0.1.4 verification: app 1,708,272/1,966,080 bytes, static RAM 73,124;
+  25 Python checks, updated host Berry lifecycle cases and all nine browser/USB
+  programs pass. Error/retry/private-fetch recovery is covered in the Tasmota
+  dashboard; native checksum/crypto are mocked on the host. Hardware retest pending.

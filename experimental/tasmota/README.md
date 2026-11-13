@@ -1,4 +1,4 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.3-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.4-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
@@ -36,6 +36,18 @@ returns GS014, with IPv6 absent and an earlier mDNS error. These lifecycle chang
 address verified code defects; a GS014 fix still needs hardware confirmation.
 Retest with erasing disabled, then capture the diagnostic lines during setup as
 above. Do not reset all settings or replace saved pairing identities for this test.
+
+Version 0.1.4 offers **New code & open pairing window (15 minutes)** in Matter
+setup. Click it before adding the bridge in Alexa, then show/copy the returned code.
+Each manual activation replaces the previous window and code. Pending duplicate
+requests coalesce. Codes expire when the window closes or the bridge restarts;
+they are not written to storage. Existing pairings, bootstrap credentials and
+station identities stay intact. The local-owner action uses the engine's Basic
+window/verifier path; it is not a controller-created Enhanced Commissioning Window.
+A closed window intentionally has no displayed code. Merely showing a code does
+not open a window. The owner 0.1.3 log shows IPv6/mDNS recovery but no open window
+or incoming packets during the new Alexa search. Actual new-code pairing still
+requires a device test. No reset is needed to try this workflow.
 
 ## Included behavior
 
@@ -87,7 +99,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.3-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.4-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.

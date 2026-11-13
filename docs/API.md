@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.3-tasmota**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.4-tasmota**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -413,3 +413,15 @@ HTTP recovery available with a non-secret `matter_error` / startup phase and rad
 requests rejected. `BLE_NO_MEMORY` reports a guarded client-allocation attempt,
 without sending power or changing observed readings. The saved station record and
 endpoint/fabric identities are not cleared to recover from failed startup.
+
+### Tasmota manual pairing-code renewal
+
+In 0.1.4-tasmota, personal-session `POST /api/matter/commissioning` with `{}`
+generates a fresh code and opens a 15-minute window, replacing any active local
+window. Pending duplicate calls coalesce. It returns 202 without a code; poll the
+personal-session `GET /api/matter` until `commissioning_pending` is false and
+`commissioning_open` is true. `pairing_code` is null while pending/closed/failed or
+for an unknown enhanced window. The temporary PIN is never persisted. Existing
+bootstrap credentials, fabrics and endpoints stay intact. Nonempty/non-object
+JSON is rejected; API keys/bootstrap sessions do not authorize this route.
+The SDK prototype retains its existing coalescing open-window behavior.

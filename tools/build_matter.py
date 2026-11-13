@@ -51,7 +51,7 @@ def validate_segments(segments):
         raise ValueError('Prototype must keep the existing complete partition layout')
 
 
-def render_dashboard(version, html_path=None):
+def render_dashboard(version, html_path=None, transform=None):
     html = re.search(r'R"LHHTML\((.*)\)LHHTML"', (ROOT / 'include/web_ui.h').read_text(), re.S)[1]
     html = html.replace('Bridge 0.3.9', 'Bridge ' + version)
     # Matter can be slow under memory/network pressure. A DOMException's numeric
@@ -78,6 +78,7 @@ def render_dashboard(version, html_path=None):
         "await new Promise(resolve=>setTimeout(resolve,2000));try{await api('/api/account');"
         "location.reload();return;}catch(e){if(e.status===401){location.reload();return;}}}}\n"
         'loadAccount();const pollTimer=')
+    if transform is not None: html = transform(html)
     if html_path is not None: html_path.write_text(html)
     try:
         from zopfli.gzip import compress as compress_gzip

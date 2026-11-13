@@ -11,7 +11,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = '6aadc3f171f5b501cc325dcd78daf3d625b01d32'
-VERSION = '0.1.3-tasmota'
+VERSION = '0.1.4-tasmota'
 UPSTREAM = ROOT / '.tools/tasmota-src'
 STAGE = ROOT / '.pio/tasmota-src'
 PROTOTYPE = ROOT / 'experimental/tasmota'
@@ -32,6 +32,30 @@ def patch(relative, changes):
     source = original(relative)
     for old,new in changes: source = replace_once(source,old,new)
     write(STAGE / relative,source)
+
+def rotation_dashboard(html):
+    import re
+    match=re.search(r'const T=(.*?);\n',html)
+    translations=json.loads(match[1])
+    translations['en'].update(matterOpen='New code & open pairing window (15 minutes)',
+        matterHelp='Generate a new code and open a pairing window before adding this bridge in Alexa. Each manual activation replaces the previous window code. Existing pairings stay connected. Codes expire with the window and after restart.',
+        matterWindowPending='Generating a new setup code and opening the pairing window…')
+    translations['de'].update(matterOpen='Neuer Code & Kopplungsfenster öffnen (15 Minuten)',
+        matterHelp='Erzeuge vor dem Hinzufügen in Alexa einen neuen Code und öffne das Kopplungsfenster. Jede manuelle Aktivierung ersetzt den vorherigen Fenstercode. Bestehende Kopplungen bleiben verbunden. Codes gelten nur bis zum Schließen des Fensters oder Neustart.',
+        matterWindowPending='Neuer Einrichtungscode wird erzeugt und das Kopplungsfenster geöffnet…')
+    html=html[:match.start(1)]+json.dumps(translations,ensure_ascii=False)+html[match.end(1):]
+    html=replace_once(html,"!matterInfo.pairing_code?'MATTER_CODE_UNAVAILABLE'", "matterInfo.commissioning_open&&!matterInfo.pairing_code?'MATTER_CODE_UNAVAILABLE'")
+    html=replace_once(html,'if(matterBusy)return;const epoch=matterEpoch;',
+        'if(matterBusy)return;clearTimeout(loadMatter.timer);const epoch=matterEpoch;')
+    html=replace_once(html,"  if(open)await api('/api/matter/commissioning',{});",
+        "  if(open){if(matterInfo)matterInfo={...matterInfo,pairing_code:null,commissioning_pending:true};renderMatter();await api('/api/matter/commissioning',{});}")
+    html=replace_once(html,'  if(info.commissioning_pending)setTimeout(()=>{if(epoch===matterEpoch&&loggedIn)loadMatter();},750);',
+        '  if(info.commissioning_pending||info.commissioning_open)loadMatter.timer=setTimeout(()=>{if(epoch===matterEpoch&&loggedIn)loadMatter();},info.commissioning_pending?750:2000);')
+    html=replace_once(html,"$('matter-open').disabled=matterBusy||", "$('matter-open').disabled=matterBusy||!!matterInfo?.commissioning_pending||")
+    html=replace_once(html,"}catch(e){if(epoch===matterEpoch)message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}",
+        "}catch(e){if(epoch===matterEpoch){matterInfo=null;$('matter-code').textContent='';$('matter-code').hidden=true;$('matter-status').textContent='';message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}}")
+    html=replace_once(html,'function showLogin(){matterEpoch++;','function showLogin(){clearTimeout(loadMatter.timer);matterEpoch++;')
+    return html
 
 def prepare():
     if not UPSTREAM.exists():
@@ -329,7 +353,7 @@ def main():
         configure_environment(STAGE)
     else: prepare()
     from build_matter import render_dashboard
-    write(STAGE/'tasmota/web_ui_gzip.h',render_dashboard(VERSION,STAGE/'tasmota/matter-ui.html'))
+    write(STAGE/'tasmota/web_ui_gzip.h',render_dashboard(VERSION,STAGE/'tasmota/matter-ui.html',rotation_dashboard))
     stamp=STAGE/'.lighthouse-build-inputs'
     fingerprint=source_fingerprint()
     if not args.skip_compile:

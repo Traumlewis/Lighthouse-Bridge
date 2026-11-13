@@ -54,10 +54,10 @@ bool matterRefreshInfo() {
   char body[128];
   if (!lh_tasmota_info(body,sizeof(body))) return false;
   StaticJsonDocument<256> info;
-  if (deserializeJson(info,body) || !info["code"].is<const char*>()) return false;
-  manualCode = info["code"].as<const char*>();
+  if (deserializeJson(info,body) || (!info["code"].isNull() && !info["code"].is<const char*>())) return false;
+  manualCode = info["code"].isNull() ? "" : info["code"].as<const char*>();
   matterPaired = info["paired"].as<bool>(); matterWindowOpen = info["open"].as<bool>();
-  return manualCode.length() == 11;
+  return !manualCode.length() || manualCode.length() == 11;
 }
 bool matterBridgeBegin() {
   matterStartupPhase = "tasmota_storage";
@@ -135,7 +135,7 @@ void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   doc["commissioning_pending"] = matterWindowPending.load();
   doc["startup_phase"] = matterStartupPhase.load();
   doc["commissioning_error"] = matterWindowError.load(); doc["error"] = bleWorkerAvailable.load() ? matterError.load() : bleStartupError.load();
-  if (includeCode && matterReady && bleWorkerAvailable && manualCode.length()) doc["pairing_code"] = manualCode;
+  if (includeCode && !*matterWindowError.load() && !matterWindowPending && matterWindowOpen && matterReady && bleWorkerAvailable && manualCode.length()) doc["pairing_code"] = manualCode;
   else doc["pairing_code"] = nullptr;
 }
 void emitMatterInfo() {
@@ -167,8 +167,8 @@ void emitMatterInfo() {
 
 bool matterOpenCommissioning() {
   if (!matterReady || !bleWorkerAvailable || restartPending) return false;
-  if (matterWindowOpen || matterWindowPending.exchange(true)) return true;
-  matterWindowError = ""; return true;
+  if (matterWindowPending.exchange(true)) return true;
+  manualCode = ""; matterWindowError = ""; return true;
 }
 void matterSetHostname(const String& value) {
   // Add HTTP without stopping the engine's active DNS-SD service.

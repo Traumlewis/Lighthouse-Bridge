@@ -1003,6 +1003,11 @@ void configureRoutes() {
   });
   server.on("/api/matter/commissioning", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
+#ifdef LH_TASMOTA_BUILD
+    StaticJsonDocument<64> request;
+    if (!readBody(request)) return;
+    if (!request.is<JsonObject>() || request.size()) { fail(400, "JSON_INVALID"); return; }
+#endif
     if (!matterOpenCommissioning()) { fail(409, "MATTER_NOT_READY"); return; }
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });

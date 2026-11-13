@@ -1,5 +1,39 @@
 # Validation report — 0.3.9
 
+## Tasmota manual pairing-code renewal 0.1.4-tasmota
+
+Owner 0.1.3 evidence now shows local IPv6 and zero mDNS errors after startup and
+observed reconnect recovery. During the new search, window=closed/advertised=no,
+rx=0 and one retained fabric persist. Alexa requests a fresh code. The beginning
+of the attachment includes older diagnostics before the firmware restart; do not
+attribute that older completed exchange or absent IPv6 to the new firmware.
+This sample cannot establish a fresh pairing failure or GS014 resolution.
+
+Manual renewal uses pinned valid random PIN generation, code formatting/checksum
+and SPAKE2+ verifier construction. The verifier captures the fresh credentials;
+root fields are restored afterward, including on errors. Per-window state stays
+in RAM; no credential/fabric/identity NVS writes or power calls are introduced.
+The local action uses Tasmota's Basic window implementation, not a fabricated
+administrator fabric or controller-created Enhanced Window. The private API hides
+codes when pending/closed/failed or when the current salt belongs to another
+administrator's enhanced window. Empty JSON object, personal session and Origin
+checks remain required. Readiness no longer requires a code for a closed window.
+
+Host Berry tests cover different successive codes, bootstrap restoration, captured
+verifier PIN, 900-second duration, closure, generation failure and foreign-window
+privacy with synthetic crypto/checksum bindings. The production bindings remain
+unchanged; host tests do not validate real cryptography or device pairing. Browser
+coverage uses generated Tasmota gzip HTML and mocked API, including stale-code
+clearing, renewal, expiry, copying, EN/DE and logout. Default SDK gzip equality is
+checked separately. Physical Alexa fresh-code pairing remains unverified.
+
+Local 0.1.4 build: 1,708,272/1,966,080 app bytes and 73,124 static RAM bytes.
+All 25 Python checks and nine browser/USB programs pass. Additional generated-UI
+coverage verifies pending-code hiding, failed renewal/retry, private-fetch failure
+clearing/recovery and expiry. Host lifecycle checks include a failing window-close
+operation: bootstrap values restore and no incorrect code is exposed. These are
+software results; actual new-code Alexa commissioning remains unverified.
+
 ## Tasmota network lifecycle 0.1.3-tasmota
 
 Owner 0.1.2 evidence: rx=0/35/79, locally handled complete=1, fabrics=1,

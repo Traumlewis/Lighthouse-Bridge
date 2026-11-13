@@ -59,6 +59,7 @@ end
 #@ solidify:Lighthouse_Device,weak
 class Lighthouse_Device : matter.Device
   # Shared C++ registry reserves aggregator 2 and allocates lights from 3.
+  var setup_window_code, setup_window_salt
   static var EP = 3
   static var plugins_classes = {"lighthouse":Lighthouse_Light}
   def load_param()
@@ -132,17 +133,56 @@ def lh_info()
   import json
   global.lh_diag(8, (device.commissioning.is_commissioning_open() ? 1 : 0) |
                    (device.commissioning.mdns_pase_wifi ? 2 : 0), device.sessions.count_active_fabrics())
-  return json.dump({"code":device.commissioning.compute_manual_pairing_code(),
+  var commissioning = device.commissioning
+  var code = nil
+  if commissioning.is_commissioning_open()
+    if device.setup_window_salt != nil && device.setup_window_salt == commissioning.commissioning_salt
+      code = device.setup_window_code
+    elif commissioning.is_root_commissioning_open()
+      code = commissioning.compute_manual_pairing_code()
+    end
+  end
+  return json.dump({"code":code,
                     "paired":device.sessions.count_active_fabrics() > 0,
                     "open":device.commissioning.is_commissioning_open()})
 end
 
 #@ solidify:lh_commission,weak
 def lh_commission()
-  var commissioning = global.matter_device.commissioning
-  if !commissioning.is_commissioning_open()
+  import crypto
+  var device = global.matter_device
+  var commissioning = device.commissioning
+  var saved_passcode = device.root_passcode
+  var saved_discriminator = device.root_discriminator
+  var old_code = device.setup_window_code
+  var root_code = commissioning.compute_manual_pairing_code()
+  device.setup_window_code = nil
+  try
+    commissioning.stop_basic_commissioning()
+    var code
+    while true
+      device.root_passcode = commissioning.generate_random_passcode()
+      device.root_discriminator = crypto.random(2).get(0, 2) & 0xFFF
+      code = commissioning.compute_manual_pairing_code()
+      if code != root_code && code != old_code break end
+    end
     commissioning.start_root_basic_commissioning(900)
+    if !commissioning.is_commissioning_open() || !commissioning.mdns_pase_wifi
+      raise "network_error", "Commissioning window unavailable"
+    end
+    device.setup_window_code = code
+    device.setup_window_salt = commissioning.commissioning_salt
+  except .. as e, m
+    device.root_passcode = saved_passcode
+    device.root_discriminator = saved_discriminator
+    device.setup_window_code = nil
+    device.setup_window_salt = commissioning.commissioning_salt
+    try commissioning.stop_basic_commissioning() except .. end
+    raise e, m
   end
+  # The active verifier uses the fresh PIN; persistent bootstrap credentials stay.
+  device.root_passcode = saved_passcode
+  device.root_discriminator = saved_discriminator
 end
 
 #@ solidify:lh_checkpoint,weak

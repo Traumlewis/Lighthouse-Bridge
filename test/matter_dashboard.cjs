@@ -54,20 +54,21 @@ assert.ok(html.includes('Bridge '+version));
     const timer=window.setTimeout;
     window.setTimeout=(fn,ms,...args)=>ms===2000?0:timer(fn,ms,...args);
    });
-   let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true;
-   const key='1234567890abcdef12345678',code='34970112332';
+   let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true,windowPending=0,rotations=0,rejectWindow=false,rejectInfo=false;
+   const key='1234567890abcdef12345678';let code='34970112332';
    const data={alexa_protocol:'matter',matter_ready:true,matter_paired:true,ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,stations:[{id:1,name:'Owner station',mac:'AA:BB:CC:DD:EE:01',configured:true,alexa_compat:true,reachable:true,observed:'sleep',observed_raw:0,observed_ms:89000}],discovered:[]};
    await page.route('http://bridge.test/**',async route=>{
     const req=route.request(),uri=new URL(req.url()).pathname;calls.push({uri,method:req.method(),headers:req.headers()});
     if(uri==='/')return route.fulfill({contentType:'text/html',body:html});
     let result={},status=200;
+    if(signedIn&&uri==='/api/matter'&&rejectInfo)return route.fulfill({status:503,json:{error:'NETWORK_ERROR'}});
     if(uri==='/api/login'){signedIn=true;result={password_required:false};}
     else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
     else if(uri==='/api/account')result={password_required:false,api_key:key,setup_ssid:'Lighthouse-Setup-EXAMPLE',hostname:data.hostname,alexa_protocol:'matter',matter_ready:true};
     else if(uri==='/api/status'){if(statusFails){status=503;result={error:'OUT_OF_MEMORY'};}else result=data;}
     else if(uri==='/api/refresh'){status=202;result={accepted:true};}
-    else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});windowOpen=true;status=202;result={accepted:true};}
-    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?(data.ble_startup_error||'BLE_WORKER_FAILED'):'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:code,commissioning_open:windowOpen,commissioning_pending:false,error:''};
+    else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});if(rejectWindow){status=503;result={error:'MATTER_WINDOW_FAILED'};}else{windowOpen=true;if(prototypeName==='tasmota'){rotations++;code=['34970112332','34970112349','34970112363'][rotations-1];windowPending=1;}status=202;result={accepted:true};}}
+    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?(data.ble_startup_error||'BLE_WORKER_FAILED'):'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:prototypeName==='tasmota'&&(!windowOpen||windowPending)?null:code,commissioning_open:windowOpen&&!windowPending,commissioning_pending:!!windowPending,error:''};
     else if(uri==='/api/scan'){status=202;result={accepted:true};data.discovered=[{name:'LHB-test',mac:'AA:BB:CC:DD:EE:02',address_type:1,rssi:-60}];data.scan_finished_ms=90001;}
     else if(uri==='/api/config'){
      assert.equal(req.method(),'POST');
@@ -75,6 +76,7 @@ assert.ok(html.includes('Bridge '+version));
     }
     else if(uri==='/api/logout'){signedIn=false;result={logged_out:true};}
     else {status=404;result={error:'NOT_FOUND'};}
+    if(uri==='/api/matter'&&windowPending)windowPending--;
     await route.fulfill({status,json:result});
    });
    await page.goto('http://bridge.test/?lang='+lang);
@@ -95,13 +97,41 @@ assert.ok(html.includes('Bridge '+version));
    // must not depend on the old nested <code> element or translated DOM text.
    await page.locator('#matter-code').evaluate(node=>node.replaceChildren());
    await page.locator('#matter-show').click();
+   if(prototypeName==='tasmota'){
+    assert.equal(await page.locator('#matter-code').isHidden(),true,'closed window must not show a usable code');
+    await page.locator('#matter-open').click();
+   }
    await page.waitForFunction(code=>document.getElementById('matter-code').textContent===code,code);
    assert.equal(await page.locator('#matter-name').textContent(),'Lighthouse-Bridge Matter Test');
    assert.equal(await page.locator('.compat-label').isHidden(),true);
    await page.locator('#matter-code').evaluate(node=>node.textContent='translated text');await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),code);
    await page.locator('#language').selectOption(lang==='en'?'de':'en');assert.equal(await page.locator('#matter-code').textContent(),code);
    await page.locator('#matter-open').click();
+   if(prototypeName==='tasmota'){
+    await page.waitForFunction(()=>matterInfo?.commissioning_pending);
+    assert.equal(await page.locator('#matter-code').isHidden(),true,'pending renewal hides the previous code');
+    assert.equal(await page.locator('#matter-open').isDisabled(),true);
+   }
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('open')||document.getElementById('matter-status').textContent.includes('offen'));
+   if(prototypeName==='tasmota'){
+    const previous='34970112332';
+    await page.waitForFunction(()=>document.getElementById('matter-code').textContent==='34970112349');
+    assert.notEqual(code,previous,'manual activation replaces the active code');
+    await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),code);
+    rejectWindow=true;await page.locator('#matter-open').click();
+    await page.waitForFunction(()=>!matterBusy&&document.getElementById('message').textContent.includes('fenster')||!matterBusy&&document.getElementById('message').textContent.includes('window'));
+    assert.equal(await page.locator('#matter-code').isHidden(),true,'failed renewal must not show an old code');
+    assert.equal(await page.locator('#matter-open').isDisabled(),false,'failed renewal allows retry');
+    rejectWindow=false;await page.locator('#matter-open').click();
+    await page.waitForFunction(()=>document.getElementById('matter-code').textContent==='34970112363');
+    rejectInfo=true;await page.evaluate(()=>loadMatter());
+    assert.equal(await page.locator('#matter-code').isHidden(),true,'failed private status must hide cached code');
+    rejectInfo=false;await page.evaluate(()=>loadMatter());
+    assert.equal(await page.locator('#matter-code').textContent(),code);
+    windowOpen=false;await page.evaluate(()=>loadMatter());
+    assert.equal(await page.locator('#matter-code').isHidden(),true,'expired/closed window clears code');
+    assert.equal(await page.evaluate(code=>JSON.stringify(localStorage).includes(code),code),false);
+   }
    statusFails=false;await page.evaluate(()=>refresh());
    await page.waitForFunction(()=>document.getElementById('card-1'));
    await page.locator('#configuration summary').click();await page.locator('#scan').click();
