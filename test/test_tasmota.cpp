@@ -7,6 +7,17 @@
 #include <cstring>
 using namespace bridge;
 int main() {
+  TasmotaNetworkPolicy network;
+  assert(!network.requestIpv6(0,false,false));
+  assert(network.requestIpv6(1,true,false)); // WiFiManager recreated the interface.
+  assert(!network.requestIpv6(1000,true,false));
+  assert(!network.requestIpv6(30001,true,true));
+  assert(network.requestIpv6(30001,true,false));
+  assert(!network.requestIpv6(30002,false,false));
+  assert(network.requestIpv6(30003,true,true)); // Reconnect reapplies the policy.
+  network.lastRequest=UINT32_MAX-100; network.connected=true;
+  assert(!network.requestIpv6(50,true,false));
+  assert(network.requestIpv6(30000,true,false));
   TasmotaPairingDiagnostics diag;
   diag.record(0,0,0); diag.record(1,0,0x22); diag.record(1,0,0x10);
   assert(diag.received==1 && diag.secureOpcode==0x22);

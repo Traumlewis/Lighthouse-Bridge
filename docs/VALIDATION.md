@@ -1,5 +1,35 @@
 # Validation report — 0.3.9
 
+## Tasmota network lifecycle 0.1.3-tasmota
+
+Owner 0.1.2 evidence: rx=0/35/79, locally handled complete=1, fabrics=1,
+last secure opcode 0x32, last IM opcode 1, final general/credentials masks
+0x55/0xc55. send_fail/unacked/rx_error remain zero. mdns_error=1 occurs before
+incoming traffic and ipv6_local=no throughout. The owner confirms continued
+Alexa GS014. This establishes protocol progress, not successful Alexa setup or
+the exact cause of the app error. Free byte heap in the excerpt stays above 47 KiB;
+it is a short sample, not a long-run memory guarantee.
+
+Pinned WiFiManager autoConnect calls WIFI_OFF when a hostname is set; Arduino
+NetworkInterface destroys its event group and clears initial bits, losing the
+earlier IPv6 request. The base Matter Device constructor starts immediately on an
+available network, while our lh_begin called start again. Native mDNS add registers
+an existing delegated host again instead of updating its addresses. Version 0.1.3
+reapplies IPv6 after connection, bounds missing-address retries, guards duplicate
+start and refreshes existing A/AAAA records using the SDK update API. No busy
+wait, host/service removal, credential reset or power command is introduced.
+
+Native coverage exercises connection loss/reconnect, missing-address retry bounds
+and millis wrap. Real pinned Berry exercises duplicate start, stopped-transport
+restart and delegated address refresh after IPv6 appears with synthetic transport,
+clock and mDNS. Host tests do not prove actual IPv6 allocation, mDNS delivery or
+Alexa pairing. Hardware retesting remains required.
+
+Local software results: 1,707,392/1,966,080 app bytes; static RAM 73,124 bytes.
+The updated native policy suite, all 25 Python tests and all nine browser/USB
+programs pass. Browser/USB use mocks; no device flash or pairing was performed.
+These sizes are linker figures, not measured device headroom.
+
 ## Tasmota pairing diagnostics 0.1.2-tasmota
 
 Owner 0.1.1 hardware evidence reaches Matter/BLE ready, scans four devices,

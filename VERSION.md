@@ -3,6 +3,22 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota network lifecycle 0.1.3-tasmota
+
+Reapply the IPv6 request after WiFiManager connects and after observed reconnects;
+its hostname setup stops STA and clears Arduino's earlier IPv6 policy. Retry a
+missing local address at most every 30 seconds, without changing modem sleep.
+Make adapter startup idempotent: the base constructor already starts Matter when
+network is available. Refresh delegated A/AAAA addresses on the main loop after
+startup/address changes/reconnect, updating existing hosts without removing services.
+Preserve identities, credentials, fabrics, commissioning windows and BLE behavior.
+
+Owner 0.1.2 diagnostics reach locally handled CommissioningComplete with one
+fabric and no counted receive/send/unacked errors, but Alexa still returns GS014.
+One mDNS error precedes traffic and local IPv6 is absent. The corrected lifecycle
+issues are verified in source/software; their role in GS014 remains unproven
+until a device retest. No automatic reset or pairing-identity replacement is added.
+
 ## Experimental Tasmota pairing diagnostics 0.1.2-tasmota
 
 Add bounded, numeric serial diagnostics for Matter commissioning without enabling

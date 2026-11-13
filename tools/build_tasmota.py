@@ -11,7 +11,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = '6aadc3f171f5b501cc325dcd78daf3d625b01d32'
-VERSION = '0.1.2-tasmota'
+VERSION = '0.1.3-tasmota'
 UPSTREAM = ROOT / '.tools/tasmota-src'
 STAGE = ROOT / '.pio/tasmota-src'
 PROTOTYPE = ROOT / 'experimental/tasmota'
@@ -153,6 +153,11 @@ def prepare():
     for name in ['Matter_MessageHandler.be','Matter_Plugin_1_Root.be','Matter_UDPServer.be','Matter_z_Commissioning.be']:
         target=STAGE/'lib/libesp32/berry_matter/src/embedded'/name
         write(target,replace_once(target.read_text(),'import matter\n','import matter\nimport global\n'))
+    mdns_binding='tasmota/tasmota_xdrv_driver/xdrv_52_3_berry_mdns.ino'
+    source=(STAGE/mdns_binding).read_text()
+    source=replace_once(source,'        err = mdns_delegate_hostname_add(hostname, head);',
+        '        err = mdns_hostname_exists(hostname) ? mdns_delegate_hostname_set_address(hostname, head) : mdns_delegate_hostname_add(hostname, head);')
+    write(STAGE/mdns_binding,source)
     # The existing pinned minimal Arduino SDK omits SHA512, while the new HTTPUpdate
     # accepts it. No HTTPUpdate listener or OTA state machine is reachable here.
     write(STAGE / 'lighthouse-partitions.csv',(ROOT/'partitions.csv').read_bytes())
@@ -171,7 +176,7 @@ def prepare():
         ('#include "be_fixed_matter.h"','#include "solidify/solidified_Matter_zzz_Lighthouse.h"\n#include "be_fixed_matter.h"'),
         ('  Device, class(be_class_Matter_Device)',
          '  Device, class(be_class_Matter_Device)\n  LighthouseDevice, class(be_class_Lighthouse_Device)\n'+
-         '\n'.join('  '+fn+', closure('+fn+'_closure)' for fn in ['lh_begin','lh_report','lh_info','lh_commission','lh_checkpoint']))])
+         '\n'.join('  '+fn+', closure('+fn+'_closure)' for fn in ['lh_begin','lh_report','lh_info','lh_commission','lh_checkpoint','lh_network']))])
     patch('tasmota/tasmota_xdrv_driver/xdrv_52_9_berry.ino',[
         ('    BrLoad("preinit.be");','    // External startup scripts are disabled in the appliance prototype.'),
         ('        BrLoad("autoexec.be");','        // The embedded Lighthouse module is the sole application script.')])

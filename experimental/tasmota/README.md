@@ -1,4 +1,4 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.2-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.3-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
@@ -27,6 +27,15 @@ Alexa returns GS014 during setup. This diagnostic release does not claim to fix 
 For a retest, capture serial output before opening the commissioning window,
 through the Alexa error, and for another 20 seconds. Share the `Matter pairing diag:`
 lines; other serial output may contain setup credentials and must stay private.
+
+Version 0.1.3 reapplies IPv6 after WiFiManager's interface restart, avoids duplicate
+Matter startup, and updates delegated A/AAAA addresses when local addresses change
+or Wi-Fi reconnects. Existing services, identities and fabrics remain intact. The
+owner's 0.1.2 log reaches locally handled CommissioningComplete but Alexa still
+returns GS014, with IPv6 absent and an earlier mDNS error. These lifecycle changes
+address verified code defects; a GS014 fix still needs hardware confirmation.
+Retest with erasing disabled, then capture the diagnostic lines during setup as
+above. Do not reset all settings or replace saved pairing identities for this test.
 
 ## Included behavior
 
@@ -78,7 +87,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.2-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.3-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.

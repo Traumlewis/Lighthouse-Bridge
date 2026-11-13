@@ -4,6 +4,7 @@ global.lh_diag = def (event, first, second) diagnostic_events.push([event, first
 class LighthouseTestClock
   static var _debug_present = false
   def millis() return 0 end
+  def wifi(*args) return global.lh_test_wifi end
   def publish_result(*args) end
   def version() return 0x01000000 end
   def loglevel(level) return false end
@@ -137,7 +138,7 @@ end
 assert(saw_receive, "real receive hook runs without logging peer or payload")
 
 class LighthouseTestCommissioning
-  var mdns_pase_wifi
+  var mdns_pase_wifi, hostname_wifi
   def init() self.mdns_pase_wifi = true end
   def is_commissioning_open() return true end
   def compute_manual_pairing_code() return "synthetic-code" end
@@ -158,3 +159,41 @@ var info = json.load(global.lh_info())
 assert(info["code"]=="synthetic-code" && info["paired"] && info["open"])
 var metadata = diagnostic_events[-1]
 assert(metadata[0]==8 && metadata[1]==3 && metadata[2]==2)
+
+class LighthouseTestSocket
+  var listening
+  def init() self.listening = true end
+end
+class LighthouseTestAnnouncements
+  var starts
+  def init() self.starts = 0 end
+  def start_mdns_announce_hostnames() self.starts += 1 end
+end
+class LighthouseTestStart : global.Lighthouse_Device
+  var starts
+  def init()
+    self.starts = 0
+    self.commissioning = LighthouseTestAnnouncements()
+  end
+  def autoconf_device() end
+  def _start_udp(port)
+    self.starts += 1
+    self.udp_server = LighthouseTestSocket()
+  end
+end
+var startup = LighthouseTestStart()
+startup.start()
+startup.start()
+assert(startup.starts==1 && startup.commissioning.starts==1, "constructor plus explicit start must announce once")
+startup.udp_server.listening = false
+startup.start()
+assert(startup.starts==2 && startup.commissioning.starts==2, "stopped transport can restart")
+global.lh_test_wifi = {"ip":"192.0.2.1"}
+global.matter_device.commissioning.hostname_wifi = "synthetic-host"
+global.lh_network()
+global.lh_test_wifi["ip6local"] = "fe80::1"
+global.lh_network()
+assert(size(global.lh_mdns_calls)==2)
+assert(global.lh_mdns_calls[0][0]=="synthetic-host" && global.lh_mdns_calls[0][1]=="" && global.lh_mdns_calls[0][2]=="192.0.2.1")
+assert(global.lh_mdns_calls[1][0]=="synthetic-host" && global.lh_mdns_calls[1][1]=="fe80::1")
+assert(global.matter_device.sessions.count_active_fabrics()==2 && size(calls)==0)

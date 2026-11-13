@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.2-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.3-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -855,3 +855,29 @@ Never copy the credential-bearing raw log into the repository.
 - Local 0.1.2 build: 1,706,384/1,966,080 app bytes; static RAM 73,060 bytes.
   Updated native diagnostic-policy coverage, 25 Python checks and nine browser/USB
   programs pass; hardware pairing remains unresolved pending a diagnostic retest.
+
+## Tasmota 0.1.3 network lifecycle
+- Owner 0.1.2 retest still reports Alexa GS014. Numeric diagnostics progress from
+  rx=0 to 35 to 79, complete=1, fabrics=1, secure opcode 0x32 and IM opcode 1.
+  General/credential masks finish at 0x55/0xc55. send_fail, unacked and rx_error
+  stay zero; mdns_error=1 exists before traffic and ipv6_local=no throughout.
+  This proves local CommissioningComplete handling, not successful Alexa setup.
+  Do not attribute the whole GS014 failure to IPv6 or mDNS from this evidence.
+- Pinned WiFiManager autoConnect with hostname stops STA; Arduino deletes its
+  interface event group and resets initial bits, losing the pre-portal IPv6 request.
+  Reapply IPv6 after connection and reconnect on the main thread, with a 30-second
+  missing-address retry. Do not disable modem sleep or require Internet IPv6.
+- Tasmota's Device constructor already starts on an available network. Make the
+  Lighthouse start override idempotent while UDP is listening, preserving explicit
+  start for deferred startup. This avoids duplicate hostname registration.
+- Refresh delegated hostname A/AAAA addresses after startup, address changes and
+  observed reconnects, on the main loop. Existing delegate names use the SDK's
+  mdns_delegate_hostname_set_address; new ones use add. Preserve bound services,
+  commissioning windows, credentials/fabrics/endpoints; never remove hosts or call
+  MDNS.end(), reset NVS or send automatic power. Failed refreshes retry after 2 s
+  with fixed error type and mDNS counter, not raw message/address logs.
+- GS014 remains a hardware retest. Software proof of the lifecycle defects does
+  not establish that these defects explain the Alexa app's final error.
+- Local 0.1.3 software verification: app 1,707,392/1,966,080 bytes, static RAM
+  73,124 bytes; updated native policy suite, all 25 Python checks and all nine
+  browser/USB programs pass. Real IPv6/mDNS/Alexa behavior remains unverified.

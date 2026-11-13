@@ -2,6 +2,17 @@
 #include <cstdint>
 #include <limits>
 namespace bridge {
+struct TasmotaNetworkPolicy {
+  bool connected = false;
+  uint32_t lastRequest = 0;
+  bool requestIpv6(uint32_t now, bool up, bool hasIpv6) {
+    if (!up) { connected = false; return false; }
+    const bool request = !connected || (!hasIpv6 && uint32_t(now-lastRequest) >= 30000);
+    connected = true;
+    if (request) lastRequest = now;
+    return request;
+  }
+};
 // Numeric protocol metadata only. Never store packet data or peer identities.
 struct TasmotaPairingDiagnostics {
   uint32_t received = 0, sendFailures = 0, unacked = 0, errors = 0, mdnsErrors = 0, completed = 0;

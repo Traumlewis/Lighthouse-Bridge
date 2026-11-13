@@ -92,6 +92,11 @@ class Lighthouse_Device : matter.Device
     self.disable_bridge_mode = false
     self.lights_delayed_on = false
   end
+  def start()
+    # The base constructor already starts immediately when Wi-Fi is connected.
+    if self.udp_server != nil && self.udp_server.listening return end
+    super(self).start()
+  end
   def autoconf_device()
     if size(self.plugins) == 0
       matter.Autoconf(self).instantiate_plugins_from_config(self.plugins_config)
@@ -146,4 +151,12 @@ def lh_checkpoint()
     global.matter_device.sessions.save_fabrics()
     global.matter_device.save_before_restart()
   end
+end
+
+#@ solidify:lh_network,weak
+def lh_network()
+  import mdns
+  var wifi = tasmota.wifi()
+  mdns.add_hostname(global.matter_device.commissioning.hostname_wifi,
+                    wifi.find("ip6local", ""), wifi.find("ip", ""))
 end

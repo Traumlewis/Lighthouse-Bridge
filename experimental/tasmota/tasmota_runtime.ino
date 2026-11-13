@@ -71,12 +71,37 @@ static bool lh_vm_result(int arguments) {
   }
   return ok;
 }
+static bridge::TasmotaNetworkPolicy lh_network_policy;
+static IPAddress lh_network_ip4, lh_network_ip6(IPv6);
+static bool lh_network_online = false;
+static uint32_t lh_network_retry = 0;
+static void lh_prepare_network() {
+  if (lh_network_policy.requestIpv6(millis(),WiFi.status() == WL_CONNECTED,
+      WiFi.linkLocalIPv6() != IPAddress(IPv6)))
+    Serial.printf("Matter IPv6 request: supported=%s\n",WiFi.enableIPv6(true) ? "true" : "false");
+}
+static void lh_refresh_network() {
+  lh_prepare_network();
+  if (WiFi.status() != WL_CONNECTED) { lh_network_online = false; return; }
+  const IPAddress ip4 = WiFi.localIP(), ip6 = WiFi.linkLocalIPv6();
+  if (lh_network_online && ip4 == lh_network_ip4 && ip6 == lh_network_ip6) return;
+  if (millis()-lh_network_retry < 2000) return;
+  lh_network_retry = millis();
+  if (!lh_vm_function("lh_network")) return;
+  const bool ok = lh_vm_result(0); be_pop(berry.vm,be_top(berry.vm));
+  if (!ok) lh_pairing_diag.record(3,0,0);
+  if (ok) {
+    lh_network_online = true; lh_network_ip4 = ip4; lh_network_ip6 = ip6;
+    Serial.printf("Matter network addresses refreshed: ipv6_local=%s\n",ip6 != IPAddress(IPv6) ? "yes" : "no");
+  }
+}
 extern "C" bool lh_tasmota_begin(const char* configuration) {
   if (!berry.vm || !lh_tasmota_fs_ready() || !configuration) return false;
   Settings->flag6.matter_enabled = 1;
   Settings->flag.mqtt_enabled = 0;
   SettingsUpdateText(SET_DEVICENAME,"Lighthouse-Bridge Matter Test");
   WifiSetState(WiFi.status() == WL_CONNECTED);
+  lh_prepare_network();
   be_pop(berry.vm,be_top(berry.vm));
   be_regfunc(berry.vm,"lh_power",lh_native_power);
   be_regfunc(berry.vm,"lh_diag",lh_native_diag);
@@ -93,6 +118,7 @@ extern "C" bool lh_tasmota_begin(const char* configuration) {
   if (!lh_vm_function("lh_begin")) return false;
   be_pushstring(berry.vm,configuration);
   const bool ok = lh_vm_result(1); be_pop(berry.vm,be_top(berry.vm));
+  lh_network_online = false; // Publish the final post-start addresses on the main loop.
   return ok;
 }
 extern "C" bool lh_tasmota_report(uint16_t endpoint,bool on,bool reachable) {
@@ -103,6 +129,7 @@ extern "C" bool lh_tasmota_report(uint16_t endpoint,bool on,bool reachable) {
 }
 extern "C" bool lh_tasmota_info(char* json,size_t size) {
   if (!berry.vm || !json || !size) return false;
+  lh_refresh_network();
   lh_print_pairing_diag();
   if (!lh_vm_function("lh_info")) return false;
   if (!lh_vm_result(0)) return false;
