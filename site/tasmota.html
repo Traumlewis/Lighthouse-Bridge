@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A separate Tasmota Matter prototype for Lighthouse V2 on classic ESP32.">
+  <title>Lighthouse Bridge · Tasmota Matter</title>
+  <link rel="stylesheet" href="style.css?v=tasmota-0.1.0">
+  <script type="module" src="matter.js?v=tasmota-0.1.0"></script>
+</head>
+<body data-prototype="tasmota"><main>
+  <header><a class="brand" href="./">◈ Lighthouse Bridge</a><nav class="header-actions" data-i18n-aria-label="navigation"><label class="language-picker"><span class="sr-only" data-i18n="language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option></select></label><a href="./" data-i18n="matter_stable">Stable WebFlasher</a></nav></header>
+  <section class="hero"><div><p class="eyebrow" data-i18n="tasmota_eyebrow">Experimental · Tasmota Matter · classic ESP32</p><h1 data-i18n="tasmota_title">Tasmota Matter.<br>Your base stations.</h1><p class="lead" data-i18n="tasmota_intro">A separate prototype using Tasmota’s Berry Matter engine with the Lighthouse dashboard and Bluetooth worker. Real-device startup, RAM, pairing and multi-station operation still need testing.</p></div></section>
+  <section class="install-panel">
+    <h2 data-i18n="tasmota_prepare">Install the complete Tasmota prototype</h2>
+    <p data-i18n="tasmota_prerequisites">Configure up to 16 stations as separate lights, with Bluetooth discovery, measured status, personal web password, local API and firmware updates. WLAN, password and assignments are retained. Tasmota requires a new Matter pairing; the earlier stack’s fabric data remains stored for return.</p>
+    <p data-i18n="tasmota_layout">The complete partition table and both 1.875 MiB app slots stay unchanged. Keep “Erase device” unchecked. No filesystem image is uploaded; only a completely blank data partition is initialized. Use the separate Tasmota .lhota for dashboard updates.</p>
+    <p data-i18n="board_description">For the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.</p>
+    <label class="check"><input id="matter-confirm" type="checkbox"><span data-i18n="tasmota_confirmation">I understand that this Tasmota prototype is unverified on hardware, requires new Matter pairing, and I will keep “Erase device” unchecked.</span></label>
+    <div class="install-actions"><esp-web-install-button id="matter-installer" manifest="tasmota-manifest.json" hidden><button slot="activate" id="matter-install" disabled data-i18n="tasmota_install">Install Tasmota prototype</button><span slot="unsupported" data-i18n="unsupported"></span><span slot="not-allowed" data-i18n="not_allowed"></span></esp-web-install-button><a id="matter-download" class="download" hidden download data-i18n="matter_download">Prototype files (ZIP) ↓</a><a id="matter-ota" class="download" hidden download data-i18n="matter_ota">Matter Wi-Fi update (.lhota) ↓</a></div>
+    <p id="matter-load" class="hint" role="status"></p><p id="matter-module-error" class="error" hidden data-i18n="module_error"></p>
+    <p><a href="./" data-i18n="matter_stable">Stable WebFlasher</a> · <a href="https://github.com/Traumlewis/Lighthouse-Bridge/blob/main/experimental/tasmota/README.md" data-i18n="guide">Guide</a></p>
+  </section>
+  <section class="install-panel usb-panel">
+    <h2 data-i18n="matter_pair_title">Read the Matter setup code over USB</h2>
+    <p data-i18n="tasmota_pair_help">After flashing, read the saved key/address here, open the dashboard and sign in. Matter setup reveals the code and opens a pairing window. Pair Lighthouse-Bridge Matter Test anew in Alexa; removing the earlier test bridge may require restoring its groups/routines. No additional companion app is needed.</p>
+    <div class="install-actions"><button id="matter-read" type="button" data-i18n="matter_read">Read setup code & status</button><button id="matter-stop" type="button" hidden data-i18n="usb_stop">Disconnect USB</button></div>
+    <p id="matter-usb-status" role="status" class="hint"></p>
+    <div id="matter-access" hidden><p><span data-i18n="matter_access">First web login / setup Wi-Fi key</span>: <button class="plain-key" id="matter-key" type="button"></button></p><p><span data-i18n="matter_ssid">Setup Wi-Fi</span>: <strong id="matter-ssid"></strong></p><p><a id="matter-url" hidden></a></p></div>
+    <div id="matter-device" hidden>
+      <p><span data-i18n="matter_bridge">Matter bridge</span>: <strong id="matter-bridge"></strong></p>
+      <p><span data-i18n="matter_station">Configured stations</span>: <strong id="matter-station"></strong></p>
+      <ul id="matter-stations" class="matter-stations"></ul>
+      <p><span data-i18n="matter_code_label">Matter setup code</span>: <button class="plain-key" id="matter-code" type="button" data-i18n-aria-label="matter_copy_code"></button></p>
+      <p id="matter-pair-state"></p><p id="matter-measurement"></p><p id="matter-copy-status" class="hint" role="status"></p>
+    </div>
+    <p data-i18n="matter_privacy">USB keys and codes remain in page memory; they are never stored or sent to a website. The dashboard reveals the Matter code only after signing in with your own password. Startup and reconnect only read station state.</p>
+  </section>
+  <footer><span data-i18n="matter_experimental">Experimental firmware · operation with multiple stations still needs hardware testing.</span></footer>
+</main></body></html>

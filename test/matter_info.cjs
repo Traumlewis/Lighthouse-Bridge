@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 (async()=>{
   const {parseMatterInfo} = await import('../site/matter-info.mjs');
-  const {validMatterParts,validUpdateParts} = await import('../site/flash-layout.mjs');
+  const {validMatterParts,validUpdateParts,validTasmotaParts} = await import('../site/flash-layout.mjs');
   const {watchDeviceInfo} = await import('../site/serial-info.mjs');
   const info={protocol:1,version:'0.1.0-matter',station_id:1,station_name:'Test station',wifi_connected:true,
     ready:true,paired:false,reachable:true,observed_raw:0,pairing_code:'34970112332',error:''};
@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
     {...info,paired:true},{...info,ready:false},{...info,reachable:'true'},{...info,version:'../../bad'}])
     assert.equal(parseMatterInfo(frame(bad)),null);
   assert.equal(parseMatterInfo('LH_INFO {}'),null);
+  assert.equal(parseMatterInfo(frame({...info,version:"0.1.0-tasmota"})).version,"0.1.0-tasmota");
   const stations=Array.from({length:16},(_,i)=>({id:i+1,name:'Station '+(i+1),reachable:true,observed_raw:0}));
   assert.equal(parseMatterInfo(frame({...info,bridge_name:'Lighthouse-Bridge Matter Test',stations})).stations.length,16);
   for(const bad of [[...stations,stations[0]],[stations[0],stations[0]],
@@ -32,5 +33,12 @@ const assert = require('node:assert/strict');
   assert.equal(validUpdateParts(manifest.builds[0].parts),false,'stable and experimental images cannot be mixed');
   const bad=structuredClone(manifest.builds[0].parts);bad[3].offset=0;
   assert.equal(validMatterParts(bad),false);
+  const tasmota=require('../_site/tasmota-manifest.json');
+  assert.equal(validTasmotaParts(tasmota.builds[0].parts),true);
+  assert.equal(validMatterParts(tasmota.builds[0].parts),false);
+  assert.equal(validUpdateParts(tasmota.builds[0].parts),false);
+  assert.equal(validTasmotaParts(manifest.builds[0].parts),false);
+  const unsafe=structuredClone(tasmota.builds[0].parts);unsafe[0].offset=0;
+  assert.equal(validTasmotaParts(unsafe),false);
   console.log('Matter USB frames, stream handoff, malformed data and separate safe flash layout passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

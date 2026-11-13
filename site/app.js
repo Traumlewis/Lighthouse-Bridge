@@ -1,6 +1,6 @@
-import { translations } from './translations.js?v=matter-0.3.9';
-import { validUpdateParts } from './flash-layout.mjs?v=matter-0.3.9';
-import { watchDeviceInfo } from './serial-info.mjs?v=matter-0.3.9';
+import { translations } from './translations.js?v=tasmota-0.1.0';
+import { validUpdateParts } from './flash-layout.mjs?v=tasmota-0.1.0';
+import { watchDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.0';
 
 const installer = document.getElementById('installer');
 const install = document.getElementById('install');

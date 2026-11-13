@@ -38,6 +38,22 @@ station list. Keys and codes remain in browser memory, never URLs/storage/networ
 the connection and consent checkbox. Firmware installation stays disabled while
 the reader owns USB and when its manifest or any segment is unavailable/unsafe.
 
+## Experimental Tasmota choice
+
+`tasmota.html` offers the separate 0.1.0-tasmota firmware, with its own
+`tasmota-manifest.json` and `firmware/tasmota/` images, .lhota, checksums and
+complete-source GPL ZIP. The shared installer code checks an explicit Tasmota
+filename prefix and version suffix; it cannot mix stable, SDK or Tasmota images.
+USB uses the same validated information frames and one-port ownership. EN/DE
+copy identifies the engine and says that actual hardware/RAM/OTA remain untested.
+
+The four offsets, complete partition table and both app slots match stable exactly.
+Keep Erase device unchecked. No filesystem image is flashed. Only an entirely
+erased data partition is initialized at runtime; corrupt/nonempty storage is not
+formatted automatically. A new Matter pairing is required when changing engines;
+saved station configuration and previous SDK fabric data are retained. See the
+[Tasmota guide](../experimental/tasmota/README.md) for build/return instructions.
+
 ## Languages
 
 Repository documentation is English. The page defaults to English and offers

@@ -2,8 +2,10 @@
 const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),zlib=require('node:zlib');
 const root=path.resolve(__dirname,'..');
-const version=JSON.parse(fs.readFileSync(path.join(root,'_site/matter-manifest.json'),'utf8')).version;
-const generated=fs.readFileSync(path.join(root,'.pio/matter-sketch/MatterBridge/web_ui_gzip.h'),'utf8');
+const prototypeName=process.env.LH_PROTOTYPE==='tasmota'?'tasmota':'matter';
+const version=JSON.parse(fs.readFileSync(path.join(root,'_site/'+prototypeName+'-manifest.json'),'utf8')).version;
+const generatedPath=prototypeName==='tasmota'?'.pio/tasmota-src/tasmota/web_ui_gzip.h':'.pio/matter-sketch/MatterBridge/web_ui_gzip.h';
+const generated=fs.readFileSync(path.join(root,generatedPath),'utf8');
 const compressed=Buffer.from(generated.split('{')[1].split('}')[0].split(',').map(Number));
 const html=zlib.gunzipSync(compressed).toString();
 assert.ok(html.includes('Bridge '+version));
@@ -135,6 +137,6 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    assert.deepEqual(errors,[]);await page.close();
   }
-  console.log('Matter gzip dashboard: real localhost gzip/login rendering; private code, pairing window, copy, language and logout passed (mock API).');
+  console.log(prototypeName+' gzip dashboard: real localhost gzip/login rendering; private code, pairing window, copy, language and logout passed (mock API).');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

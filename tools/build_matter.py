@@ -51,23 +51,9 @@ def validate_segments(segments):
         raise ValueError('Prototype must keep the existing complete partition layout')
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--arduino-cli', default='arduino-cli')
-    parser.add_argument('--build-dir', type=Path, default=ROOT / '.pio/matter-build')
-    parser.add_argument('--skip-compile', action='store_true', help='Package a previously compiled matching sketch')
-    args = parser.parse_args()
-    library_info = json.loads(subprocess.check_output([args.arduino_cli, 'lib', 'list', '--format', 'json']))
-    libraries = {entry['library']['name']: entry['library'] for entry in library_info['installed_libraries']}
-    for name, version in [('NimBLE-Arduino', '2.5.2'), ('ArduinoJson', '6.21.5'), ('WiFiManager', '2.0.17')]:
-        if libraries.get(name, {}).get('version') != version:
-            raise SystemExit(f'Install {name}@{version} using Arduino CLI first')
-    sketch = ROOT / '.pio/matter-sketch/MatterBridge'
-    sketch.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / 'experimental/matter/MatterBridge/MatterBridge.ino', sketch)
-    shutil.copy2(ROOT / 'partitions.csv', sketch)
+def render_dashboard(version, html_path=None):
     html = re.search(r'R"LHHTML\((.*)\)LHHTML"', (ROOT / 'include/web_ui.h').read_text(), re.S)[1]
-    html = html.replace('Bridge 0.3.9', 'Bridge ' + VERSION)
+    html = html.replace('Bridge 0.3.9', 'Bridge ' + version)
     # Matter can be slow under memory/network pressure. A DOMException's numeric
     # AbortError code (20) must not leak through the UI's translated error keys.
     api_end = '}finally{clearTimeout(timer);}'
@@ -92,7 +78,7 @@ def main():
         "await new Promise(resolve=>setTimeout(resolve,2000));try{await api('/api/account');"
         "location.reload();return;}catch(e){if(e.status===401){location.reload();return;}}}}\n"
         'loadAccount();const pollTimer=')
-    (sketch / 'matter-ui.html').write_text(html)
+    if html_path is not None: html_path.write_text(html)
     try:
         from zopfli.gzip import compress as compress_gzip
     except ImportError:
@@ -100,8 +86,25 @@ def main():
     compressed = compress_gzip(html.encode(), numiterations=15)
     if gzip.decompress(compressed) != html.encode():
         raise ValueError('Compressed dashboard round-trip failed')
-    (sketch / 'web_ui_gzip.h').write_text('#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' +
-        ','.join(str(byte) for byte in compressed) + '};\n')
+    return '#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' + ','.join(str(byte) for byte in compressed) + '};\n'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--arduino-cli', default='arduino-cli')
+    parser.add_argument('--build-dir', type=Path, default=ROOT / '.pio/matter-build')
+    parser.add_argument('--skip-compile', action='store_true', help='Package a previously compiled matching sketch')
+    args = parser.parse_args()
+    library_info = json.loads(subprocess.check_output([args.arduino_cli, 'lib', 'list', '--format', 'json']))
+    libraries = {entry['library']['name']: entry['library'] for entry in library_info['installed_libraries']}
+    for name, version in [('NimBLE-Arduino', '2.5.2'), ('ArduinoJson', '6.21.5'), ('WiFiManager', '2.0.17')]:
+        if libraries.get(name, {}).get('version') != version:
+            raise SystemExit(f'Install {name}@{version} using Arduino CLI first')
+    sketch = ROOT / '.pio/matter-sketch/MatterBridge'
+    sketch.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / 'experimental/matter/MatterBridge/MatterBridge.ino', sketch)
+    shutil.copy2(ROOT / 'partitions.csv', sketch)
+    (sketch / 'web_ui_gzip.h').write_text(render_dashboard(VERSION,sketch / 'matter-ui.html'))
     if not args.skip_compile:
         # The CLI selects the installed core; refuse silent upgrades/downgrades.
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']

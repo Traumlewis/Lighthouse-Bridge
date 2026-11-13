@@ -2,6 +2,9 @@
 #include "socket_write.h"
 #include <errno.h>
 #include <sys/socket.h>
+#ifdef LH_TASMOTA_BUILD
+extern "C" void lh_tasmota_pump();
+#endif
 
 class MatterWebServer : public WebServer {
   uint32_t writeStarted = 0;
@@ -9,7 +12,12 @@ class MatterWebServer : public WebServer {
   struct Transport {
     NetworkClient& client;
     uint32_t now() { return millis(); }
-    void pause() { delay(1); }
+    void pause() {
+#ifdef LH_TASMOTA_BUILD
+      lh_tasmota_pump();
+#endif
+      delay(1);
+    }
     int tryWrite(const uint8_t* data,size_t size) {
       if (client.fd() < 0) return 0;
       const int count = ::send(client.fd(),data,size,MSG_DONTWAIT);
@@ -26,6 +34,9 @@ public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
   void handleClient() { writing = false; WebServer::handleClient(); }
   size_t writeBytes(const uint8_t* bytes,size_t size) {
+#ifdef LH_TASMOTA_BUILD
+    lh_tasmota_pump();
+#endif
     if (!writing) { writing = true; writeStarted = millis(); }
     Transport transport{_currentClient};
     const size_t sent = bridge::writeSocketBody(transport,bytes,size,writeStarted);

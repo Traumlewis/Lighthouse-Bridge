@@ -1,5 +1,48 @@
 # Validation report — 0.3.9
 
+## Experimental Tasmota Matter prototype 0.1.0-tasmota
+
+This isolated variant links a pinned Tasmota/Berry Matter engine to production
+Lighthouse services and the single sequential NimBLE worker. The light adapter is
+solidified in flash. It uses only measured OnOff/Reachable updates and queues
+explicit On/Off/Toggle, with fresh-only toggle and the existing coalescing/retry/
+confirmation policy. Root/aggregator/first-light and persistent registry identities
+are retained. Names remain saved unchanged; Matter labels retain a UTF-8-safe
+32-byte prefix. Source archives include the complete modified Tasmota sources and
+licenses, excluding compiler caches and private attachments.
+
+Native policies cover all sixteen endpoint bindings, duplicate active commands,
+measured-state/timestamp preservation, stale toggle, unavailable worker and
+maintenance rejection, reassignment mismatch and full-partition erased checks
+(including read failures, boundaries and nonempty final bytes). A real host Berry
+VM executes the actual pinned plugin classes and the production Lighthouse class:
+zero/one/sixteen-light composition, retained endpoint 1, aggregator 2 PartsList,
+measured initial states, command dispatch without optimistic changes, Reachable,
+identity attributes, failed/unsupported commands and generic-virtual write rejection.
+Transport/clock/events are host fakes; this is not an ESP32/Alexa pairing test.
+
+The Tasmota web/console/MQTT/raw-OTA/reset/erase/partition-resize paths are disabled.
+Lighthouse alone owns Wi-Fi, protected HTTP/API/USB and inactive-slot validated OTA.
+HTTP sends/upload chunks pump the Berry fast loop outside VM calls; worker threads
+never invoke the VM. Planned restarts checkpoint fabric state and stop Matter.
+Filesystem mounting never formats nonempty data; the full fixed partition must
+read as erased before initialization. Tasmota fabric/settings files are separate
+from retained SDK fabrics; switching engines requires a new pairing.
+
+The initial complete build used 73,004 static RAM bytes versus 123,284 for the SDK
+prototype, and fit both unchanged app slots. These are linker figures, not measured
+runtime headroom. All three firmware builds, fourteen native suites, twenty-four Python checks
+and nine browser/USB programs pass locally. Final Tasmota app size is
+1,700,960/1,966,080 bytes (265,120 flash bytes reserve); static RAM is 73,004 bytes.
+The host test also checks the actual On/Off Light device-type serialization.
+An extracted-source check builds the host Berry compiler and renders the UI
+without a Git checkout; executable permissions are restored for ZIP extractors.
+The declaration-only NimBLE uint8_t compatibility patch removes a GCC LTO type
+mismatch without changing BLE behavior. No runtime-memory claim follows.
+Actual first setup, BLE/Matter coexistence, four/sixteen-station hardware operation,
+Alexa pairing/external state, session/identity persistence, OTA/power loss and
+return across framework versions remain owner device checks.
+
 ## Experimental cleanup correction 0.3.9-matter
 
 The private owner 0.3.8 attachment contains repeated software-reset aborts. The

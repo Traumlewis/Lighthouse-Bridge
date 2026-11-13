@@ -489,6 +489,9 @@ g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/Arduino
 /tmp/lh-matter-config-test
 python -m pip install -r tools/requirements-matter-build.txt
 python tools/build_matter.py
+python3.12 -m venv .tools/tasmota-venv
+.tools/tasmota-venv/bin/pip install -r tools/requirements-tasmota-build.txt
+.tools/tasmota-venv/bin/python tools/build_tasmota.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py' -v
 node test/serial_info.cjs
@@ -754,3 +757,51 @@ Never copy the credential-bearing raw log into the repository.
   uninitialized-shutdown regression), nineteen Python checks and all browser/USB
   simulations pass. Matter app 1,963,600/1,966,080 bytes (2480 flash bytes reserve),
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
+
+## Experimental Tasmota prototype
+
+- Owner explicitly requests a complete separate Tasmota-based Matter prototype.
+  `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
+  configuration and sequential NimBLE worker into a pinned Tasmota runtime.
+  Initial version is 0.1.0-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+- Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
+  2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
+  environment. Application NimBLE stays 2.5.2 with one connection and central/
+  observer only, using a configuration header after the upstream rename shim.
+  Never shrink stacks, MTU or pools to conceal insufficient hardware RAM.
+- Tasmota is GPL-3.0-or-later: prototype packages must include its license and
+  complete corresponding application source/build patches; stable license stays.
+- Disable Tasmota HTTP, console command input, MQTT, raw OTA, shared NVS settings,
+  automatic reset/erase, external preinit/autoexec and partition resize paths.
+  Lighthouse exclusively owns WLAN/portal, physical USB, authenticated HTTP and
+  validated inactive-slot OTA. Keep the exact complete dual-slot table.
+- The custom flash-solidified Berry light type only queues explicit On/Off/Toggle;
+  toggle requires a fresh measurement. Only measured C++ state updates OnOff and
+  Reachable. Keep command coalescing, generation checks and confirmation logic.
+- Reuse lhmatter endpoint registry and setup credentials; aggregator remains 2,
+  former first light remains 1, no endpoint renumbering. Tasmota fabric files are
+  separate in the existing 192-KiB filesystem. Existing SDK fabrics remain stored
+  for return; switching engines requires pairing the prototype anew.
+- Mount filesystem without formatting; initialize only if the entire fixed data
+  partition is erased. Fail closed on nonempty/corrupt storage, never auto-format
+  saved fabrics. No filesystem upload or factory image is an upgrade path.
+- No hardware attached. Build, host Berry, browser, RAM and multi-station device
+  verification must be recorded accurately before offering this prototype.
+
+- Tasmota additions are flash-solidified, including Lighthouse classes/closures.
+  Prune generic plugin registration to On/Off lights and replace its unused Matter
+  UI with an inert constructor; our authenticated dashboard owns setup. Disable
+  automatic tapp loading as well as external preinit/autoexec. Preserve Matter's
+  credential/session/security implementations and required light clusters.
+- The pinned NimBLE library has one local declaration-only compatibility fix:
+  ble_gap.c declares is_ble_hs_resolv_enabled as uint8_t to match its definition
+  under GCC 15 LTO. No BLE algorithm, stacks, MTU or packet pools are changed.
+  Tasmota WiFiSetSleepMode is disabled; production retains WIFI_PS_MIN_MODEM.
+- Planned restarts save fabric files and stop the engine. Only the main loop
+  touches Berry; checked HTTP writes and upload chunks may pump its fast loop
+  when the VM stack is empty. BLE worker callbacks never invoke Berry.
+- Tasmota local validation: all three firmware builds, fourteen native suites,
+  twenty-four Python checks (including real-host Berry zero/one/sixteen-light
+  composition and serialized light type/PartsList) and nine browser/USB programs
+  pass. App 1,700,960/1,966,080 bytes; static RAM 73,004 bytes versus SDK 123,284.
+  These are linker figures, not measured runtime free heap. Hardware is untested.

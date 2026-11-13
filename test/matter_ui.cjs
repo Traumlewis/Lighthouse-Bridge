@@ -1,7 +1,8 @@
 const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const site=path.resolve(__dirname,'../_site');
-const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),'utf8')).version;
+const prototypeName=process.env.LH_PROTOTYPE==='tasmota'?'tasmota':'matter';
+const version=JSON.parse(fs.readFileSync(path.join(site,prototypeName+'-manifest.json'),'utf8')).version;
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{
@@ -31,14 +32,14 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
    const relative=new URL(route.request().url()).pathname.slice('/Lighthouse-Bridge/'.length)||'index.html';
    const file=path.join(site,relative);
    if(!file.startsWith(site+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:'missing'});
-   if(unsafe&&relative==='matter-manifest.json'){
+   if(unsafe&&relative===prototypeName+'-manifest.json'){
     const manifest=JSON.parse(fs.readFileSync(file));manifest.builds[0].parts[3].offset=0;
     return route.fulfill({json:manifest});
    }
    const type=/\.m?js$/.test(relative)?'application/javascript':relative.endsWith('.css')?'text/css':relative.endsWith('.json')?'application/json':relative.endsWith('.html')?'text/html':'application/octet-stream';
    return route.fulfill({contentType:type,body:fs.readFileSync(file)});
   });
-  await page.goto('https://flasher.test/Lighthouse-Bridge/matter.html');
+  await page.goto('https://flasher.test/Lighthouse-Bridge/'+prototypeName+'.html');
   await page.waitForFunction(version=>document.querySelector('#matter-load').textContent.includes(version),version);
   await page.waitForFunction(()=>customElements.get('esp-web-install-button'));
   assert.equal(await page.locator('html').getAttribute('lang'),'en');
@@ -83,6 +84,6 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
   unsafe=true;await page.reload();await page.waitForFunction(()=>document.querySelector('#matter-load').classList.contains('error'));
   await page.locator('#matter-confirm').check();assert.equal(await page.locator('#matter-install').isDisabled(),true);
   assert.deepEqual(errors,[]);
-  console.log('Matter WebFlasher passed: consent, separate manifest, EN/DE mobile, USB ownership, pairing-code privacy and unsafe-layout rejection. No device flashed.');
+  console.log(prototypeName+' WebFlasher passed: consent, separate manifest, EN/DE mobile, USB ownership, pairing-code privacy and unsafe-layout rejection. No device flashed.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

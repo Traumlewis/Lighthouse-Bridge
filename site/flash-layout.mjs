@@ -5,6 +5,9 @@ export function validUpdateParts(parts) {
 export function validMatterParts(parts) {
   return validParts(parts, 'firmware/matter/lighthouse-matter-');
 }
+export function validTasmotaParts(parts) {
+  return validParts(parts, 'firmware/tasmota/lighthouse-tasmota-');
+}
 function validParts(parts, prefix) {
   const offsets = [0x1000, 0x8000, 0xe000, 0x10000];
   const names = ['bootloader', 'partitions', 'boot-app0', 'app'];

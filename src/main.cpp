@@ -1,8 +1,11 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#ifdef LH_MATTER_BUILD
+#ifdef LH_TASMOTA_BUILD
+#include "tasmota_runtime.h"
+#endif
+#if defined(LH_MATTER_BUILD) && !defined(LH_TASMOTA_BUILD)
 #include <Matter.h>
-#else
+#elif !defined(LH_MATTER_BUILD)
 #include <Espalexa.h>
 #endif
 #include <ESPmDNS.h>
@@ -118,6 +121,12 @@ struct JsonHttpSink {
   }
 };
 #endif
+void restartBridge() {
+#ifdef LH_TASMOTA_BUILD
+  if (!lh_tasmota_checkpoint()) Serial.println("Tasmota Matter checkpoint failed.");
+#endif
+  ESP.restart();
+}
 void sendJson(int code, const JsonDocument& doc) {
   if (doc.overflowed()) {
     server.sendHeader("Cache-Control", "no-store");
@@ -523,7 +532,11 @@ void bleWorker(void*) {
 
 #ifdef LH_MATTER_BUILD
 #include "matter_config_io.h"
+#ifdef LH_TASMOTA_BUILD
+#include "tasmota_matter_adapter.h"
+#else
 #include "matter_adapter.h"
+#endif
 #include "matter_status.h"
 #include "matter_config_route.h"
 #endif
@@ -716,6 +729,9 @@ void acceptOtaBytes(uint8_t* bytes, size_t count) {
   if (error) cancelOta(error);
 }
 void otaUpload() {
+#ifdef LH_TASMOTA_BUILD
+  lh_tasmota_pump();
+#endif
   auto& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     otaRequestAuthorized = false;
@@ -1204,7 +1220,7 @@ void setup() {
   char suffixBytes[7];
   if (esp_read_mac(stationMac, ESP_MAC_WIFI_STA) != ESP_OK) {
     Serial.println("DEVICE_MAC_READ_FAILED");
-    ESP.restart();
+    restartBridge();
     return;
   }
   snprintf(suffixBytes, sizeof(suffixBytes), "%02X%02X%02X", stationMac[3], stationMac[4], stationMac[5]);
@@ -1251,12 +1267,12 @@ void setup() {
 void loop() {
   processSerial();
   wifiManager.process();
-  if (restartPending && millis() - restartAt >= 1500) ESP.restart();
+  if (restartPending && millis() - restartAt >= 1500) restartBridge();
   if (otaPrepared && !otaUploading && !otaSucceeded && millis() - otaPreparedAt >= 60000) cancelOta("OTA_ABORTED");
   if (manualPortal) {
     if (!wifiManager.getConfigPortalActive()) {
       if (WiFi.status() == WL_CONNECTED) persistWifiCredentials();
-      ESP.restart();
+      restartBridge();
     }
     delay(2); return;
   }

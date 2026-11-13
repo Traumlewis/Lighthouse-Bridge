@@ -3,6 +3,27 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota Matter prototype 0.1.0-tasmota
+
+Add a complete, isolated Tasmota/Berry Matter variant for the same classic ESP32.
+Reuse production authentication, EN/DE dashboard, 0–16 station editor/discovery,
+measured status, local API, physical USB and authenticated product-validated OTA.
+A flash-solidified light adapter queues only explicit On/Off/Toggle through the
+existing worker; reports remain measured and toggle requires a fresh reading.
+No power commands are sent on boot/reconnect, and OFF remains SLEEP.
+
+Keep the complete partition table, both 1.875-MiB slots and shared NVS untouched
+by Tasmota management. Disable its web/console/MQTT/OTA/reset/erase/partition-resize
+and external startup-script paths. Initialize filesystem only when fully erased;
+store Tasmota settings/fabrics there while retaining previous SDK fabrics and the
+shared stable endpoint registry/setup credentials. Engine changes need new pairing.
+
+Provide a separate installer, split images, .lhota, checksums and GPL distribution
+with the complete modified source/build patches. Add real-host Berry 16-endpoint
+composition/command tests, native queue/storage tests and browser/USB simulations.
+Software checks do not establish runtime RAM, RF, Alexa pairing, OTA or persistence
+on the owner's device. Stable stays 0.3.9; SDK experiment stays 0.3.9-matter.
+
 ## Experimental cleanup correction 0.3.9-matter
 
 The owner's 0.3.8 retest still boot-loops. Its exact CI ELF identifies the new

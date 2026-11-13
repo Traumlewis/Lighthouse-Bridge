@@ -1,9 +1,16 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.0-tasmota**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
+
+The Tasmota variant uses the same API/auth/state semantics. Its private Matter
+information additionally reports `engine: "tasmota-berry"` and the current
+`engine_heap_bytes` (Berry-managed allocation size, not total free system RAM). Setup
+credentials and stable endpoint IDs are shared with the SDK prototype; fabrics
+are separate and changing engines requires pairing again. See the
+[Tasmota guide](../experimental/tasmota/README.md).
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced

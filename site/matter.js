@@ -1,9 +1,12 @@
-import { translations } from './translations.js?v=matter-0.3.9';
-import { validMatterParts } from './flash-layout.mjs?v=matter-0.3.9';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=matter-0.3.9';
-import { parseMatterInfo } from './matter-info.mjs?v=matter-0.3.9';
+import { translations } from './translations.js?v=tasmota-0.1.0';
+import { validMatterParts, validTasmotaParts } from './flash-layout.mjs?v=tasmota-0.1.0';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.0';
+import { parseMatterInfo } from './matter-info.mjs?v=tasmota-0.1.0';
 
 const $ = id => document.getElementById(id);
+const isTasmota = document.body.dataset.prototype === 'tasmota';
+const prototypeName = isTasmota ? 'tasmota' : 'matter';
+const validPrototypeParts = isTasmota ? validTasmotaParts : validMatterParts;
 const supported = value => value === 'en' || value === 'de';
 const languageKey = 'lighthouse-bridge.language';
 let language = 'en', ready = false, version = '', loadState = 'checking';
@@ -49,8 +52,8 @@ function measurement(station) {
 }
 function setLanguage(value, remember = false) {
   language = supported(value) ? value : 'en'; document.documentElement.lang = language; $('language').value = language;
-  document.title = text('matter_page_title');
-  document.querySelector('meta[name="description"]').content = text('matter_description');
+  document.title = text(isTasmota ? 'tasmota_page_title' : 'matter_page_title');
+  document.querySelector('meta[name="description"]').content = text(isTasmota ? 'tasmota_description' : 'matter_description');
   document.querySelectorAll('[data-i18n]').forEach(node => { node.innerHTML = text(node.dataset.i18n); });
   document.querySelectorAll('[data-i18n-aria-label]').forEach(node => node.setAttribute('aria-label',text(node.dataset.i18nAriaLabel)));
   if (remember) {
@@ -68,19 +71,19 @@ $('matter-confirm').addEventListener('change',render);
 
 async function check() {
   try {
-    const response = await fetch('matter-manifest.json',{cache:'no-store'});
+    const response = await fetch(`${prototypeName}-manifest.json`,{cache:'no-store'});
     if (!response.ok) throw new Error();
     const manifest = await response.json(), parts = manifest.builds?.[0]?.parts;
     if (manifest.builds?.length !== 1 || manifest.builds[0].chipFamily !== 'ESP32' ||
-        !/^\d+\.\d+\.\d+-matter$/.test(manifest.version) || !validMatterParts(parts)) throw new Error();
+        !new RegExp('^\\d+\\.\\d+\\.\\d+-' + prototypeName + '$').test(manifest.version) || !validPrototypeParts(parts)) throw new Error();
     await Promise.all(parts.map(async part => {
       const result = await fetch(new URL(part.path,response.url),{method:'HEAD',cache:'no-store'});
       if (!result.ok) throw new Error();
     }));
     version = manifest.version; ready = true; loadState = 'ready';
-    $('matter-download').href = `firmware/matter/lighthouse-bridge-${version}.zip`;
+    $('matter-download').href = `firmware/${prototypeName}/lighthouse-bridge-${version}.zip`;
     $('matter-download').hidden = false;
-    $('matter-ota').href = `firmware/matter/lighthouse-bridge-${version}.lhota`;
+    $('matter-ota').href = `firmware/${prototypeName}/lighthouse-bridge-${version}.lhota`;
     $('matter-ota').hidden = false;
   } catch (_) { loadState = 'unavailable'; }
   render();
