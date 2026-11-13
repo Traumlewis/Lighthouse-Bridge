@@ -1,6 +1,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#ifdef LH_MATTER_BUILD
+#include <Matter.h>
+#else
 #include <Espalexa.h>
+#endif
 #include <ESPmDNS.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
@@ -11,17 +15,37 @@
 #include <Update.h>
 #include <esp_ota_ops.h>
 #include <mbedtls/sha256.h>
+#include <mbedtls/version.h>
 #include <memory>
 #include "station_config.h"
 #include "ota_receiver.h"
 #include "bridge_core.h"
+#ifndef LH_MATTER_BUILD
 #include "hue_api.h"
 #include "web_ui.h"
+#else
+#include "web_ui_gzip.h"
+#endif
 #include "password_hash.h"
+
+#ifndef LH_FIRMWARE_VERSION
+#define LH_FIRMWARE_VERSION "0.3.9"
+#endif
+#if MBEDTLS_VERSION_MAJOR >= 3
+#define LH_SHA_START mbedtls_sha256_starts
+#define LH_SHA_UPDATE mbedtls_sha256_update
+#define LH_SHA_FINISH mbedtls_sha256_finish
+#else
+#define LH_SHA_START mbedtls_sha256_starts_ret
+#define LH_SHA_UPDATE mbedtls_sha256_update_ret
+#define LH_SHA_FINISH mbedtls_sha256_finish_ret
+#endif
 
 using namespace bridge;
 WebServer server(80);
+#ifndef LH_MATTER_BUILD
 Espalexa alexa;
+#endif
 Preferences prefs;
 SemaphoreHandle_t stateMutex;
 StationConfig configs[kStations];
@@ -60,6 +84,11 @@ struct Lock {
 };
 
 void sendJson(int code, const JsonDocument& doc) {
+  if (doc.overflowed()) {
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(500, "application/json", "{\"error\":\"OUT_OF_MEMORY\"}");
+    return;
+  }
   String body;
   serializeJson(doc, body);
   server.sendHeader("Cache-Control", "no-store");
@@ -138,7 +167,7 @@ bool occupied(bool includeRead = true) { // Caller holds stateMutex.
 bool queueTarget(int slot, Target target) {
   Lock lock;
   bool accepted = false;
-  if (blePaused || portalRequested || otaPrepared) return false;
+  if (blePaused || portalRequested || otaPrepared || restartPending) return false;
   for (unsigned i = 0; i < kStations; ++i) {
     if ((slot < 0 || slot == static_cast<int>(configs[i].id)) && configs[i].mac[0]) {
       request(states[i], target, millis());
@@ -148,10 +177,12 @@ bool queueTarget(int slot, Target target) {
   return accepted;
 }
 
+#ifndef LH_MATTER_BUILD
 bool queueHueTarget(int hueId, Target target) {
   const int stationId = stationIdForHue(configs, static_cast<uint32_t>(hueId));
   return stationId && queueTarget(stationId, target);
 }
+#endif
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
 // block the HTTP/SSDP loop. One connection at a time for all four stations.
@@ -406,10 +437,20 @@ void bleWorker(void*) {
   }
 }
 
+#ifdef LH_MATTER_BUILD
+#include "matter_adapter.h"
+#endif
+
 void statusRoute() {
   if (!authenticated()) return;
   DynamicJsonDocument doc(32768);
-  doc["version"] = "0.3.9";
+  doc["version"] = LH_FIRMWARE_VERSION;
+#ifdef LH_MATTER_BUILD
+  doc["alexa_protocol"] = "matter";
+  doc["matter_ready"] = matterReady.load();
+  doc["matter_paired"] = matterPaired.load();
+  doc["matter_error"] = matterError.load();
+#endif
   doc["poll_interval_ms"] = 15000;
   doc["max_stations"] = kStations;
   doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
@@ -473,6 +514,7 @@ void statusRoute() {
   sendJson(200, doc);
 }
 
+#ifndef LH_MATTER_BUILD
 // Hue ACK means queued. GET ON temporarily follows an active accepted target;
 // measurements and reachability remain separate and never become optimistic.
 // Espalexa still owns SSDP, description and username registration.
@@ -539,20 +581,22 @@ bool serveHueLights(const String& uri) {
   return true;
 }
 
+#endif
+
 struct FirmwareOtaIO {
   mbedtls_sha256_context sha;
   bool hashing = false;
   bool begin(uint32_t size) {
     if (!Update.begin(size, U_FLASH)) return false;
     mbedtls_sha256_init(&sha); hashing = true;
-    if (mbedtls_sha256_starts_ret(&sha, 0)) { abort(); return false; }
+    if (LH_SHA_START(&sha, 0)) { abort(); return false; }
     return true;
   }
   bool write(uint8_t* bytes, size_t count) {
-    return !mbedtls_sha256_update_ret(&sha, bytes, count) && Update.write(bytes, count) == count;
+    return !LH_SHA_UPDATE(&sha, bytes, count) && Update.write(bytes, count) == count;
   }
   bool finishHash(uint8_t* digest) {
-    const bool ok = !mbedtls_sha256_finish_ret(&sha, digest);
+    const bool ok = !LH_SHA_FINISH(&sha, digest);
     mbedtls_sha256_free(&sha); hashing = false;
     return ok;
   }
@@ -617,7 +661,11 @@ void configureMaintenanceRoutes() {
     if (prefs.putString("dev_name", name) != name.length()) { fail(500, "SAVE_FAILED"); return; }
     customDeviceName = hostname = apName = name;
     WiFi.setHostname(hostname.c_str()); wifiManager.setHostname(hostname);
+#ifdef LH_MATTER_BUILD
+    matterSetHostname(hostname);
+#else
     MDNS.end(); MDNS.begin(hostname.c_str()); MDNS.addService("http", "tcp", 80);
+#endif
     doc.clear(); doc["saved"] = true; doc["hostname"] = hostname; doc["setup_ssid"] = apName;
     doc["url"] = "http://" + hostname + ".local/"; sendJson(200, doc); emitDeviceInfo();
   });
@@ -668,7 +716,12 @@ void configureRoutes() {
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("X-Content-Type-Options", "nosniff");
     server.sendHeader("X-Frame-Options", "DENY");
+#ifdef LH_MATTER_BUILD
+    server.sendHeader("Content-Encoding", "gzip");
+    server.send_P(200, "text/html; charset=utf-8", reinterpret_cast<const char*>(WEB_UI_GZIP), sizeof(WEB_UI_GZIP));
+#else
     server.send_P(200, "text/html; charset=utf-8", WEB_UI);
+#endif
   });
   server.on("/api/login", HTTP_POST, [] {
     if (!sameOriginJson()) return;
@@ -767,12 +820,21 @@ void configureRoutes() {
     writeStationList(doc.createNestedArray("stations"), next.get(), true);
     String saved; serializeJson(doc, saved);
     bool busy = false, persisted = false;
+#ifdef LH_MATTER_BUILD
+    std::string matterConfigError;
+#endif
     {
       Lock lock;
       busy = occupied(false);
       if (!busy) {
+#ifdef LH_MATTER_BUILD
+        if (matterPrepareConfiguration(next.get(), matterConfigError))
+#endif
         persisted = prefs.putString("stations", saved) == saved.length();
         if (persisted) {
+#ifdef LH_MATTER_BUILD
+          blePaused = true; matterReady = false;
+#endif
           reconcileStationStates(next.get(), configs, states, restored.get());
           for (unsigned i = 0; i < kStations; ++i) {
             configs[i] = next[i]; states[i] = restored[i]; refreshRequested[i] = false;
@@ -782,7 +844,15 @@ void configureRoutes() {
       }
     }
     if (busy) { fail(409, "BLE_BUSY"); return; }
-    if (!persisted) { fail(500, "SAVE_FAILED"); return; }
+    if (!persisted) {
+#ifdef LH_MATTER_BUILD
+      if (!matterConfigError.empty()) { fail(409, matterConfigError.c_str()); return; }
+#endif
+      fail(500, "SAVE_FAILED"); return;
+    }
+#ifdef LH_MATTER_BUILD
+    matterConfigurationChanged();
+#endif
     doc.clear(); doc["saved"] = true; writeStationList(doc.createNestedArray("stations"), configs);
     sendJson(200, doc);
   });
@@ -793,15 +863,28 @@ void configureRoutes() {
     sendJson(202, doc);
   });
   // Espalexa needs its Hue-compatible endpoints without our admin login.
+#ifdef LH_MATTER_BUILD
+  server.on("/api/matter", HTTP_GET, [] {
+    if (!authenticated(true)) return;
+    StaticJsonDocument<1024> doc; matterPrivateInfo(doc, true); sendJson(200, doc);
+  });
+  server.on("/api/matter/commissioning", HTTP_POST, [] {
+    if (!authenticated(true) || !sameOriginJson()) return;
+    if (!matterOpenCommissioning()) { fail(409, "MATTER_NOT_READY"); return; }
+    StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
+  });
+#endif
   server.onNotFound([] {
     const String uri = server.uri();
     if (uri == "/api/status" || uri == "/api/power" || uri == "/api/config" ||
         uri == "/api/scan" || uri == "/api/wifi" || uri == "/api/refresh" ||
         uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account" ||
-        uri == "/api/device" || uri == "/api/ota" || uri == "/api/ota/prepare" || uri == "/api/ota/cancel") {
+        uri == "/api/device" || uri == "/api/ota" || uri == "/api/ota/prepare" || uri == "/api/ota/cancel" ||
+        uri == "/api/matter" || uri == "/api/matter/commissioning") {
       if (authenticated()) fail(404, "NOT_FOUND");
       return;
     }
+#ifndef LH_MATTER_BUILD
     // Hue also uses /api/<username>/lights. Do not intercept it as our API.
     if (uri == "/api" || uri.startsWith("/api/")) {
       if (server.header("Origin").length()) { fail(403, "ORIGIN_DENIED"); return; }
@@ -812,6 +895,7 @@ void configureRoutes() {
           alexa.handleAlexaApiCall(uri, server.arg("plain"))) return;
       if (server.method() == HTTP_GET && alexa.handleAlexaApiCall(uri, "")) return;
     }
+#endif
     fail(404, "NOT_FOUND");
   });
 }
@@ -828,7 +912,7 @@ void persistWifiCredentials() {
 
 void emitDeviceInfo() {
   StaticJsonDocument<512> doc;
-  doc["protocol"] = 1; doc["version"] = "0.3.9";
+  doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
@@ -845,6 +929,9 @@ void processSerial() {
     if (c == '\n') {
       line[length] = 0;
       if (!overflow && strcmp(line, "LH_INFO") == 0) emitDeviceInfo();
+#ifdef LH_MATTER_BUILD
+      if (!overflow && strcmp(line, "LH_MATTER_INFO") == 0) emitMatterInfo();
+#endif
       if (!overflow && strcmp(line, "LH_RESET_WEB_PASSWORD") == 0) {
         prefs.remove("web_auth"); webSalt = ""; webHash = "";
         for (auto& session : sessions) session.token = "";
@@ -872,6 +959,9 @@ void startServices() {
   stateMutex = xSemaphoreCreateMutex();
   if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
   const String saved = prefs.getString("stations", "");
+#ifdef LH_MATTER_BUILD
+  bool validSavedConfig = !saved.length();
+#endif
   if (saved.length()) {
     DynamicJsonDocument doc(16384);
     std::unique_ptr<StationConfig[]> restored(new StationConfig[kStations]);
@@ -883,9 +973,16 @@ void startServices() {
                            restored.get(), nullptr, counter, true, legacy, error)) {
         for (unsigned i = 0; i < kStations; ++i) configs[i] = restored[i];
         nextHueId = counter;
+#ifdef LH_MATTER_BUILD
+        validSavedConfig = true;
+#endif
       } else Serial.println("Saved station configuration is invalid; please assign the stations again.");
     }
   }
+#ifdef LH_MATTER_BUILD
+  if (validSavedConfig) matterBridgeBegin();
+  else matterError = "SAVED_CONFIG_INVALID";
+#endif
   Serial.println("Initializing BLE ...");
   if (!NimBLEDevice::init("Lighthouse Bridge")) {
     Serial.println("BLE initialization failed.");
@@ -896,9 +993,16 @@ void startServices() {
     Serial.println("Could not start BLE task"); while (true) delay(1000);
   }
   configureRoutes();
+#ifdef LH_MATTER_BUILD
+  server.begin();
+  alexaReady = matterReady.load();
+  matterServicesReady = true;
+  matterSetHostname(hostname);
+#else
   alexaReady = alexa.begin(&server);
   if (!alexaReady) { Serial.println("SSDP startup failed; the web interface remains available."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
+#endif
   Serial.printf("Web interface: http://%s/ or http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
   servicesStarted = true;
   Serial.println("Lighthouse Bridge ready.");
@@ -913,6 +1017,9 @@ void setup() {
   WiFi.setSleep(WIFI_PS_MIN_MODEM);
   WiFi.persistent(true);
   WiFi.mode(WIFI_STA);
+#ifdef LH_MATTER_BUILD
+  WiFi.enableIPv6();
+#endif
   accessKey = prefs.getString("access_key", "");
   if (accessKey.length() != 24) {
     accessKey = randomHex(12);
@@ -935,7 +1042,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.println("\nLighthouse Bridge 0.3.9");
+  Serial.printf("\nLighthouse Bridge %s\n", LH_FIRMWARE_VERSION);
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
   emitDeviceInfo();
@@ -984,7 +1091,13 @@ void loop() {
     }
     delay(2); return;
   }
+#ifdef LH_MATTER_BUILD
+  server.handleClient();
+  matterBridgeLoop();
+  alexaReady = matterReady.load();
+#else
   alexa.loop();
+#endif
   static uint32_t pressedAt = 0;
   if (digitalRead(0) == LOW) {
     if (!pressedAt) pressedAt = millis();
@@ -995,7 +1108,10 @@ void loop() {
   } else pressedAt = 0;
   if (portalRequested && !bleActive) {
     portalRequested = false;
-    server.stop(); MDNS.end();
+    server.stop();
+#ifndef LH_MATTER_BUILD
+    MDNS.end();
+#endif
     manualPortal = true;
     wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());

@@ -1,8 +1,9 @@
 # Local API — 0.3.9
 
-This reference applies to stable firmware. The separate `0.2.0-matter` experiment
-has no HTTP API or dashboard; its physical-USB protocol and limitations are
-documented in the [prototype guide](../experimental/matter/README.md).
+The same production HTTP services are also included in experimental
+**0.3.0-matter**, with the Matter-only private endpoints below. The separate
+[prototype guide](../experimental/matter/README.md) covers installation and
+hardware-test limits. Stable firmware remains 0.3.9.
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -33,6 +34,31 @@ and queued/sending power commands remain visible. Debug text scrolls within a
 reserved card area; toggling does not change the layout. Triple-click its firmware version within 1.2 s
 to toggle debug details. This only changes browser presentation; all API fields
 and serial diagnostics remain available and BLE behavior is unchanged.
+
+## Experimental Matter setup (personal-password session only)
+
+- `GET /api/matter`: returns `bridge_name`, `version`, `ready`, `paired`,
+  `pairing_code` (null until ready), `error`, `commissioning_open`,
+  `commissioning_pending` and `commissioning_error`. Use `Cache-Control: no-store`;
+  do not save or include the returned code in URLs/logs. This route accepts
+  neither API-key authentication nor bootstrap sessions.
+- `POST /api/matter/commissioning`, JSON `{}`: same personal-session restriction
+  and Origin/JSON checks. Returns `202 {"accepted":true}` when scheduled, or
+  `409 MATTER_NOT_READY`. Poll GET for completion/error. Opens a Basic
+  Commissioning Window for 15 minutes over DNS-SD only; existing open/pending
+  windows coalesce. No fabric reset, BLE commissioning or station power writes.
+- Matter status adds `alexa_protocol:"matter"`, `matter_ready`, `matter_paired`
+  and `matter_error`. General status never includes the setup code;
+  `alexa_started` denotes Matter readiness in this build. The API's measured
+  station fields retain their production meaning; Matter has no Hue target view.
+- In the experimental build, station configuration saves checkpoint persistent
+  Matter identities, save assignments, pause new BLE work and restart 1.5 seconds
+  after responding. Refresh integrations and sign in again after the restart.
+  Existing station endpoints survive reordering. Replacing a physical station
+  receives a fresh endpoint; no automatic power command is sent on restart.
+- The same OTA security/container checks apply. Download the separate Matter
+  `.lhota` from the Matter WebFlasher for Matter updates. Boot/fabric persistence
+  and actual device uploads still require hardware tests.
 
 ## GET /api/status
 

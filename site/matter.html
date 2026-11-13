@@ -5,27 +5,28 @@
   <meta name="color-scheme" content="dark">
   <meta name="description" content="An experimental Matter test for up to 16 Lighthouse base stations on classic ESP32.">
   <title>Lighthouse Bridge · Experimental Matter</title>
-  <link rel="stylesheet" href="style.css?v=matter-0.2.0">
-  <script type="module" src="matter.js?v=matter-0.2.0"></script>
+  <link rel="stylesheet" href="style.css?v=matter-0.3.0">
+  <script type="module" src="matter.js?v=matter-0.3.0"></script>
 </head>
 <body><main>
   <header><a class="brand" href="./">◈ Lighthouse Bridge</a><nav class="header-actions" data-i18n-aria-label="navigation"><label class="language-picker"><span class="sr-only" data-i18n="language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option></select></label><a href="./" data-i18n="matter_stable">Stable WebFlasher</a></nav></header>
   <section class="hero"><div><p class="eyebrow" data-i18n="matter_eyebrow">Experimental · classic ESP32</p><h1 data-i18n="matter_title">Try Matter.<br>Your base stations.</h1><p class="lead" data-i18n="matter_intro">The single-station test confirms switching, light classification and status display. This next experiment exposes your configured stations as separate lights; operation with multiple stations still needs hardware testing.</p></div></section>
   <section class="install-panel">
-    <h2 data-i18n="matter_prepare">Prepare with the stable firmware first</h2>
-    <p data-i18n="matter_prerequisites">Save Wi-Fi and up to 16 base-station assignments in the stable Bridge first. This prototype exposes every configured station as a separate light under “Lighthouse-Bridge Matter Test”. It has no dashboard, local HTTP API or Wi-Fi firmware upload yet.</p>
-    <p data-i18n="matter_layout">Both existing app slots and the NVS addresses stay unchanged. Keep “Erase device” unchecked to retain settings. Return to the stable firmware using the USB WebFlasher, with erasing unchecked again.</p>
+    <h2 data-i18n="matter_prepare">Install the full Matter test firmware</h2>
+    <p data-i18n="matter_prerequisites">Up to 16 stations appear as separate lights under “Lighthouse-Bridge Matter Test”. The experimental firmware now includes the dashboard, station editor, Bluetooth discovery, local API and Wi-Fi updates. Existing settings are retained.</p>
+    <p data-i18n="matter_layout">Both existing app slots and NVS addresses remain unchanged. Keep “Erase device” unchecked. Install the separate Matter .lhota package through the dashboard for later Matter updates; return to stable using its USB WebFlasher without erasing.</p>
     <p data-i18n="board_description">For the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.</p>
-    <label class="check"><input id="matter-confirm" type="checkbox"><span data-i18n="matter_confirmation">My classic ESP32 is configured with the stable firmware. I understand this is an unverified experiment and will keep “Erase device” unchecked.</span></label>
-    <div class="install-actions"><esp-web-install-button id="matter-installer" manifest="matter-manifest.json" hidden><button slot="activate" id="matter-install" disabled data-i18n="matter_install">Install Matter prototype</button><span slot="unsupported" data-i18n="unsupported"></span><span slot="not-allowed" data-i18n="not_allowed"></span></esp-web-install-button><a id="matter-download" class="download" hidden download data-i18n="matter_download">Prototype files (ZIP) ↓</a></div>
+    <label class="check"><input id="matter-confirm" type="checkbox"><span data-i18n="matter_confirmation">I understand that this full Matter firmware is experimental, and will keep “Erase device” unchecked to retain my settings.</span></label>
+    <div class="install-actions"><esp-web-install-button id="matter-installer" manifest="matter-manifest.json" hidden><button slot="activate" id="matter-install" disabled data-i18n="matter_install">Install Matter prototype</button><span slot="unsupported" data-i18n="unsupported"></span><span slot="not-allowed" data-i18n="not_allowed"></span></esp-web-install-button><a id="matter-download" class="download" hidden download data-i18n="matter_download">Prototype files (ZIP) ↓</a><a id="matter-ota" class="download" hidden download data-i18n="matter_ota">Matter Wi-Fi update (.lhota) ↓</a></div>
     <p id="matter-load" class="hint" role="status"></p><p id="matter-module-error" class="error" hidden data-i18n="module_error"></p>
     <p><a href="./" data-i18n="matter_stable">Stable WebFlasher</a> · <a href="https://github.com/Traumlewis/Lighthouse-Bridge/blob/main/experimental/matter/README.md" data-i18n="guide">Guide</a></p>
   </section>
   <section class="install-panel usb-panel">
     <h2 data-i18n="matter_pair_title">Read the Matter setup code over USB</h2>
-    <p data-i18n="matter_pair_help">Close the installer first, then read the code. In Alexa, add a Matter device and enter the code manually. Your Echo must support Matter and be on the same home network. This prototype uses test device credentials; pairing may ask you to accept an uncertified device.</p>
-    <div class="install-actions"><button id="matter-read" type="button" data-i18n="matter_read">Read setup code &amp; status</button><button id="matter-stop" type="button" hidden data-i18n="usb_stop">Disconnect USB</button></div>
+    <p data-i18n="matter_pair_help">After installing, read the key and address here. Open the Bridge dashboard, sign in as admin with the key for the first login, then choose your own password. Under Matter setup you can retrieve the code and open a pairing window. In Alexa, add a Matter device using that code on the same home network. Test device credentials may require accepting an uncertified device.</p>
+    <div class="install-actions"><button id="matter-read" type="button" data-i18n="matter_read">Read setup code & status</button><button id="matter-stop" type="button" hidden data-i18n="usb_stop">Disconnect USB</button></div>
     <p id="matter-usb-status" role="status" class="hint"></p>
+    <div id="matter-access" hidden><p><span data-i18n="matter_access">First web login / setup Wi-Fi key</span>: <button class="plain-key" id="matter-key" type="button"></button></p><p><span data-i18n="matter_ssid">Setup Wi-Fi</span>: <strong id="matter-ssid"></strong></p><p><a id="matter-url" hidden></a></p></div>
     <div id="matter-device" hidden>
       <p><span data-i18n="matter_bridge">Matter bridge</span>: <strong id="matter-bridge"></strong></p>
       <p><span data-i18n="matter_station">Configured stations</span>: <strong id="matter-station"></strong></p>
@@ -33,7 +34,7 @@
       <p><span data-i18n="matter_code_label">Matter setup code</span>: <button class="plain-key" id="matter-code" type="button" data-i18n-aria-label="matter_copy_code"></button></p>
       <p id="matter-pair-state"></p><p id="matter-measurement"></p><p id="matter-copy-status" class="hint" role="status"></p>
     </div>
-    <p data-i18n="matter_privacy">The setup code stays in this page’s memory. It is never stored or sent to a website. Boot and reconnect only read station state; they do not send power commands.</p>
+    <p data-i18n="matter_privacy">USB keys and codes remain in page memory; they are never stored or sent to a website. The dashboard reveals the Matter code only after signing in with your own password. Startup and reconnect only read station state.</p>
   </section>
   <footer><span data-i18n="matter_experimental">Experimental firmware · operation with multiple stations still needs hardware testing.</span></footer>
 </main></body></html>

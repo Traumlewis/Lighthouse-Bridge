@@ -3,6 +3,7 @@
 #include <esp_system.h>
 #include <mbedtls/md.h>
 #include <mbedtls/pkcs5.h>
+#include <mbedtls/version.h>
 
 namespace bridge {
 inline String randomHex(unsigned bytes) {
@@ -23,6 +24,12 @@ inline bool equalSecret(const String& a, const String& b) {
 }
 inline String passwordHash(const String& password, const String& salt) {
   uint8_t derived[32];
+#if MBEDTLS_VERSION_MAJOR >= 3
+  const int result = mbedtls_pkcs5_pbkdf2_hmac_ext(MBEDTLS_MD_SHA256,
+    reinterpret_cast<const unsigned char*>(password.c_str()), password.length(),
+    reinterpret_cast<const unsigned char*>(salt.c_str()), salt.length(), 10000,
+    sizeof(derived), derived);
+#else
   mbedtls_md_context_t context;
   mbedtls_md_init(&context);
   const auto* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
@@ -32,6 +39,7 @@ inline String passwordHash(const String& password, const String& salt) {
     reinterpret_cast<const unsigned char*>(salt.c_str()), salt.length(), 10000,
     sizeof(derived), derived);
   mbedtls_md_free(&context);
+#endif
   if (result) return "";
   String hash;
   char byte[3];

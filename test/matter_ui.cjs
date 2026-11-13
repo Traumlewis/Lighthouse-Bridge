@@ -18,7 +18,8 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
    const port={open:async function(){
     this.readable=new ReadableStream({start(c){window.usbController=c;}});
     this.writable=new WritableStream({write(bytes){const q=new TextDecoder().decode(bytes);window.queries.push(q);
-     if(q==='LH_MATTER_INFO\n')window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify(info)+'\n'));}});
+     if(q.includes('LH_INFO\n'))window.usbController.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify({protocol:1,version,api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:true,url:'http://192.168.1.42/',password_set:true})+'\n'));
+     if(q.includes('LH_MATTER_INFO\n'))window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify(info)+'\n'));}});
    },close:async()=>{}};
    window.fakePort=port;
    window.sendPaired=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,paired:true,pairing_code:null})+'\n'));
@@ -49,6 +50,9 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.locator('#matter-read').click();
   await page.waitForFunction(()=>document.querySelector('#matter-code').textContent==='34970112332');
+  assert.equal(await page.locator('#matter-key').textContent(),'1234567890abcdef12345678');
+  assert.equal(await page.locator('#matter-url').getAttribute('href'),'http://192.168.1.42/');
+  await page.locator('#matter-key').click();assert.equal(await page.evaluate(()=>window.copied),'1234567890abcdef12345678');
   assert.equal(await page.locator('#matter-install').isDisabled(),true,'reader owns the USB port');
   assert.equal(await page.locator('#matter-read').isDisabled(),true);
   assert.equal(await page.locator('#matter-station').textContent(),'2');
@@ -67,7 +71,7 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'matter-manifest.json'),
   await page.evaluate(()=>window.sendPaired());await page.waitForFunction(()=>document.querySelector('#matter-code').disabled);
   await page.locator('#matter-stop').click();await page.waitForFunction(()=>!document.querySelector('#matter-read').disabled);
   assert.equal(await page.locator('#matter-install').isEnabled(),true);
-  assert.ok((await page.evaluate(()=>window.queries)).every(q=>q==='LH_MATTER_INFO\n'),'no reset or power command sent');
+  assert.ok((await page.evaluate(()=>window.queries)).every(q=>q==='LH_INFO\nLH_MATTER_INFO\n'),'only the two information commands are sent');
   await page.evaluate(()=>{
    const dialog=document.createElement('ewt-install-dialog');dialog.port=window.fakePort;document.body.append(dialog);
    dialog.dispatchEvent(new CustomEvent('closed',{bubbles:true}));dialog.remove();

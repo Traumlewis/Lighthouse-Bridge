@@ -10,24 +10,29 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.2.0-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
-The prototype uses saved Wi-Fi and all configured stations (up to 16), so configure
-those with stable firmware first. Keep **Erase device unchecked**.
-It has no dashboard, local HTTP API or Wi-Fi update upload; return over USB.
+`0.3.0-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+The full test firmware retains saved settings and includes the production
+dashboard, discovery/editor, local API and Wi-Fi updates for up to 16 stations.
+New installations have a protected non-blocking Wi-Fi setup portal. The USB panel
+reads key/address using `LH_INFO` and pairing/status using `LH_MATTER_INFO` through
+one serial connection. After personal-password login, **Matter setup** in the
+local dashboard reveals the code and can open a 15-minute pairing window.
+Keep erasing unchecked to retain settings when installing or returning to stable.
 See the [prototype guide](../experimental/matter/README.md) for pairing and limits.
 
 `tools/build_matter.py` builds with the pinned Arduino CLI environment and packages
 `dist/matter/`. `tools/build_pages.py` verifies its four segments, classic ESP32
 headers, size limit, per-image hashes and exact equality of both partition tables,
 then creates `_site/matter-manifest.json` and `firmware/matter/`. Both app slots and
-the NVS addresses are retained. No merged factory image or `.lhota` is offered for
-the prototype. Its ZIP includes source, checksums, version notes and licenses.
+the NVS addresses are retained. No merged factory image is offered for
+the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.0-matter.lhota`
+contains only the app for subsequent dashboard uploads; Pages checks it against
+the USB app image. Its ZIP includes source, checksums, version notes and licenses.
 
 After the installer releases USB, the experiment page sends only
-`LH_MATTER_INFO\n` through the shared serial watcher. Its separate validated frame
-parser exposes the setup code, bridge name and all configured station IDs/names
-with measured status; no stable API
-key is requested. Setup codes remain in browser memory. EN/DE changes preserve
+`LH_INFO\nLH_MATTER_INFO\n` through the shared serial watcher. Both validated
+parsers expose the setup key/address and the Matter code, bridge name and measured
+station list. Keys and codes remain in browser memory, never URLs/storage/network. EN/DE changes preserve
 the connection and consent checkbox. Firmware installation stays disabled while
 the reader owns USB and when its manifest or any segment is unavailable/unsafe.
 
@@ -110,6 +115,7 @@ Pull requests are checked without deployment. Artifacts are
 ```sh
 pio run
 python tools/package_release.py
+python tools/build_matter.py
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_pages.py' -v
 node test/serial_info.cjs

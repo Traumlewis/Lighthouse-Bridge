@@ -77,6 +77,8 @@ def build():
         raise ValueError('Unexpected Matter prototype identity')
     matter_segments = [(offset, (matter / f'lighthouse-matter-{name}.bin').read_bytes()) for name, offset, _ in SEGMENTS]
     validate_segments(matter_segments)
+    if unpack((matter / f'lighthouse-bridge-{MATTER_VERSION}.lhota').read_bytes()) != matter_segments[-1][1]:
+        raise ValueError('Matter OTA payload differs from application')
     if matter_segments[1][1] != (ROOT / 'dist/lighthouse-bridge-partitions.bin').read_bytes():
         raise ValueError('Matter prototype changes the stable partition table')
     expected_parts = [{'offset': offset, 'path': f'firmware/matter/lighthouse-matter-{name}.bin?sha=' +

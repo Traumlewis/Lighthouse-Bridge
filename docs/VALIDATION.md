@@ -1,5 +1,35 @@
 # Validation report — 0.3.9
 
+## Experimental full Matter 0.3.0-matter
+
+The owner requested dashboard, API, OTA and web retrieval of the setup code now,
+without waiting for the multi-station test. The full build includes production
+`src/main.cpp`: authentication, USB recovery, one BLE worker, measurements,
+configuration parser and the streamed OTA receiver are shared with stable.
+The Matter adapter changes protocol/identity reporting, not physical power rules.
+Station saves checkpoint the identity registry before committing configuration,
+pause new BLE work and restart after the response. Existing fabrics/endpoints
+are retained; no boot/reconnect power write is introduced.
+
+The private setup-code route requires the personal-password session. Its pairing
+window mutation checks JSON and Origin, and schedules only a Basic Commissioning
+Window (DNS-SD, 15 minutes) on the CHIP task. No API-key/bootstrap access, fabric
+reset or pairing code in general status. The generated gzip dashboard is exercised
+with mock HTTP for explicit retrieval, window opening, copying on local HTTP,
+language preservation, hidden Hue controls, no power calls and code erasure on
+logout. These browser checks do not prove device commissioning or OTA operation.
+
+Size optimization uses gzip, C++ `-Oz -flto`, C `-Oz` and `WM_NODEBUG`. The initial
+full adapter exceeded the static DRAM region; registry/lamp objects now use
+checked heap allocations. Runtime heap/task stacks, SDK/framework NVS migration,
+actual OTA/power-loss handling, Wi-Fi/BLE coexistence and multiple lamps all need
+hardware tests. Prior owner success applies to 0.1.1's single station only.
+The local full app is 1,955,440 bytes in the unchanged 1,966,080-byte slot;
+linker static RAM is 123,732 bytes. Only 10,640 flash bytes remain, so every later
+change must repeat the size check. These figures do not establish runtime heap
+headroom. Stable still builds as 0.3.9. Native request/identity/Hue/OTA checks,
+16 Python checks and the complete mock-browser/USB suite pass locally.
+
 ## Experimental Matter 0.2.0-matter — multiple stations and agreed naming
 
 The owner explicitly confirms that the 0.1.1 single-station version switches

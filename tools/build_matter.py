@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Build/package the isolated classic-ESP32 Matter prototype, preserving slots/NVS."""
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
 import zipfile
+from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.2.0-matter'
+VERSION = '0.3.0-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -56,27 +59,33 @@ def main():
     args = parser.parse_args()
     library_info = json.loads(subprocess.check_output([args.arduino_cli, 'lib', 'list', '--format', 'json']))
     libraries = {entry['library']['name']: entry['library'] for entry in library_info['installed_libraries']}
-    for name, version in [('NimBLE-Arduino', '2.5.2'), ('ArduinoJson', '6.21.5')]:
+    for name, version in [('NimBLE-Arduino', '2.5.2'), ('ArduinoJson', '6.21.5'), ('WiFiManager', '2.0.17')]:
         if libraries.get(name, {}).get('version') != version:
             raise SystemExit(f'Install {name}@{version} using Arduino CLI first')
     sketch = ROOT / '.pio/matter-sketch/MatterBridge'
     sketch.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'experimental/matter/MatterBridge/MatterBridge.ino', sketch)
     shutil.copy2(ROOT / 'partitions.csv', sketch)
-    production = (ROOT / 'src/main.cpp').read_text()
-    worker = production.split('void waitForBleCleanup() {', 1)[1].split('void statusRoute() {', 1)[0]
-    (sketch / 'shared_ble_worker.h').write_text('#pragma once\nvoid waitForBleCleanup() {' + worker)
+    html = re.search(r'R"LHHTML\((.*)\)LHHTML"', (ROOT / 'include/web_ui.h').read_text(), re.S)[1]
+    html = html.replace('Bridge 0.3.9', 'Bridge ' + VERSION)
+    (sketch / 'matter-ui.html').write_text(html)
+    compressed = gzip.compress(html.encode(), mtime=0)
+    (sketch / 'web_ui_gzip.h').write_text('#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' +
+        ','.join(str(byte) for byte in compressed) + '};\n')
     if not args.skip_compile:
         # The CLI selects the installed core; refuse silent upgrades/downgrades.
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
             raise SystemExit(f'Install esp32:esp32@{CORE} using Arduino CLI first')
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', FQBN, '--build-property',
-                        'compiler.cpp.extra_flags=-I' + str(ROOT / 'include'),
+                        'compiler.cpp.extra_flags=-DWM_NODEBUG -Oz -flto ' + ' '.join('-I' + str(path) for path in
+                          [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', sketch]),
+                        '--build-property', 'compiler.c.extra_flags=-Oz',
+                        '--build-property', 'compiler.c.elf.extra_flags=-flto',
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]
     validate_segments(segments)
-    if (b'Lighthouse Matter prototype ' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]
+    if (b'LHBRIDGE-RUNTIME-V1-ESP32' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]
             or b'Lighthouse-Bridge Matter Test' not in segments[-1][1]):
         raise ValueError('Application is not this Matter prototype')
     output = ROOT / 'dist/matter'
@@ -88,6 +97,10 @@ def main():
         digest = hashlib.sha256(payload).hexdigest()
         checksums.append(f'{digest}  {filename}\n')
         parts.append({'offset': offset, 'path': f'firmware/matter/{filename}?sha={digest}'})
+    ota_name = f'lighthouse-bridge-{VERSION}.lhota'
+    ota = package(segments[-1][1])
+    (output / ota_name).write_bytes(ota)
+    checksums.append(f'{hashlib.sha256(ota).hexdigest()}  {ota_name}\n')
     (output / 'SHA256SUMS').write_text(''.join(checksums))
     (output / 'manifest.json').write_text(json.dumps({
         'name': 'Lighthouse Bridge — experimental Matter prototype', 'version': VERSION,
@@ -97,27 +110,30 @@ def main():
     info = {'version': VERSION, 'arduino_esp32': CORE, 'nimble': '2.5.2',
             'app_bytes': len(segments[-1][1]), 'app_slot_bytes': APP_LIMIT,
             'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
-            'device_type': 'on_off_light'}
+            'device_type': 'on_off_light', 'dashboard': True, 'local_api': True, 'ota': True}
     (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     archive = output / f'lighthouse-bridge-{VERSION}.zip'
     temporary = archive.with_suffix('.zip.tmp')
     with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED) as bundle:
         for file in sorted(output.glob('*.bin')):
             bundle.write(file, file.name)
+        bundle.write(output / ota_name, ota_name)
         for name in ['SHA256SUMS', 'build-info.json']:
             bundle.write(output / name, name)
         bundle.write(ROOT / 'experimental/matter/README.md', 'READ-ME-FIRST.md')
         bundle.write(ROOT / 'VERSION.md', 'VERSION.md')
         bundle.write(ROOT / 'LICENSE', 'LICENSE')
-        for path in ['experimental/matter/MatterBridge/MatterBridge.ino', 'partitions.csv',
-                     'include/bridge_core.h', 'include/station_config.h', 'include/matter_config.h', 'src/main.cpp', 'tools/build_matter.py',
+        for path in ['experimental/matter/MatterBridge/MatterBridge.ino',
+                     'experimental/matter/MatterBridge/matter_adapter.h', 'partitions.csv',
+                     *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
+                     'src/main.cpp', 'tools/build_matter.py', 'tools/ota_package.py',
                      'experimental/matter/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():
             if file.is_file():
                 bundle.write(file, 'third-party-licenses/' + file.name)
                 bundle.write(file, 'source/third_party/' + file.name)
-        for name in ['NimBLE-Arduino', 'ArduinoJson']:
+        for name in ['NimBLE-Arduino', 'ArduinoJson', 'WiFiManager']:
             directory = Path(libraries[name]['install_dir'])
             for file in directory.rglob('*'):
                 if file.is_file() and file.name.lower().startswith(('license', 'notice', 'copying')):

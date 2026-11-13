@@ -62,12 +62,12 @@ jobs:
           path: |
             ~/.arduino15
             ~/Arduino/libraries
-          key: ${{ runner.os }}-matter-arduino-3.3.12-nimble-2.5.2-json-6.21.5
+          key: ${{ runner.os }}-matter-arduino-3.3.12-nimble-2.5.2-json-6.21.5-wm-2.0.17
       - name: Install isolated Matter prototype dependencies
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5'
+          arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
       - name: Build experimental Matter prototype with existing partition layout
         run: python tools/build_matter.py
       - name: Build WebFlasher site

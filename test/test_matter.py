@@ -10,6 +10,7 @@ from urllib.parse import urlsplit, parse_qs
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from build_matter import validate_segments, APP_LIMIT, VERSION
+from ota_package import unpack
 
 
 class MatterLayoutTests(unittest.TestCase):
@@ -25,6 +26,12 @@ class MatterLayoutTests(unittest.TestCase):
         validate_segments(parts)
         self.assertLessEqual(len(parts[-1][1]), APP_LIMIT)
         self.assertEqual(parts[1][1], (ROOT / 'dist/lighthouse-bridge-partitions.bin').read_bytes())
+
+    def test_matter_ota_matches_the_actual_app(self):
+        payload = ROOT / '_site/firmware/matter' / f'lighthouse-bridge-{VERSION}.lhota'
+        self.assertEqual(unpack(payload.read_bytes()), self.parts()[-1][1])
+        hashes = (payload.parent / 'SHA256SUMS').read_text()
+        self.assertIn(hashlib.sha256(payload.read_bytes()).hexdigest() + '  ' + payload.name, hashes)
 
     def test_reject_oversize_nonclassic_and_changed_partitions(self):
         parts = self.parts()

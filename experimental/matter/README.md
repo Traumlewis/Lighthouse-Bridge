@@ -1,10 +1,10 @@
-# Experimental Matter prototype — 0.2.0-matter
+# Experimental Matter prototype — 0.3.0-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
 The owner confirms that the prior single-station 0.1.1 test switches ON/OFF and
 shows the correct light type/status. Multiple stations, long-run reliability,
-specifically external state changes and the eventual full firmware still need
+specifically external state changes and this full integration still need
 hardware testing. No ESP32 or Echo is attached locally.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
@@ -13,14 +13,15 @@ from the saved configuration and are not translated or renamed.
 
 ## Install and test
 
-1. Keep Wi-Fi and up to 16 station assignments saved with stable firmware 0.3.9.
-   If these are already saved from your previous test, update directly. This
-   prototype reads the same record; it does not provide a station editor.
+1. Existing Wi-Fi, station assignments, API key and web password are retained.
+   For a fresh board, the non-blocking protected Wi-Fi setup portal is available.
 2. Open [the Matter test WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/matter.html),
    connect the classic ESP32 by USB, and install. **Leave Erase device unchecked.**
-3. Close the installer. The USB panel reads the setup code and every configured
-   station's measured state, with its actual fixed local ID. Alternatively click
-   **Read setup code & status**. The ESP32 joins its saved Wi-Fi.
+3. Close the installer. Read the USB key/address and open the local dashboard.
+   First login uses `admin` and the API key, then requires your own web password.
+   Later logins use that password. In **Matter setup**, click **Show setup code**.
+   If the pairing window is closed, click **Open pairing window (15 minutes)**.
+   No USB connection is needed to retrieve the code from the signed-in dashboard.
 4. Existing Matter credentials and the first prototype station's identity are
    retained. Check Alexa for the additional lights and the updated bridge name.
    If Alexa caches the old list/name, remove only **this experimental Matter
@@ -39,21 +40,32 @@ from the saved configuration and are not translated or renamed.
    start with `Matter command`, `Matter measurement`, or `Station`. Do not share
    setup codes, API keys or credential-bearing logs.
 
-The next phase restores the dashboard, local HTTP API and Wi-Fi firmware upload
-after this multi-station test and additional size optimization. **They are not
-included yet.** The early full-services build probe still exceeds the fixed app
-slot, even with a gzip UI. Return to stable using the stable USB WebFlasher with
-erasing unchecked. Existing Hue entries are separate and unavailable during the
-Matter test. Changing assignments requires stable firmware for now.
+The dashboard now includes discovery, the station editor, real measurement status,
+the local HTTP API and Wi-Fi firmware upload using the same production services.
+Saving station settings preserves Matter identities and restarts after 1.5 seconds.
+No power command is sent during startup/restart. Matter-only profile controls
+replace Hue-specific help; saved Hue compatibility settings remain intact.
+Download the separate **Matter .lhota** from the Matter page for later dashboard
+updates. A transition from 0.2.0 still requires USB because that version had no
+upload service. Return to stable using its USB WebFlasher without erasing.
+Existing Hue entries are unavailable while the Matter firmware runs.
+
+The setup-code endpoint requires a personal-password web session. Neither API
+keys nor bootstrap sessions can access it; general status never includes it.
+Opening a pairing window requires the same session and JSON/Origin checks. It
+runs on the CHIP task, advertises over DNS-SD only and never erases fabrics or
+writes station power. An already-open window is not extended by duplicates.
+The code stays in page memory, is cleared on logout and is not stored in URLs or
+browser storage. Local HTTP remains unencrypted and is for the trusted LAN only.
 
 ## Storage and identities
 
 Both **1.875 MiB app slots**, NVS `0x9000..0xdfff`, OTA metadata and the unused
 filesystem region retain the exact stable partition table. USB writes only four
 separate files at `0x1000`, `0x8000`, `0xe000`, `0x10000`. No merged-at-zero image
-or `.lhota` is offered for this prototype. The application must fit `0x1e0000`.
+is offered. A separate branded `.lhota` contains only the validated app image. The application must fit `0x1e0000`.
 
-The shared station parser loads the stable record without rewriting it. The
+The shared station parser loads the stable record; explicit editor/API saves update it. The
 separate `lhmatter` namespace keeps per-board commissioning credentials and an
 atomic `endpoints` registry binding full stable Hue identity + MAC to a Matter
 endpoint. The original first station retains endpoint 1; aggregator 2 is reserved.
@@ -83,14 +95,16 @@ Install Arduino CLI **1.6.0**, then:
 ```sh
 arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
 arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5'
+arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
 python3 tools/build_matter.py
 ```
 
 The stable PlatformIO environment remains Arduino ESP32 2.0.17. The isolated build
 uses 3.3.12 with CHIPoBLE commissioning disabled, leaving NimBLE 2.5.2 to the one
-sequential Lighthouse worker. `tools/build_matter.py` generates that worker header
-from the production section of `src/main.cpp`; there is no second retry loop.
+sequential Lighthouse worker. The sketch includes production `src/main.cpp` with the Matter adapter replacing
+Hue. There is no second worker, authentication or OTA implementation. The build
+gzip-compresses the shared UI, uses C++-only LTO and compiles out WiFiManager
+debug output. C must remain non-LTO with the pinned SDK.
 The root request/measurement logic remains shared. Boot and reconnect never send
 automatic power commands. Matter command interception queues work; only observed
 OnOff/Reachable updates are reported on the Matter task.

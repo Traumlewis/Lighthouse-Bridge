@@ -3,6 +3,25 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental full firmware 0.3.0-matter
+
+Combine the production dashboard, station editor/discovery, authenticated local
+API and streamed Wi-Fi firmware update with up to 16 separate Matter On/Off
+Lights. Retain measured status, the one BLE worker, existing settings and exact
+flash layout. Stable firmware remains 0.3.9; Matter stays a separate test choice.
+
+The dashboard's **Matter setup** section retrieves the code after a personal web
+login and can explicitly open a 15-minute on-network pairing window. API keys
+and bootstrap sessions cannot retrieve it. Codes clear on logout and never enter
+browser storage or URLs. The USB panel also reads the setup key/web address.
+Station saves preserve endpoint identities and restart the bridge without power
+writes. Matter owns mDNS; hostname changes preserve its discovery services.
+
+A gzip dashboard, C++ LTO and disabled WiFiManager debug keep the full build in
+the original slots. Separate Matter `.lhota` downloads support future dashboard
+updates. This combined firmware needs hardware testing; prior single-station
+switch/type/status success does not validate the new services or multiple lamps.
+
 ## Experimental Matter prototype 0.2.0-matter
 
 Expose all configured stations with nonempty MACs as separate On/Off Lights,

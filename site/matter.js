@@ -1,13 +1,13 @@
-import { translations } from './translations.js?v=matter-0.2.0';
-import { validMatterParts } from './flash-layout.mjs?v=matter-0.2.0';
-import { watchDeviceInfo } from './serial-info.mjs?v=matter-0.2.0';
-import { parseMatterInfo } from './matter-info.mjs?v=matter-0.2.0';
+import { translations } from './translations.js?v=matter-0.3.0';
+import { validMatterParts } from './flash-layout.mjs?v=matter-0.3.0';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=matter-0.3.0';
+import { parseMatterInfo } from './matter-info.mjs?v=matter-0.3.0';
 
 const $ = id => document.getElementById(id);
 const supported = value => value === 'en' || value === 'de';
 const languageKey = 'lighthouse-bridge.language';
 let language = 'en', ready = false, version = '', loadState = 'checking';
-let connection = null, starting = false, info = null, usbState = 'usb_idle', timeout;
+let connection = null, starting = false, info = null, deviceInfo = null, usbState = 'usb_idle', timeout;
 const text = key => translations[language][key];
 
 function render() {
@@ -18,6 +18,12 @@ function render() {
   $('matter-stop').hidden = !connection;
   const usbText = {usb_idle:'matter_usb_idle',usb_wait:'matter_usb_wait',usb_timeout:'matter_usb_timeout'};
   $('matter-usb-status').textContent = text(usbText[usbState] || usbState);
+  $('matter-access').hidden = !deviceInfo;
+  $('matter-key').textContent = deviceInfo?.api_key || '';
+  $('matter-ssid').textContent = deviceInfo?.setup_ssid || '';
+  $('matter-url').hidden = !deviceInfo?.url;
+  $('matter-url').href = deviceInfo?.url || '#';
+  $('matter-url').textContent = deviceInfo?.url || '';
   $('matter-device').hidden = !info;
   if (!info) return;
   const stations = info.stations || (info.station_id ? [{id:info.station_id,name:info.station_name,
@@ -74,6 +80,8 @@ async function check() {
     version = manifest.version; ready = true; loadState = 'ready';
     $('matter-download').href = `firmware/matter/lighthouse-bridge-${version}.zip`;
     $('matter-download').hidden = false;
+    $('matter-ota').href = `firmware/matter/lighthouse-bridge-${version}.lhota`;
+    $('matter-ota').hidden = false;
   } catch (_) { loadState = 'unavailable'; }
   render();
 }
@@ -85,16 +93,16 @@ check();
 async function readInfo(knownPort) {
   if (connection || starting) return;
   if (!navigator.serial) { usbState = 'usb_unsupported'; render(); return; }
-  starting = true; info = null; usbState = 'usb_wait'; render();
+  starting = true; info = null; deviceInfo = null; usbState = 'usb_wait'; render();
   let ended = false;
   try {
     const port = knownPort || await navigator.serial.requestPort();
     const watcher = await watchDeviceInfo(port, value => {
-      clearTimeout(timeout); info = value; usbState = 'usb_ready'; render();
+      clearTimeout(timeout); if(value.kind==='access')deviceInfo=value.data;else info=value.data; usbState = 'usb_ready'; render();
     }, () => {
       ended = true; clearTimeout(timeout); connection = null; starting = false;
       if (usbState !== 'usb_timeout') usbState = info ? 'usb_disconnected' : 'usb_failed'; render();
-    }, {parse:parseMatterInfo,query:'LH_MATTER_INFO\n'});
+    }, {parse:line=>{const access=parseDeviceInfo(line);if(access)return {kind:'access',data:access};const matter=parseMatterInfo(line);return matter?{kind:'matter',data:matter}:null;},query:'LH_INFO\nLH_MATTER_INFO\n'});
     if (!ended) connection = watcher;
     if (!info && !ended) timeout = setTimeout(() => { usbState = 'usb_timeout'; render(); connection?.stop(); },45000);
   } catch (error) { usbState = error.name === 'NotFoundError' ? 'usb_idle' : 'usb_failed'; }
@@ -120,4 +128,14 @@ $('matter-code').addEventListener('click',async () => {
     }
     $('matter-copy-status').textContent = text('matter_copied');
   } catch (_) { $('matter-copy-status').textContent = text('matter_copy_failed'); }
+});
+
+$('matter-key').addEventListener('click',async()=>{
+ if(!deviceInfo?.api_key)return;
+ try {
+  let copied=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(deviceInfo.api_key);copied=true;}}catch(_){}
+  if(!copied){const input=document.createElement('textarea');input.value=deviceInfo.api_key;input.style.position='fixed';input.style.opacity='0';document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();if(!ok)throw new Error();}
+  $('matter-copy-status').textContent=text('copied');
+ }catch(_){$('matter-copy-status').textContent=text('matter_copy_failed');}
 });
