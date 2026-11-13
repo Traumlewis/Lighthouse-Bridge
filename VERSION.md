@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental status allocation correction 0.3.5-matter
+
+Replace the always-full 4512-byte status snapshot with checked small allocations
+only for existing stations and scan results. Preserve every status field and the
+coherent measurement/uptime capture; free partial snapshots on failure. Capacity
+remains 16 stations/results, without holding the state lock during network IO.
+Add byte-addressable data-heap diagnostics; Arduino's internal heap figures can
+include word-only IRAM and cannot guarantee that ordinary data allocations fit.
+Translate browser timeout/abort failures instead of displaying numeric code 20.
+
+Owner 0.3.4 evidence shows ready startup, one failed and one complete page write,
+visible OUT_OF_MEMORY and repeated snapshot allocation failures. This is not a
+confirmed leak or a proven hardware fix in 0.3.5. Stable remains 0.3.9; partitions,
+credentials, identities, task stacks and power behavior remain unchanged.
+
 ## Experimental web delivery diagnostics 0.3.4-matter
 
 Send the compressed dashboard in checked 512-byte socket writes, preserving binary

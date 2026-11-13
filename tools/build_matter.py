@@ -13,7 +13,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.4-matter'
+VERSION = '0.3.5-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -68,6 +68,14 @@ def main():
     shutil.copy2(ROOT / 'partitions.csv', sketch)
     html = re.search(r'R"LHHTML\((.*)\)LHHTML"', (ROOT / 'include/web_ui.h').read_text(), re.S)[1]
     html = html.replace('Bridge 0.3.9', 'Bridge ' + VERSION)
+    # Matter can be slow under memory/network pressure. A DOMException's numeric
+    # AbortError code (20) must not leak through the UI's translated error keys.
+    api_end = '}finally{clearTimeout(timer);}'
+    if html.count(api_end) != 1:
+        raise ValueError('Expected one dashboard API timeout boundary')
+    html = html.replace(api_end, "}catch(e){if(typeof e.code==='string')throw e;"
+                        "throw Object.assign(new Error(t('NETWORK_ERROR')),{code:'NETWORK_ERROR'});"
+                        "}finally{clearTimeout(timer);}")
     (sketch / 'matter-ui.html').write_text(html)
     compressed = gzip.compress(html.encode(), mtime=0)
     (sketch / 'web_ui_gzip.h').write_text('#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' +

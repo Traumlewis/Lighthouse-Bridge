@@ -29,6 +29,7 @@
 #include "startup_sequence.h"
 #include "http_body.h"
 #include <esp_mac.h>
+#include <esp_heap_caps.h>
 #include <atomic>
 #endif
 #include "password_hash.h"
@@ -97,6 +98,8 @@ struct Lock {
 };
 
 #ifdef LH_MATTER_BUILD
+uint32_t matterDataFree() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
+uint32_t matterDataLargest() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
 struct JsonHttpSink {
   size_t write(const uint8_t* data, size_t size) {
     if (!server.client().connected()) return 0;
@@ -756,16 +759,16 @@ void configureRoutes() {
 #ifdef LH_MATTER_BUILD
     server.sendHeader("Content-Encoding", "gzip");
     const uint32_t started = millis();
-    Serial.printf("Web UI begin: bytes=%u, free=%u, largest=%u\n",
-                  unsigned(sizeof(WEB_UI_GZIP)), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    Serial.printf("Web UI begin: bytes=%u, free_8bit=%u, largest_8bit=%u\n",
+                  unsigned(sizeof(WEB_UI_GZIP)), matterDataFree(), matterDataLargest());
     server.setContentLength(sizeof(WEB_UI_GZIP));
     server.send(200, "text/html; charset=utf-8", "");
     auto client = server.client();
     const size_t sent = writeHttpBody(client, WEB_UI_GZIP, sizeof(WEB_UI_GZIP));
     if (sent != sizeof(WEB_UI_GZIP)) client.stop();
-    Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free=%u, largest=%u\n",
+    Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free_8bit=%u, largest_8bit=%u\n",
                   unsigned(sent), unsigned(sizeof(WEB_UI_GZIP)), sent == sizeof(WEB_UI_GZIP) ? "true" : "false",
-                  unsigned(millis() - started), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+                  unsigned(millis() - started), matterDataFree(), matterDataLargest());
 #else
     server.send_P(200, "text/html; charset=utf-8", WEB_UI);
 #endif
@@ -1100,8 +1103,9 @@ void startServices() {
   servicesStarted = true;
 #ifdef LH_MATTER_BUILD
   Serial.println(bleWorkerAvailable.load() ? "Lighthouse Bridge ready." : "HTTP recovery ready; Bluetooth unavailable.");
-  Serial.printf("Memory ready: free=%u, largest=%u, minimum=%u, status_snapshot_bytes=%u\n",
-    ESP.getFreeHeap(),ESP.getMaxAllocHeap(),ESP.getMinFreeHeap(),static_cast<unsigned>(sizeof(StatusSnapshot)));
+  Serial.printf("Memory ready: free_8bit=%u, largest_8bit=%u, minimum_8bit=%u, status_entry_bytes=%u\n",
+    matterDataFree(),matterDataLargest(),heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+    static_cast<unsigned>(sizeof(StatusStation)));
 #else
   Serial.println("Lighthouse Bridge ready.");
 #endif

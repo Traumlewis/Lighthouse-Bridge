@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.4-matter
+# Experimental Matter prototype — 0.3.5-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -41,6 +41,17 @@ not browser receipt/rendering. STA-derived legacy naming now reads the MAC via
 ESP-IDF independently of Wi-Fi netif startup to avoid a zero suffix; custom names
 remain unchanged. `/api/matter` (not `/api/metter`) requires a personal-password
 web session. No actual hardware fix is claimed without another owner test.
+
+The owner's 0.3.4 test reaches ready and sometimes renders the page, but status
+repeatedly cannot allocate its fixed 4512-byte snapshot. One page transmission
+failed and a later one completed. Version 0.3.5 captures only existing station and
+discovery entries, each in a checked block no larger than 256 bytes, preserving
+all 16-entry capacity and coherent measurements. Snapshot metadata stays on stack;
+partial allocations are freed on failure and no partial response is returned.
+New data-heap status fields/serial diagnostics exclude word-only internal IRAM.
+The former largest-block reading cannot prove ordinary allocation availability.
+Browser timeouts now display a translated network error instead of numeric 20.
+These are software corrections; successful hardware operation needs retesting.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read

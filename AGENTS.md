@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.4-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.5-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -585,3 +585,27 @@ Never copy the credential-bearing raw log into the repository.
   browser/USB flows pass; real localhost gzip delivery renders the login form.
   Matter app 1,965,696/1,966,080 bytes (384-byte flash reserve), static RAM 123,724.
   These are software/linker results, not measured runtime margins or device flashes.
+
+## Experimental 0.3.5 status allocation follow-up
+
+- Owner's 0.3.4 test renders the interface with OUT_OF_MEMORY/20. Logs confirm
+  worker/endpoints/HTTP ready, one failed body write and a later complete write;
+  fixed 4512-byte snapshots repeatedly fail. Do not copy raw logs or credentials.
+  Heap variation alone does not prove a leak, crash or its cause.
+- `StatusSnapshot` owns checked per-entry blocks <=256 bytes only for configured
+  entries and existing discovery results; small metadata stays on the HTTP stack.
+  Capture all entries plus uptime under one lock, release before network IO.
+  Retain full capacity/fields/string ownership. Free all partial allocations and
+  fail before streaming on allocation failure; never silently truncate.
+- `free_data_heap` / `largest_data_block` use INTERNAL|8BIT capabilities. Existing
+  Arduino heap fields keep their meaning; INTERNAL can include word-only IRAM.
+  Web/status/startup data-heap diagnostics explicitly use `_8bit` labels.
+- Matter UI generation maps numeric DOMException abort codes (including 20) to
+  translated NETWORK_ERROR; server error strings remain intact. Stable UI unchanged.
+- No task stack reductions, partition changes, new radio retries, automatic power
+  writes or saved credential/identity changes. Hardware rendering/memory/OTA and
+  multi-station behavior in 0.3.5 still require owner retesting.
+- 0.3.5 local verification: both builds, ten native programs, 16 Python checks and
+  all browser/USB simulations pass, including small-block allocation/cleanup and
+  numeric AbortError normalization. Local app 1,965,952/1,966,080 bytes (128-byte
+  flash reserve), static RAM 123,724 bytes; not runtime-memory validation.

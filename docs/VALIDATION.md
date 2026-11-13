@@ -1,5 +1,40 @@
 # Validation report — 0.3.9
 
+## Experimental status heap correction 0.3.5-matter
+
+Owner 0.3.4 evidence confirms ready startup, visible OUT_OF_MEMORY/20, a failed
+page transfer followed by a complete one, and repeated failure of the 4512-byte
+status allocation. Arduino reports an unchanged largest internal block around
+9 KiB, but its helpers request MALLOC_CAP_INTERNAL, including word-only IRAM on
+classic ESP32. This cannot establish availability for a byte-addressable snapshot.
+No raw credentials/log/identifiers are retained. The changing free-heap samples
+alone do not establish a leak. The provided resets report POWERON_RESET, not a
+recorded application panic or an identified core-dump failure.
+
+0.3.5 owns status entries in individually checked blocks <=256 bytes, allocated
+only for actual station records and discovery results. All copying/uptime capture
+is under the same lock, with owned strings and no network IO under the lock.
+Metadata is <=512 bytes on stack. Maximum capacity stays 16+16 without truncation;
+partial allocations are released and rejected before a response begins. The
+firmware and host tests use the same capture/serializer. Native tests simulate a
+heap refusing blocks above 256 bytes, empty and sparse slot-16 configurations,
+all 16 stations/results, a newer source measurement after capture, and failures
+at every allocation with complete cleanup and no partial serialized response.
+
+New free_data_heap/largest_data_block fields measure INTERNAL|8BIT; old status
+heap fields retain Arduino semantics. Page/status/startup logs label byte-memory
+values explicitly. The generated Matter dashboard normalizes non-string browser
+error codes to NETWORK_ERROR; the browser test injects AbortError (code 20) and
+checks the readable error key. No extended timeout or station limit is introduced.
+Local verification passes: both firmware builds, all ten native programs, 16
+Python package/layout checks and all browser/USB suites. The Matter app is
+1,965,952/1,966,080 bytes (128 flash bytes reserve), static RAM 123,724 bytes.
+These are linker figures, not runtime margins. Browser checks cover real localhost
+gzip decoding/login and injected AbortError normalization, with API operations
+mocked. Repeated native capture/replacement cycles return every block and reject
+oversized discovery counts. Real runtime memory, rendering, BLE coexistence,
+OTA and multi-station operation remain hardware checks.
+
 ## Experimental blank-page follow-up 0.3.4-matter
 
 Owner evidence for 0.3.3 confirms worker reservation/release, Matter endpoint

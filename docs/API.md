@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.4-matter**, with the Matter-only private endpoints below. The separate
+**0.3.5-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -34,6 +34,12 @@ and queued/sending power commands remain visible. Debug text scrolls within a
 reserved card area; toggling does not change the layout. Triple-click its firmware version within 1.2 s
 to toggle debug details. This only changes browser presentation; all API fields
 and serial diagnostics remain available and BLE behavior is unchanged.
+
+Experimental 0.3.5 additionally reports `free_data_heap` and `largest_data_block`
+for internal byte-addressable memory (`MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`).
+Existing `free_heap`, `largest_free_block` and `min_free_heap` retain Arduino's
+internal-heap meaning, which can include word-only IRAM on classic ESP32. Do not
+use those older figures as a guarantee that a normal data allocation will succeed.
 
 Experimental 0.3.3 status includes `ble_worker_available` and `ble_startup_error`.
 When the worker/driver is unavailable, radio mutations (`/api/power`, `/api/scan`,

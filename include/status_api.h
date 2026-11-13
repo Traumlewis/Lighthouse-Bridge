@@ -2,6 +2,8 @@
 #include <ArduinoJson.h>
 #include "bridge_core.h"
 #include <algorithm>
+#include <cstdlib>
+#include <new>
 
 namespace bridge {
 struct StatusDiscovery {
@@ -10,16 +12,66 @@ struct StatusDiscovery {
   uint8_t type = 1;
   int rssi = 0;
 };
+struct StatusStation {
+  StationConfig config;
+  StationState state;
+  bool readQueued = false;
+};
+struct StatusAllocator {
+  void* (*allocate)(size_t) = std::malloc;
+  void (*release)(void*) = std::free;
+};
 struct StatusSnapshot {
-  StationConfig configs[kStations];
-  StationState states[kStations];
-  bool readQueued[kStations]{};
-  StatusDiscovery found[kStations];
+  StatusStation* stations[kStations]{};
+  StatusDiscovery* found[kStations]{};
   unsigned foundCount = 0;
   uint32_t now = 0, scanFinishedMs = 0;
   bool scanning = false, foundTruncated = false, maintenance = false;
+  bool valid = true;
+  StatusAllocator allocator;
+  explicit StatusSnapshot(StatusAllocator memory = {}) : allocator(memory) {}
+  StatusSnapshot(const StatusSnapshot&) = delete;
+  StatusSnapshot& operator=(const StatusSnapshot&) = delete;
+  ~StatusSnapshot() { clear(); }
+  void clear() {
+    for (unsigned i = 0; i < kStations; ++i) {
+      allocator.release(stations[i]); allocator.release(found[i]);
+      stations[i] = nullptr; found[i] = nullptr;
+    }
+    foundCount = 0; valid = false;
+  }
+  template<class T> T* make() {
+    void* storage = allocator.allocate(sizeof(T));
+    return storage ? new(storage) T{} : nullptr;
+  }
+  // Caller holds the state lock. No IO or borrowed mutable strings.
+  bool capture(const StationConfig* configs, const StationState* states,
+               const bool* queued, const StatusDiscovery* discovered,
+               unsigned count, uint32_t uptime) {
+    clear();
+    if (count > kStations) return false;
+    now = uptime; foundCount = count;
+    for (unsigned i = 0; i < kStations; ++i) {
+      if (configs[i].id) {
+        stations[i] = make<StatusStation>();
+        if (!stations[i]) { clear(); return false; }
+        stations[i]->config = configs[i]; stations[i]->state = states[i];
+        stations[i]->readQueued = queued[i];
+      }
+      if (i < count) {
+        found[i] = make<StatusDiscovery>();
+        if (!found[i]) { clear(); return false; }
+        *found[i] = discovered[i];
+      }
+    }
+    valid = true; return true;
+  }
 };
-static_assert(sizeof(StatusSnapshot) <= 6144, "Keep the status snapshot bounded");
+static_assert(sizeof(StatusStation) <= 256, "Bound each data-heap allocation");
+static_assert(sizeof(StatusDiscovery) <= 256, "Bound discovery allocation");
+static_assert(sizeof(StatusSnapshot) <= 512, "Keep snapshot metadata on stack");
+static_assert(sizeof(StatusSnapshot) + kStations * (sizeof(StatusStation) + sizeof(StatusDiscovery)) <= 6144,
+              "Bound the complete snapshot, including full station/discovery capacity");
 
 // The sink receives bounded blocks, never a whole response String. Keep the last
 // block until the next write so an object's final brace can be removed safely,
@@ -73,7 +125,7 @@ inline void writeStatusStation(JsonObject item, const StationConfig& config,
 // all string lifetimes and the measurement/uptime pair; no lock is held for IO.
 template<class Sink, size_t Capacity> bool streamStatus(const JsonDocument& header,
     const StatusSnapshot& view, StatusWriter<Sink,Capacity>& writer, bool matter) {
-  if (header.overflowed()) return false;
+  if (!view.valid || header.overflowed()) return false;
   serializeJson(header,writer);
   if (!writer.dropLast('}')) return false;
   if (header.size()) writer.text(",");
@@ -81,8 +133,9 @@ template<class Sink, size_t Capacity> bool streamStatus(const JsonDocument& head
   StaticJsonDocument<JSON_OBJECT_SIZE(32)+128> item;
   bool first = true;
   for (unsigned i = 0; i < kStations; ++i) {
-    if (!view.configs[i].id) continue;
-    item.clear(); writeStatusStation(item.to<JsonObject>(),view.configs[i],view.states[i],view.readQueued[i],view.now,matter);
+    if (!view.stations[i]) continue;
+    const auto& station = *view.stations[i];
+    item.clear(); writeStatusStation(item.to<JsonObject>(),station.config,station.state,station.readQueued,view.now,matter);
     if (item.overflowed()) return false;
     if (!first) writer.text(",");
     first = false;
@@ -92,7 +145,8 @@ template<class Sink, size_t Capacity> bool streamStatus(const JsonDocument& head
   if (view.foundCount > kStations) return false;
   for (unsigned i = 0; i < view.foundCount; ++i) {
     if (i) writer.text(",");
-    item.clear(); const auto& found = view.found[i];
+    if (!view.found[i]) return false;
+    item.clear(); const auto& found = *view.found[i];
     item["name"] = found.name; item["mac"] = found.mac;
     item["address_type"] = found.type; item["rssi"] = found.rssi;
     serializeJson(item,writer);

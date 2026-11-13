@@ -28,6 +28,13 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await response.text(),html);
    await transportPage.locator('#login-password').waitFor({state:'visible'});
    assert.deepEqual(transportErrors,[]);
+   const aborted=await transportPage.evaluate(async()=>{
+    const saved=window.fetch;
+    window.fetch=()=>Promise.reject(new DOMException('aborted','AbortError'));
+    try{await api('/api/status');}catch(error){return error.code;}
+    finally{window.fetch=saved;}
+   });
+   assert.equal(aborted,'NETWORK_ERROR','numeric browser abort code 20 needs a readable error');
   }finally{await transportPage.close();await new Promise(resolve=>transport.close(resolve));}
   for(const lang of ['en','de']){
    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],calls=[];
