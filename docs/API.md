@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.7-matter**, with the Matter-only private endpoints below. The separate
+**0.3.8-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -399,3 +399,10 @@ JSON errors have an `error` code; the dashboard translates it into English/Germa
 `409`: busy/no target; `413`: body exceeds 8192 characters; `415`: content type;
 `428`: personal password required; `429`: login block; `500`: storage/hash failure.
 The request must also fit the endpoint's JSON-document capacity.
+
+Matter 0.3.8 keeps `ble_worker_available:false` until BLE initialization and the
+complete Matter endpoint model pass startup. An allocation/model failure leaves
+HTTP recovery available with a non-secret `matter_error` / startup phase and radio
+requests rejected. `BLE_NO_MEMORY` reports a guarded client-allocation attempt,
+without sending power or changing observed readings. The saved station record and
+endpoint/fabric identities are not cleared to recover from failed startup.

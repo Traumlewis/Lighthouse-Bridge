@@ -1,5 +1,44 @@
 # Validation report — 0.3.9
 
+## Experimental saved-station startup recovery 0.3.8-matter
+
+The private owner 0.3.7 log confirms the save reply accepted=true/complete=true,
+then the planned restart followed by a boot loop. The retained public release ELF
+matches the reported SHA prefix. Most decoded stacks reach lock_init_generic from
+UART VFS/newlib printf/ESP logging called during On/Off Light cluster construction
+(Scenes or Groups command creation). Another boot explicitly reports endpoint
+allocation failure, releases the BLE worker anyway and aborts in throwing
+NimBLEDevice::createClient. This identifies allocation-sensitive failure paths,
+not malformed saved IDs or proof of a leak. Core-dump write errors follow aborts.
+No raw log, hardware identifier or credentials are stored in this report.
+
+The new startup reserves the unchanged worker stack, starts HTTP, initializes
+client/scanner-only NimBLE, then waits for Matter completion. USB stays serviced; HTTP is deferred for the
+first three seconds of model construction, then serviced if initialization is
+still pending, preserving recovery without the usual page/model allocation overlap.
+The worker is released only on complete success. Before Matter a 4096-byte recovery
+reserve is held and SDK console locks are primed; a minimal allocation hook only
+records failures. On the CHIP task, construct all endpoints/Descriptor clusters,
+check heap/model health and then enable. The policy checks reserve/free/largest
+availability; they do not measure or prove actual working memory margins.
+Failure releases the reserve before public SDK destruction of non-root RAM
+endpoints, clears active lamps, invalidates root PartsList and reports a startup
+error with HTTP/USB/OTA available. Saved station records, registry identities and
+fabrics are retained. Radio requests remain rejected. A preflight heap guard also
+prevents the shown low-memory client allocation from being attempted. No stacks,
+MTU, packet pools, retries, partitions or power commands are changed.
+
+Native tests exercise the production startup order and model batch policy with
+construction, activation, allocation/health failures and success for bridge+16
+lights. They check reserve release before rollback and no worker/partial-ready
+publication on failure. Source ZIP tests reject private attachment paths and check
+all local Matter headers/build requirements. A real device is needed to validate
+SDK callback/error behavior, RAM recovery, actual four/sixteen-station startup,
+BLE coexistence and OTA. Both firmware builds, thirteen native suites, nineteen
+Python checks and all browser/USB flows pass locally. The Matter app is
+1,963,088/1,966,080 bytes (2992 flash bytes reserve); static RAM is 123,284 bytes.
+These figures are not runtime heap/stack margins or a successful device retest.
+
 ## Experimental HTTP/configuration memory correction 0.3.7-matter
 
 Owner evidence for 0.3.6 shows discovery completes in five seconds with four results

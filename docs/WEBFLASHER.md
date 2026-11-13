@@ -10,7 +10,7 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.3.7-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+`0.3.8-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
 The full test firmware retains saved settings and includes the production
 dashboard, discovery/editor, local API and Wi-Fi updates for up to 16 stations.
 New installations have a protected non-blocking Wi-Fi setup portal. The USB panel
@@ -25,7 +25,7 @@ See the [prototype guide](../experimental/matter/README.md) for pairing and limi
 headers, size limit, per-image hashes and exact equality of both partition tables,
 then creates `_site/matter-manifest.json` and `firmware/matter/`. Both app slots and
 the NVS addresses are retained. No merged factory image is offered for
-the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.7-matter.lhota`
+the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.8-matter.lhota`
 contains only the app for subsequent dashboard uploads; Pages checks it against
 the USB app image. Its ZIP includes source, checksums, version notes and licenses.
 
@@ -157,3 +157,10 @@ Matter 0.3.7 save replies include `restarting:true`. The embedded UI keeps power
 controls disabled and checks reconnection before reloading/sign-in; it does not
 immediately request status during the expected restart. Use Python 3.12 for the
 Matter build helper and install its pinned build-only compression dependency.
+
+A looping 0.3.7 saved-station startup requires four-part USB recovery to 0.3.8;
+leave erasing unchecked. 0.3.8 preserves the configuration and should expose a
+startup error/recovery interface if the complete model cannot be allocated. This
+is a software recovery path, not confirmation of hardware multi-station RAM margins.
+Private `.codex-attachments` are excluded from source ZIPs; Matter ZIPs include
+every local Matter header and the compression requirements for rebuilding.

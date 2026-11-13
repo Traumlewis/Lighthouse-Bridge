@@ -53,6 +53,8 @@ using namespace bridge;
 #ifdef LH_MATTER_BUILD
 MatterWebServer server(80);
 static_assert(CONFIG_BT_NIMBLE_MAX_CONNECTIONS == 1,"The sequential Matter worker needs one BLE connection");
+static_assert(!CONFIG_BT_NIMBLE_ROLE_PERIPHERAL && !CONFIG_BT_NIMBLE_ROLE_BROADCASTER &&
+              CONFIG_BT_NIMBLE_ROLE_CENTRAL && CONFIG_BT_NIMBLE_ROLE_OBSERVER,"Use only the Lighthouse client/scanner roles");
 #else
 WebServer server(80);
 #endif
@@ -311,6 +313,11 @@ void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt,
 bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError) {
   waitForBleCleanup();
   bleError = 0;
+#ifdef LH_MATTER_BUILD
+  if (matterDataFree() < 4096 || matterDataLargest() < sizeof(NimBLEClient)+128) {
+    strcpy(error,"BLE_NO_MEMORY"); bleError = BLE_HS_ENOMEM; return false;
+  }
+#endif
   NimBLEClient* client = NimBLEDevice::createClient();
   if (!client) { strcpy(error, "BLE_NO_CLIENT"); return false; }
   // The host retries HCI 0x3e before exposing a failed connection to the worker.
@@ -1107,15 +1114,26 @@ void startServices() {
       return ok;
     }
     void startWeb() { configureRoutes(); server.begin(); matterServicesReady = true; }
-    void startMatter() {
-      if (validConfig) matterBridgeBegin(); else matterError = "SAVED_CONFIG_INVALID";
+    bool startMatter() {
+      if (!validConfig) { matterError = "SAVED_CONFIG_INVALID"; return false; }
+      if (!matterBeginResources()) return false;
+      if (!matterBridgeBegin()) { matterEndResources(); return false; }
+      const uint32_t started = millis();
+      while (matterInitializing.load()) {
+        // Avoid allocating page/TCP output buffers in the short model-build
+        // peak. A slow/stalled CHIP task still exposes HTTP recovery.
+        if (startupHttpDue(millis(),started)) server.handleClient();
+        processSerial(); delay(2);
+      }
+      return matterReady.load();
     }
     bool startBle() {
       Serial.println("Initializing BLE ...");
       return NimBLEDevice::init("Lighthouse Bridge");
     }
     void failed(const char* code) {
-      if (strcmp(bleStartupError.load(),"BLE_STARTING") == 0) bleStartupError = code;
+      if (strcmp(bleStartupError.load(),"BLE_STARTING") == 0)
+        bleStartupError = strcmp(code,"MATTER_START_FAILED") == 0 ? matterError.load() : code;
       if (!MatterBridgeInitializer::started() && MDNS.begin(hostname.c_str())) MDNS.addService("http","tcp",80);
       Serial.printf("BLE startup failed: error=%s, free=%u, largest=%u; HTTP recovery remains available.\n",
         bleStartupError.load(),ESP.getFreeHeap(),ESP.getMaxAllocHeap());

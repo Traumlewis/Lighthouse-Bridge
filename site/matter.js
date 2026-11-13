@@ -1,7 +1,7 @@
-import { translations } from './translations.js?v=matter-0.3.7';
-import { validMatterParts } from './flash-layout.mjs?v=matter-0.3.7';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=matter-0.3.7';
-import { parseMatterInfo } from './matter-info.mjs?v=matter-0.3.7';
+import { translations } from './translations.js?v=matter-0.3.8';
+import { validMatterParts } from './flash-layout.mjs?v=matter-0.3.8';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=matter-0.3.8';
+import { parseMatterInfo } from './matter-info.mjs?v=matter-0.3.8';
 
 const $ = id => document.getElementById(id);
 const supported = value => value === 'en' || value === 'de';

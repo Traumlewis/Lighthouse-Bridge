@@ -13,7 +13,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.7-matter'
+VERSION = '0.3.8-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000
@@ -108,9 +108,9 @@ def main():
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
             raise SystemExit(f'Install esp32:esp32@{CORE} using Arduino CLI first')
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', FQBN, '--build-property',
-                        'compiler.cpp.extra_flags=-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -Oz -flto ' + ' '.join('-I' + str(path) for path in
+                        'compiler.cpp.extra_flags=-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', sketch]),
-                        '--build-property', 'compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -Oz',
+                        '--build-property', 'compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
                         '--build-property', 'compiler.c.elf.extra_flags=-flto',
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]
@@ -154,10 +154,9 @@ def main():
         bundle.write(ROOT / 'VERSION.md', 'VERSION.md')
         bundle.write(ROOT / 'LICENSE', 'LICENSE')
         for path in ['experimental/matter/MatterBridge/MatterBridge.ino',
-                     'experimental/matter/MatterBridge/matter_adapter.h',
-                     'experimental/matter/MatterBridge/matter_status.h', 'partitions.csv',
+                     *[str(p.relative_to(ROOT)) for p in (ROOT / 'experimental/matter/MatterBridge').glob('*.h')], 'partitions.csv',
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
-                     'src/main.cpp', 'tools/build_matter.py', 'tools/ota_package.py',
+                     'src/main.cpp', 'tools/build_matter.py', 'tools/ota_package.py', 'tools/requirements-matter-build.txt',
                      'experimental/matter/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():

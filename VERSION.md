@@ -3,6 +3,26 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental saved-station startup recovery 0.3.8-matter
+
+Owner evidence confirms 0.3.7 accepts/persists a station save and sends its reply,
+then enters a boot loop while building the saved Matter lights. The matching ELF
+identifies an allocation-sensitive UART logging lock failure from Matter cluster
+creation, plus one failed BLE-client allocation after early worker release.
+
+Initialize the client/scanner-only NimBLE host before Matter and keep the unchanged
+worker stack gated until the entire endpoint model is ready. Reserve recovery
+memory, prime SDK logging before model allocation and track allocation failures.
+Construct the complete light/bridge model with Descriptor clusters before enabling
+it; failure releases the reserve and destroys partial RAM endpoints while leaving
+station/endpoint/fabric identities in NVS. Keep HTTP/USB/OTA recovery and reject
+radio work when startup fails. Guard low-memory BLE client creation. Task stacks,
+MTU, packet pools, station capacity, partition table and power behavior are retained.
+
+Exclude private Codex attachments from source archives and package every Matter
+header/build requirement. Builds/fake allocation tests do not establish hardware
+RAM margins or multi-station success. Stable firmware remains 0.3.9.
+
 ## Experimental HTTP/save memory correction 0.3.7-matter
 
 The owner's 0.3.6 discovers four stations without the earlier scan abort, but

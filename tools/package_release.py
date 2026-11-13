@@ -13,6 +13,10 @@ from ota_package import package
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "0.3.9"
 
+def source_path_allowed(relative):
+    return not any(part in {".pio", "dist", "_site", "node_modules", ".venv", ".tools", ".platformio",
+                           ".playwright", "__pycache__", ".git", ".codex-attachments"} for part in relative.parts)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -67,7 +71,7 @@ def main():
                 if not file.is_file():
                     continue
                 relative = file.relative_to(ROOT)
-                if any(part in {".pio", "dist", "_site", "node_modules", ".venv", ".tools", ".platformio", ".playwright", "__pycache__", ".git"} for part in relative.parts):
+                if not source_path_allowed(relative):
                     continue
                 if file.resolve() == archive.resolve():
                     continue

@@ -10,6 +10,8 @@
 #include <app/reporting/reporting.h>
 #include "matter_endpoint.h"
 #include "matter_config.h"
+#include "model_startup.h"
+#include <esp_log.h>
 #if !defined(CONFIG_IDF_TARGET_ESP32) || !defined(CONFIG_ESP_MATTER_ENABLE_DATA_MODEL) || CONFIG_ENABLE_CHIPOBLE
 #error Classic ESP32 Matter with CHIPoBLE disabled is required
 #endif
@@ -25,6 +27,39 @@ std::atomic<const char*> matterWindowError{""};
 std::unique_ptr<MatterRegistry> matterRegistry;
 bool matterRegistryValid = false;
 String manualCode;
+uint8_t* matterRecoveryReserve = nullptr;
+portMUX_TYPE matterAllocationMux = portMUX_INITIALIZER_UNLOCKED;
+bool matterAllocating = false, matterAllocationFailedFlag = false;
+bool matterAllocationFailed() {
+  portENTER_CRITICAL(&matterAllocationMux);
+  const bool failed = matterAllocationFailedFlag;
+  portEXIT_CRITICAL(&matterAllocationMux);
+  return failed;
+}
+void IRAM_ATTR matterAllocationFailure(size_t size,uint32_t,const char*) {
+  portENTER_CRITICAL_ISR(&matterAllocationMux);
+  if (size && matterAllocating) matterAllocationFailedFlag = true;
+  portEXIT_CRITICAL_ISR(&matterAllocationMux);
+}
+void matterEndResources() {
+  portENTER_CRITICAL(&matterAllocationMux);
+  matterAllocating = false;
+  portEXIT_CRITICAL(&matterAllocationMux);
+  free(matterRecoveryReserve); matterRecoveryReserve = nullptr;
+}
+bool matterBeginResources() {
+  // Prime libc/UART logging while memory is plentiful, not in an OOM path.
+  esp_log_write(ESP_LOG_ERROR,"lh-startup","Matter resource reservation\n");
+  if (heap_caps_register_failed_alloc_callback(matterAllocationFailure) != ESP_OK) {
+    matterError = "MATTER_START_FAILED"; matterStartupPhase = "allocation_hook"; return false;
+  }
+  matterRecoveryReserve = static_cast<uint8_t*>(heap_caps_malloc(4096,MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  if (!matterRecoveryReserve) { matterError = "OUT_OF_MEMORY"; matterStartupPhase = "recovery_reserve"; return false; }
+  portENTER_CRITICAL(&matterAllocationMux);
+  matterAllocationFailedFlag = false; matterAllocating = true;
+  portEXIT_CRITICAL(&matterAllocationMux);
+  return true;
+}
 
 class MatterBridgeInitializer : public ArduinoMatter {
 public:
@@ -181,8 +216,8 @@ struct MatterEndpointSdk {
 };
 void matterStartupFailure(const char* phase,const char* error,int code = -1) {
   matterReady = false; matterError = error; matterStartupPhase = phase; matterInitializing = false;
-  Serial.printf("Matter startup failed: phase=%s, code=%d, free=%u, largest=%u\n",
-    phase,code,ESP.getFreeHeap(),ESP.getMaxAllocHeap());
+  Serial.printf("Matter startup failed: phase=%s, code=%d, free_8bit=%u, largest_8bit=%u\n",
+    phase,code,matterDataFree(),matterDataLargest());
 }
 void initializeMatterEndpoints(intptr_t);
 
@@ -199,7 +234,9 @@ bool createLamp(unsigned index, esp_matter::endpoint_t* parent, MatterEndpointSd
   lightConfig.on_off_lighting.start_up_on_off = nullptr;
   endpoint::bridged_node::config_t bridgedConfig;
   bridgedConfig.bridged_device_basic_information.reachable = false;
-  if (endpoint::on_off_light::add(endpoint,&lightConfig) != ESP_OK ||
+  cluster::descriptor::config_t descriptor;
+  if ((!cluster::get(endpoint,Descriptor::Id) && !cluster::descriptor::create(endpoint,&descriptor,CLUSTER_FLAG_SERVER)) ||
+      endpoint::on_off_light::add(endpoint,&lightConfig) != ESP_OK ||
       endpoint::bridged_node::add(endpoint,&bridgedConfig) != ESP_OK ||
       endpoint::set_parent_endpoint(endpoint,parent) != ESP_OK) return false;
   auto* basic = cluster::get(endpoint,BridgedDeviceBasicInformation::Id);
@@ -215,7 +252,6 @@ bool createLamp(unsigned index, esp_matter::endpoint_t* parent, MatterEndpointSd
   }
   if (!cluster::bridged_device_basic_information::attribute::create_node_label(basic,const_cast<char*>(config.name),length) ||
       !cluster::bridged_device_basic_information::attribute::create_unique_id(basic,const_cast<char*>(unique.c_str()),unique.length())) return false;
-  if (endpoint::enable(endpoint) != ESP_OK) return false;
   lamp.setEndPointId(lamp.binding.endpoint); lamp.active = true;
   return true;
 }
@@ -245,6 +281,7 @@ bool matterBridgeBegin() {
   if (!loadRegistry(own)) { own.end(); return false; }
   own.end(); Matter.setSetupDiscriminator(discriminator);
   MatterBridgeInitializer::prepare();
+  if (matterAllocationFailed()) { matterStartupFailure("root_create","OUT_OF_MEMORY"); return false; }
   if (!node::get()) { matterStartupFailure("root_create","MATTER_ROOT_FAILED"); return false; }
   if (chip::app::CommandHandlerInterfaceRegistry::Instance().RegisterCommandHandler(&powerHandler) != CHIP_NO_ERROR) {
     matterStartupFailure("command_register","MATTER_COMMAND_FAILED"); return false;
@@ -264,23 +301,67 @@ bool matterBridgeBegin() {
 }
 void initializeMatterEndpoints(intptr_t) {
   using namespace esp_matter;
-  matterStartupPhase = "sdk_counter";
-  MatterEndpointSdk sdk{node::get(),1};
-  if (!readMatterSdkCounter(sdk.next)) { matterStartupFailure("sdk_counter","MATTER_STORAGE_FAILED"); return; }
-  auto* parent = stableMatterEndpoint(sdk,kMatterAggregatorEndpoint,ENDPOINT_FLAG_NONE,nullptr);
-  if (!parent) { matterStartupFailure("bridge_allocate","MATTER_BRIDGE_FAILED"); return; }
-  endpoint::aggregator::config_t aggregate;
-  const auto aggregateResult = endpoint::aggregator::add(parent,&aggregate);
-  if (aggregateResult != ESP_OK) { matterStartupFailure("bridge_add","MATTER_BRIDGE_FAILED",aggregateResult); return; }
-  const auto enableResult = endpoint::enable(parent);
-  if (enableResult != ESP_OK) { matterStartupFailure("bridge_enable","MATTER_BRIDGE_FAILED",enableResult); return; }
-  for (unsigned i = 0; i < kStations; ++i) if (configs[i].id && configs[i].mac[0] && !createLamp(i,parent,sdk)) {
-    matterStartupFailure("light_create","MATTER_ENDPOINT_FAILED"); return;
-  }
-  for (unsigned n = 0; n < kStations; ++n) if (lamps[n].active &&
-      chip::app::CommandHandlerInterfaceRegistry::Instance().GetCommandHandler(lamps[n].getEndPointId(),OnOff::Id) != &powerHandler) {
-    matterStartupFailure("command_verify","MATTER_HANDLER_CHANGED"); return;
-  }
+  esp_log_write(ESP_LOG_ERROR,"lh-startup","Matter model construction\n");
+  struct Build {
+    MatterEndpointSdk sdk{node::get(),1};
+    endpoint_t* parent = nullptr;
+    const char* phase = "sdk_counter";
+    const char* error = "MATTER_ENDPOINT_FAILED";
+    bool healthy() {
+      if (matterAllocationFailed()) { error = "OUT_OF_MEMORY"; return false; }
+      if (matterDataFree() < 2048 || matterDataLargest() < 512) {
+        phase = "memory_budget"; error = "OUT_OF_MEMORY"; return false;
+      }
+      return true;
+    }
+    bool construct() {
+      if (!readMatterSdkCounter(sdk.next)) { error = "MATTER_STORAGE_FAILED"; return false; }
+      phase = "bridge_allocate";
+      parent = stableMatterEndpoint(sdk,kMatterAggregatorEndpoint,ENDPOINT_FLAG_NONE,nullptr);
+      if (!parent) { error = "MATTER_BRIDGE_FAILED"; return false; }
+      cluster::descriptor::config_t descriptor;
+      endpoint::aggregator::config_t aggregate;
+      phase = "bridge_add";
+      if ((!cluster::get(parent,Descriptor::Id) && !cluster::descriptor::create(parent,&descriptor,CLUSTER_FLAG_SERVER)) ||
+          endpoint::aggregator::add(parent,&aggregate) != ESP_OK || !healthy()) return false;
+      for (unsigned i = 0; i < kStations; ++i) if (configs[i].id && configs[i].mac[0]) {
+        phase = "light_create";
+        if (!createLamp(i,parent,sdk) || !healthy()) return false;
+        Serial.printf("Matter model: station=%u, free_8bit=%u, largest_8bit=%u\n",configs[i].id,matterDataFree(),matterDataLargest());
+      }
+      return true;
+    }
+    bool activate() {
+      phase = "bridge_enable";
+      if (endpoint::enable(parent) != ESP_OK || !healthy()) return false;
+      for (unsigned i = 0; i < kStations; ++i) if (lamps[i].active) {
+        phase = "light_enable";
+        auto* endpoint = sdk.find(lamps[i].getEndPointId());
+        if (!endpoint || esp_matter::endpoint::enable(endpoint) != ESP_OK || !healthy()) return false;
+        phase = "command_verify";
+        if (chip::app::CommandHandlerInterfaceRegistry::Instance().GetCommandHandler(lamps[i].getEndPointId(),OnOff::Id) != &powerHandler) {
+          error = "MATTER_HANDLER_CHANGED"; return false;
+        }
+      }
+      return true;
+    }
+    void rollback() {
+      auto* endpoint = esp_matter::endpoint::get_first(sdk.node);
+      while (endpoint) {
+        auto* next = esp_matter::endpoint::get_next(endpoint);
+        if (esp_matter::endpoint::get_id(endpoint) != 0) sdk.destroy(endpoint);
+        endpoint = next;
+      }
+      for (unsigned i = 0; i < kStations; ++i) lamps[i].active = false;
+      MatterReportingAttributeChangeCallback(0,Descriptor::Id,Descriptor::Attributes::PartsList::Id);
+    }
+    void release() { matterEndResources(); }
+    void failed() {
+      if (matterAllocationFailed()) error = "OUT_OF_MEMORY";
+      matterStartupFailure(phase,error);
+    }
+  } build;
+  if (!buildMatterModel(build)) return;
   MatterReportingAttributeChangeCallback(0,Descriptor::Id,Descriptor::Attributes::PartsList::Id);
   MatterReportingAttributeChangeCallback(kMatterAggregatorEndpoint,Descriptor::Id,Descriptor::Attributes::PartsList::Id);
   matterError = ""; matterStartupPhase = "ready"; matterReady = true; matterInitializing = false;

@@ -295,7 +295,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.7-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.8-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -386,7 +386,7 @@ status change. Keep current facts, not a conversation log. User instructions win
   Version 0.3.3 reserves the unchanged 8192-byte worker task before Matter heap
   allocations. The task waits on an atomic gate until BLE initialization succeeds;
   it cannot scan/connect/read/write early. `startup_sequence.h` owns the tested
-  reserve -> HTTP -> Matter -> BLE -> release order. Free the boot-config text
+  reserve -> HTTP -> BLE initialization -> Matter completion -> release order. Free the boot-config text
   before reservation. Do not shrink stacks without measured high-water evidence.
 - Worker reservation, BLE init or modem-sleep failure must not trap Matter firmware
   before HTTP. Preserve authenticated web/OTA/USB recovery, reject radio requests
@@ -682,3 +682,43 @@ Never copy the credential-bearing raw log into the repository.
 - 0.3.7 local validation: both builds, twelve native suites, 16 Python checks and
   all browser/USB flows pass. App 1,965,440/1,966,080 bytes (640 flash bytes reserve),
   static RAM 123,268 bytes; real device runtime/NVS/stack margins remain unmeasured.
+
+## Experimental 0.3.8 saved-station startup recovery
+
+- Owner 0.3.7 evidence confirms save accepted=true/complete=true, then repeated
+  startup aborts. The exact retained ELF matches the reported SHA prefix. Frames
+  identify libc UART-lock creation while Matter cluster allocation errors are
+  logged; one boot explicitly fails endpoint allocation then aborts creating a
+  NimBLE client after premature worker release. This is negative multi-station
+  startup evidence, not failed persistence. Never retain the raw attachment.
+- Initialize NimBLE before starting Matter, with its peripheral/broadcaster roles
+  compile-time disabled and central/observer enabled; keep connection count 1.
+  Stacks, MTU and packet pools are unchanged. The reserved 8192-byte worker stays
+  gated until both BLE and the complete Matter model succeed; failure rejects radio
+  work and keeps authenticated HTTP/OTA/USB recovery. Service USB throughout; defer HTTP handling for the first three seconds
+  of model construction to avoid overlapping page buffers, then service HTTP if
+  initialization is still pending, and never resume endpoints before the root stack starts.
+- Reserve 4096 bytes of internal byte-addressable recovery memory before Matter.
+  Prime libc SDK console logging before allocation pressure and register a failed-
+  allocation hook that only sets a flag under a short ISR-safe spinlock (no logging/allocation/free/IO).
+  Use model_startup.h for construct/health/activate/health, then release the reserve
+  before rollback/error reporting. Budget checks are policy, not measured RAM margins.
+- Explicitly add Descriptor clusters to bare resumed/created bridge/light endpoints
+  if absent; retain On/Off Light type and all SDK light clusters/features/identities.
+  Enable only after full construction; on failure destroy non-root RAM endpoints
+  through public SDK APIs, invalidate root PartsList, keep NVS identity records and
+  fabrics, and do not release the worker. Never renumber or erase to recover.
+- Guard Matter BLE-client creation on byte-heap availability, exposing BLE_NO_MEMORY
+  with no write. Existing measured-state, bounded retries and failure/grace rules
+  remain; no automatic power command is introduced. SDK/GATT runtime headroom is
+  still unverified. Low-memory startup must remain explicit rather than rebooting.
+- Ignore `.codex-attachments` in Git and exclude it from stable source ZIP traversal.
+  Matter source ZIPs include every local .h plus build requirements. Tests must
+  check privacy exclusion and complete local build inputs without storing raw logs.
+- Actual 0.3.8 saved-station startup, recovery, runtime heap/stack, RF coexistence
+  and OTA remain owner hardware checks; no local ESP32 or Echo is attached.
+
+- 0.3.8 local validation: both firmware builds, thirteen native suites, nineteen
+  Python checks and all browser/USB flows pass. Matter app 1,963,088/1,966,080 bytes
+  (2992 flash bytes reserve), static RAM 123,284 bytes. Runtime heap/stack,
+  saved-station startup and failure recovery remain unverified on hardware.

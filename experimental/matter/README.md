@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.7-matter
+# Experimental Matter prototype — 0.3.8-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -91,6 +91,23 @@ worker without limiting the 16 assigned stations. Task stacks, MTU and buffer
 pool counts are unchanged. Build helpers use Python 3.12 and pinned Zopfli gzip
 compression to fit both unchanged app slots; decompression is checked byte-for-byte.
 Software checks do not establish actual runtime heap, NVS or RF reliability.
+
+The owner's 0.3.7 retest confirms accepted/persisted save and complete socket
+reply, followed by repeated startup aborts with saved stations. The matching CI
+ELF identifies a libc/UART lock allocation failure while logging Matter cluster
+construction errors; another boot reports endpoint allocation failure and then
+aborts creating a BLE client after early worker release. The raw log is private.
+
+0.3.8 initializes the scanner/client-only NimBLE host first and keeps its worker
+gated until Matter finishes. It reserves 4 KiB for recovery, primes SDK console
+logging before allocations, tracks failed allocations, includes Descriptor clusters
+on resumed/created endpoints and enables the completed model as a batch. Failure
+releases recovery memory before destroying incomplete RAM endpoints, keeps NVS
+identities/fabrics/configuration and leaves HTTP/USB/OTA recovery available with
+radio controls rejected. Saved stations are not erased or silently reduced. The
+existing app slots, stacks, MTU, packet-pool counts and no-automatic-power policy
+remain unchanged. Actual memory headroom and saved multi-station startup need
+hardware testing. Recover the looping 0.3.7 by four-part USB with erase unchecked.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read
