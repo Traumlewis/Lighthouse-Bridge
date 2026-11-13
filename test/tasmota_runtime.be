@@ -352,3 +352,12 @@ assert(write_metadata[0]==12 && write_metadata[2]==0x3f && write_metadata[3]==0 
 for event: diagnostic_events
   for value: event assert(type(value)=="int") end
 end
+
+# TC is optional and not advertised: a probe rejection is not a proven GS014 cause.
+var tc_context=LighthouseTestContext(0x30,6)
+tc_context.endpoint=0
+tc_context.attribute=0xfffc
+tc_context.status=0x81
+var actual_root=single.find_plugin_by_endpoint(0)
+assert(actual_root.read_attribute(nil,tc_context,matter.TLV.Matter_TLV_item()).val==0)
+assert(actual_root.invoke_request(nil,nil,tc_context)==nil && tc_context.status==0x81)

@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Current version is 0.1.5-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.6-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -953,3 +953,33 @@ Never copy the credential-bearing raw log into the repository.
 - Local 0.1.5 verification: app 1,710,672/1,966,080 bytes, static RAM 73,348;
   updated native diagnostics suite, all 25 Python checks and nine browser/USB
   programs pass. Hardware GS014 cause remains unresolved pending the new trace.
+
+## Tasmota 0.1.6 stable pairing controls
+- Owner 0.1.5 UI report: Check/Show code displays a bridge name without a code;
+  active-window polling repeatedly disables/enables both buttons. The supplied
+  trace reaches rx=35/PASE opcode 0x24, no complete, and one invoke error at
+  endpoint 0 / cluster 0x30 / command 6, status 0x81. Certificate-chain requests
+  and AttestationRequest follow it. No later result is captured in this excerpt.
+- Command 6 is optional SetTCAcknowledgements. This build advertises TC feature
+  off, matching the reference CHIP server's UnsupportedCommand behavior when TC
+  is disabled. Do not automatically acknowledge terms, fake TC support or claim
+  that this probe alone explains GS014; following requests demonstrate progress.
+- Tasmota-only UI marks automatic private-info polling as background work so it
+  does not toggle button disabled state. A manual action during that fetch queues
+  once; renewal takes priority over a read. The existing JSON request queue still
+  serializes network IO. Logout cancels timers and queued actions using epochs.
+- Preserve unchanged name/status/code text nodes during background refresh, so
+  code selection and accessible status announcements stay stable. Manual renewal
+  and real pending state still disable the appropriate controls.
+- The read-only button is labeled Show active code / pairing status in EN/DE.
+  A closed window explicitly says no active code and names the renewal action.
+  Unknown-window code errors give an actionable renewal hint. Never fabricate or
+  expose a code when closed; GET/status/language changes do not rotate credentials.
+- Browser tests hold actual generated-page HTTP reads and invoke the scheduled
+  timer callback, observing zero button/text mutations during unchanged polling.
+  Manual Show and renewal during a held background fetch must execute afterwards,
+  with no unintended POST for read-only actions. Host Berry verifies TC remains
+  unadvertised and the optional probe stays unsupported. GS014 remains unresolved.
+- Local software verification: app 1,710,816/1,966,080 bytes, static RAM
+  73,348 bytes; 25 Python tests and all nine browser programs pass. Browser
+  checks use simulated HTTP/USB; no physical pairing or flash was performed.

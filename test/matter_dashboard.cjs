@@ -52,14 +52,15 @@ assert.ok(html.includes('Bridge '+version));
    await page.addInitScript(()=>{document.execCommand=()=>{window.copied=document.activeElement.value;return true;};});
    await page.addInitScript(()=>{
     const timer=window.setTimeout;
-    window.setTimeout=(fn,ms,...args)=>ms===2000?0:timer(fn,ms,...args);
+    window.setTimeout=(fn,ms,...args)=>{if(ms===2000){window.lastTwoSecondTimer=fn;return 0;}return timer(fn,ms,...args);};
    });
-   let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true,windowPending=0,rotations=0,rejectWindow=false,rejectInfo=false;
+   let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true,windowPending=0,rotations=0,rejectWindow=false,rejectInfo=false,infoGate=null;
    const key='1234567890abcdef12345678';let code='34970112332';
    const data={alexa_protocol:'matter',matter_ready:true,matter_paired:true,ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,stations:[{id:1,name:'Owner station',mac:'AA:BB:CC:DD:EE:01',configured:true,alexa_compat:true,reachable:true,observed:'sleep',observed_raw:0,observed_ms:89000}],discovered:[]};
    await page.route('http://bridge.test/**',async route=>{
     const req=route.request(),uri=new URL(req.url()).pathname;calls.push({uri,method:req.method(),headers:req.headers()});
     if(uri==='/')return route.fulfill({contentType:'text/html',body:html});
+    if(signedIn&&uri==='/api/matter'&&infoGate)await infoGate;
     let result={},status=200;
     if(signedIn&&uri==='/api/matter'&&rejectInfo)return route.fulfill({status:503,json:{error:'NETWORK_ERROR'}});
     if(uri==='/api/login'){signedIn=true;result={password_required:false};}
@@ -99,15 +100,53 @@ assert.ok(html.includes('Bridge '+version));
    await page.locator('#matter-show').click();
    if(prototypeName==='tasmota'){
     assert.equal(await page.locator('#matter-code').isHidden(),true,'closed window must not show a usable code');
+    assert.match(await page.locator('#matter-status').textContent(),/No active setup code|Kein aktiver Einrichtungscode/);
     await page.locator('#matter-open').click();
    }
    await page.waitForFunction(code=>document.getElementById('matter-code').textContent===code,code);
    assert.equal(await page.locator('#matter-name').textContent(),'Lighthouse-Bridge Matter Test');
    assert.equal(await page.locator('.compat-label').isHidden(),true);
+   if(prototypeName==='tasmota'){
+    let releaseInfo;
+    infoGate=new Promise(resolve=>releaseInfo=resolve);
+    await page.evaluate(()=>{
+     window.disabledMutations=[];
+     window.buttonObserver=new MutationObserver(records=>window.disabledMutations.push(...records.map(r=>r.target.id)));
+     for(const id of ['matter-show','matter-open'])window.buttonObserver.observe(document.getElementById(id),{attributes:true,attributeFilter:['disabled']});
+     for(const id of ['matter-code','matter-status','matter-name'])window.buttonObserver.observe(document.getElementById(id),{childList:true});
+     window.lastTwoSecondTimer();
+    });
+    await page.waitForFunction(()=>matterBusy&&loadMatter.background);
+    assert.equal(await page.locator('#matter-show').isDisabled(),false,'background status must not disable the show button');
+    assert.equal(await page.locator('#matter-open').isDisabled(),false,'background status must not disable the renew button');
+    infoGate=null;releaseInfo();
+    await page.waitForFunction(()=>!matterBusy);
+    assert.deepEqual(await page.evaluate(()=>window.disabledMutations),[],'automatic polling must not flicker either button');
+    await page.evaluate(()=>window.buttonObserver.disconnect());
+    const beforeRead=calls.filter(c=>c.uri==='/api/matter').length;
+    const beforeMutations=calls.filter(c=>c.uri==='/api/matter/commissioning').length;
+    infoGate=new Promise(resolve=>releaseInfo=resolve);
+    await page.evaluate(()=>window.lastTwoSecondTimer());
+    await page.waitForFunction(()=>matterBusy&&loadMatter.background);
+    await page.locator('#matter-show').click();
+    assert.equal(await page.evaluate(()=>loadMatter.queued),false,'manual show queues behind a background fetch');
+    infoGate=null;releaseInfo();
+    await page.waitForFunction(()=>!matterBusy&&loadMatter.queued===undefined);
+    assert.equal(calls.filter(c=>c.uri==='/api/matter').length,beforeRead+2);
+    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,beforeMutations,'queued show cannot rotate credentials');
+   }
    await page.locator('#matter-code').evaluate(node=>node.textContent='translated text');await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),code);
    await page.locator('#language').selectOption(lang==='en'?'de':'en');assert.equal(await page.locator('#matter-code').textContent(),code);
+   let releaseRenew;
+   if(prototypeName==='tasmota'){
+    infoGate=new Promise(resolve=>releaseRenew=resolve);
+    await page.evaluate(()=>window.lastTwoSecondTimer());
+    await page.waitForFunction(()=>matterBusy&&loadMatter.background);
+   }
    await page.locator('#matter-open').click();
    if(prototypeName==='tasmota'){
+    assert.equal(await page.evaluate(()=>loadMatter.queued),true,'manual renewal cannot be lost during polling');
+    infoGate=null;releaseRenew();
     await page.waitForFunction(()=>matterInfo?.commissioning_pending);
     assert.equal(await page.locator('#matter-code').isHidden(),true,'pending renewal hides the previous code');
     assert.equal(await page.locator('#matter-open').isDisabled(),true);

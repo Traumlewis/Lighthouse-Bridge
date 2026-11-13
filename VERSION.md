@@ -3,6 +3,23 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota pairing-control UI correction 0.1.6-tasmota
+
+Automatic pairing-status refresh no longer disables/enables the two setup buttons
+or replaces unchanged name/status/code text. Manual actions arriving during a
+background read queue and run after it, rather than disappearing. Renewal remains
+explicit, serialized and protected; logout clears queued actions and timers.
+
+Rename the read-only action to Show active code / pairing status, with clear EN/DE
+instructions when no window/code exists. Opening a fresh window remains a separate
+manual action. No pairing credential, identity, fabric or radio behavior changes.
+
+The owner 0.1.5 trace identifies an unsupported General Commissioning command 6,
+followed by certificate/attestation traffic. This is optional SetTCAcknowledgements
+with the TC feature disabled; do not force a success acknowledgement or claim it
+is the GS014 cause. The excerpt ends before a later result. This release fixes the
+reproduced UI flicker; physical Alexa pairing remains unverified.
+
 ## Experimental Tasmota Interaction Model diagnostics 0.1.5-tasmota
 
 Add numeric metadata for actual Matter attribute reads, write/command outcomes and

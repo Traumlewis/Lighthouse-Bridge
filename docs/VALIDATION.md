@@ -1,5 +1,32 @@
 # Validation report — 0.3.9
 
+## Tasmota pairing-control UI correction 0.1.6-tasmota
+
+Owner 0.1.5 evidence: window opens and advertises with IPv6 present and no
+transport/mDNS errors. At rx=35, complete=0 and fabrics=0, the IM trace reports
+0x30/command 6 -> UnsupportedCommand (0x81). Certificate-chain requests and
+AttestationRequest continue afterwards. The excerpt ends there, without later
+status, CSR/AddNOC or completion. It cannot establish the optional probe as the
+cause of GS014. TC is not advertised. The reference CHIP server rejects this
+command when TC is disabled:
+https://github.com/project-chip/connectedhomeip/blob/master/src/app/clusters/general-commissioning-server/GeneralCommissioningCluster.cpp
+No implicit terms acceptance or protocol-capability change is introduced.
+
+The UI flicker is reproduced by foreground busy handling on each two-second
+private status poll. Tasmota's generated UI now distinguishes background polling,
+queues explicit manual actions and preserves unchanged text nodes. A held real
+page fetch plus MutationObserver checks both button disabled attributes and
+name/status/code children. Manual Show during a held fetch results in two reads
+and no extra credential mutation; manual renewal during a held fetch executes and
+returns its fresh code. Closed windows show explicit guidance. Expiry/error/logout
+privacy and action-retry behavior remain covered. SDK/default embedded UI stays
+unchanged. Browser uses mocked HTTP/USB; no hardware flash or Alexa pairing is
+performed locally. GS014 remains unresolved pending a longer device trace.
+
+Local 0.1.6 build: app 1,710,816/1,966,080 bytes, static RAM 73,348 bytes.
+All 25 Python checks and nine browser programs pass, including the real pinned
+Berry runtime test and generated gzip dashboard checks.
+
 ## Tasmota Interaction Model diagnostics 0.1.5-tasmota
 
 Owner 0.1.4 evidence confirms an open advertised window, rx=79, secure opcode 0x32,

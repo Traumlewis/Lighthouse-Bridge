@@ -1,4 +1,4 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.5-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.6-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
@@ -62,6 +62,21 @@ and all `Matter IM` lines through 20 seconds after Alexa's result. Other serial
 output can contain setup credentials. Owner 0.1.4 reached local completion but
 still received GS014; this release adds evidence, not a verified pairing fix.
 
+Version 0.1.6 fixes setup-control flicker during automatic status refresh. Buttons
+stay usable during background reads; explicit clicks wait for an active read and
+then run. Unchanged code/name/status text is preserved. **Show active code / pairing
+status** is read-only. With a closed window it shows a clear no-active-code hint;
+use **New code & open pairing window** to generate a usable code. No code is
+invented for a closed/unknown window. Manual pending work, expiry and logout still
+clear or disable the appropriate controls.
+
+The owner 0.1.5 trace includes an optional Terms & Conditions command rejected
+with 0x81 while TC is not advertised, then further attestation requests. This does
+not prove the cause of GS014, and this release does not add automatic terms
+acceptance. For the next test, capture one renewal/pairing attempt and continue
+serial logging for 30 seconds after the Alexa result, then share the `Matter`
+diagnostic lines only. Actual successful Alexa pairing remains unverified.
+
 ## Included behavior
 
 - Configure 0–16 Lighthouse V2 stations with fixed local slots, stable Matter
@@ -112,7 +127,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.5-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.6-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.
