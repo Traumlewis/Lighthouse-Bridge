@@ -1,5 +1,28 @@
 # Validation report — 0.3.9
 
+## Tasmota native mDNS correction 0.1.1-tasmota
+
+Owner hardware evidence for 0.1.0 shows import_error in lh_begin, no ready worker
+release, free_8bit 71,984/73,892 and complete HTML responses. This supports HTTP
+recovery and the reported byte-heap figures at failed startup; it does not establish
+operational memory, discovery or pairing. The setup panel's bridge name is present
+while its setup code is intentionally withheld until readiness.
+
+The retained original linked ELF contains json, crypto, introspect, path, math,
+string and matter modules, but no be_native_module_mdns. A new ELF dependency
+check reproduces that failure on the original build. Dedicated USE_BERRY_MDNS
+now enables the registry entry, native C module and C++ bindings without enabling
+generic USE_DISCOVERY. Required imports are probed before model construction;
+failures log only fixed dependency names. Browser coverage checks MATTER_START_FAILED
+keeps scan/power/code unavailable but firmware recovery enabled in EN/DE.
+No saved identity, pairing credential, fabric, BLE power rule or partition is reset.
+Local 0.1.1 build: 1,704,880/1,966,080 application bytes (261,200 bytes reserve),
+73,004 static RAM bytes. The linked dependency check, all 25 Python tests and
+all nine browser/USB programs pass. The fourteen native suites from the full
+prototype remain unchanged. Linker RAM is not measured runtime headroom.
+Hardware readiness/pairing/RF remain pending the owner's retest; no ESP32 or
+Echo is attached locally.
+
 ## Experimental Tasmota Matter prototype 0.1.0-tasmota
 
 This isolated variant links a pinned Tasmota/Berry Matter engine to production

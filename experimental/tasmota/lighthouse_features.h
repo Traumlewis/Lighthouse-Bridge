@@ -31,3 +31,6 @@
 #undef USE_BERRY_PYTHON_COMPAT
 
 #undef USE_WEBSERVER
+
+// Matter DNS-SD uses the native Berry binding, without generic discovery.
+#define USE_BERRY_MDNS

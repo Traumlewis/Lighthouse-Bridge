@@ -67,7 +67,7 @@ assert.ok(html.includes('Bridge '+version));
     else if(uri==='/api/status'){if(statusFails){status=503;result={error:'OUT_OF_MEMORY'};}else result=data;}
     else if(uri==='/api/refresh'){status=202;result={accepted:true};}
     else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});windowOpen=true;status=202;result={accepted:true};}
-    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?'BLE_WORKER_FAILED':'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:code,commissioning_open:windowOpen,commissioning_pending:false,error:''};
+    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?(data.ble_startup_error||'BLE_WORKER_FAILED'):'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:code,commissioning_open:windowOpen,commissioning_pending:false,error:''};
     else if(uri==='/api/scan'){status=202;result={accepted:true};data.discovered=[{name:'LHB-test',mac:'AA:BB:CC:DD:EE:02',address_type:1,rssi:-60}];data.scan_finished_ms=90001;}
     else if(uri==='/api/config'){
      assert.equal(req.method(),'POST');
@@ -115,6 +115,12 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await page.locator('#ota-update').isDisabled(),false,'BLE failure must not disable firmware recovery');
    await page.locator('#matter-show').click();
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('worker could not start')||document.getElementById('matter-status').textContent.includes('Worker konnte nicht starten'));
+   assert.equal(await page.locator('#matter-code').isHidden(),true);
+   data.ble_startup_error='MATTER_START_FAILED';
+   await page.evaluate(()=>refresh());await page.locator('#matter-show').click();
+   await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('could not start')||document.getElementById('matter-status').textContent.includes('konnte nicht gestartet'));
+   assert.equal(await page.locator('#scan').isDisabled(),true);
+   assert.equal(await page.locator('#ota-update').isDisabled(),false);
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    assert.equal(calls.filter(c=>c.uri==='/api/power').length,0);
    assert.equal(calls.filter(c=>c.uri.startsWith('/api/matter')).some(c=>c.headers['x-api-key']),false);

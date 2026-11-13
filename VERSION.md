@@ -3,6 +3,22 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Tasmota mDNS dependency correction 0.1.1-tasmota
+
+Owner 0.1.0 hardware logs show HTTP recovery with about 72–74 KiB free byte heap,
+but Matter fails with import_error. The minimized binary lacks Berry's native
+mDNS module because it was tied to disabled generic Tasmota discovery. Restore
+that binding through a dedicated flag in the module registry, C module and native
+C++ functions. Leave generic discovery/web/MQTT/erase behavior disabled.
+
+Validate mandatory Berry modules in the linked ELF before packaging; the check
+reproduces the missing mDNS on the original 0.1.0 ELF. Probe required imports at
+boot with non-secret dependency diagnostics. Preserve readiness gating, pairing-code
+privacy, BLE behavior, saved identities/fabrics and the exact app slots. The failed
+startup log does not prove operational RAM margins or successful Matter/BLE use;
+a hardware retest remains required. The working authenticated recovery UI can be
+used for the new Tasmota .lhota. Stable and the SDK experiment are unchanged.
+
 ## Experimental Tasmota Matter prototype 0.1.0-tasmota
 
 Add a complete, isolated Tasmota/Berry Matter variant for the same classic ESP32.

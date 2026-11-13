@@ -1,10 +1,19 @@
-# Lighthouse Bridge — Tasmota Matter prototype 0.1.0-tasmota
+# Lighthouse Bridge — Tasmota Matter prototype 0.1.1-tasmota
 
 This separate experimental firmware combines Tasmota's flash-solidified Berry
 Matter implementation with the Lighthouse Bridge dashboard, authentication,
 local API, sequential NimBLE worker and validated firmware updater. It targets
 the original dual-core ESP-WROOM-32 / ESP-32S with 4 MB flash. No ESP32/Echo is
 attached in development; software checks are not a successful device test.
+
+Owner 0.1.0 evidence confirms HTTP recovery and roughly 72–74 KiB free byte heap
+at failed startup. Matter fails with import_error: the minimized binary omitted
+Berry's native mDNS module. Version 0.1.1 restores only that binding, keeping generic
+Tasmota discovery disabled, and validates linked native modules before packaging.
+Discovery/code controls stay unavailable while Matter startup has failed. Actual
+successful pairing, radio work and operating memory still need device retesting.
+A working 0.1.0 dashboard can receive the new Tasmota .lhota through its authenticated
+firmware-update controls; USB with erasing unchecked remains an alternative.
 
 ## Included behavior
 
@@ -56,7 +65,7 @@ No automatic partition expansion, raw Tasmota OTA, unauthenticated webserver,
 MQTT management, external startup scripts or Tasmota reset/erase are enabled.
 Lighthouse owns Wi-Fi and the protected setup portal.
 
-Future updates use the separate `lighthouse-bridge-0.1.0-tasmota.lhota` through
+Future updates use the separate `lighthouse-bridge-0.1.1-tasmota.lhota` through
 the authenticated dashboard. The receiver validates product, chip, length and
 SHA-256 before selecting the inactive slot. Return to stable or the SDK experiment
 through the respective four-part USB installer with erasing unchecked.

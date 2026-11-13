@@ -57,6 +57,16 @@ extern "C" bool lh_tasmota_begin(const char* configuration) {
   WifiSetState(WiFi.status() == WL_CONNECTED);
   be_pop(berry.vm,be_top(berry.vm));
   be_regfunc(berry.vm,"lh_power",lh_native_power);
+  const char* dependencies[] = {"json","crypto","mdns","path","introspect","string","math"};
+  for (const char* module : dependencies) {
+    const bool available = be_getmodule(berry.vm,module);
+    be_pop(berry.vm,be_top(berry.vm));
+    if (!available) {
+      Serial.printf("Tasmota Matter dependency missing: module=%s\n",module);
+      return false;
+    }
+  }
+  Serial.println("Tasmota Matter dependencies ready.");
   if (!lh_vm_function("lh_begin")) return false;
   be_pushstring(berry.vm,configuration);
   const bool ok = lh_vm_result(1); be_pop(berry.vm,be_top(berry.vm));

@@ -1,7 +1,7 @@
-import { translations } from './translations.js?v=tasmota-0.1.0';
-import { validMatterParts, validTasmotaParts } from './flash-layout.mjs?v=tasmota-0.1.0';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.0';
-import { parseMatterInfo } from './matter-info.mjs?v=tasmota-0.1.0';
+import { translations } from './translations.js?v=tasmota-0.1.1';
+import { validMatterParts, validTasmotaParts } from './flash-layout.mjs?v=tasmota-0.1.1';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=tasmota-0.1.1';
+import { parseMatterInfo } from './matter-info.mjs?v=tasmota-0.1.1';
 
 const $ = id => document.getElementById(id);
 const isTasmota = document.body.dataset.prototype === 'tasmota';

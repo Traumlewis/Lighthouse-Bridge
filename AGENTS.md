@@ -763,7 +763,7 @@ Never copy the credential-bearing raw log into the repository.
 - Owner explicitly requests a complete separate Tasmota-based Matter prototype.
   `experimental/tasmota/` builds the shared production dashboard/auth/API/OTA,
   configuration and sequential NimBLE worker into a pinned Tasmota runtime.
-  Initial version is 0.1.0-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
+  Current version is 0.1.1-tasmota, isolated from stable 0.3.9 and SDK 0.3.9-matter.
 - Pin Tasmota source 6aadc3f171f5b501cc325dcd78daf3d625b01d32 and its declared
   2026.11.50 ESP32 platform; pioarduino 6.2.0.post1 runs in a separate Python 3.12
   environment. Application NimBLE stays 2.5.2 with one connection and central/
@@ -804,4 +804,27 @@ Never copy the credential-bearing raw log into the repository.
   twenty-four Python checks (including real-host Berry zero/one/sixteen-light
   composition and serialized light type/PartsList) and nine browser/USB programs
   pass. App 1,700,960/1,966,080 bytes; static RAM 73,004 bytes versus SDK 123,284.
-  These are linker figures, not measured runtime free heap. Hardware is untested.
+  These are linker figures, not measured runtime free heap. Subsequent owner
+  startup/RAM evidence and the missing-dependency correction are recorded below.
+
+## Tasmota 0.1.1 native mDNS dependency
+
+- Owner 0.1.0 hardware evidence confirms usable HTTP recovery and free_8bit about
+  72–74 KiB at failed startup. lh_begin throws import_error. This is not operational
+  headroom evidence: the complete Matter model/radio worker never reaches ready.
+- The original linked ELF lacks be_native_module_mdns. The generic USE_DISCOVERY
+  switch gated Berry's registry entry, native C module and C++ mDNS functions.
+  0.1.1 enables those three using dedicated USE_BERRY_MDNS, while USE_DISCOVERY
+  stays disabled. Do not enable generic Tasmota discovery or tear down Matter DNS-SD.
+- Packaging validates json/crypto/mdns/path/introspect/string/math/matter modules
+  in the actual linked ELF. Boot probes required imports and logs only fixed module
+  names on failure. No raw exception message, pairing code or credentials in logs.
+- Failed startup intentionally withholds the BLE worker and pairing code; the
+  displayed bridge name is configuration, not proof that Matter is running.
+  Preserve authenticated HTTP/OTA recovery, station/endpoint identities, fabrics,
+  layout and no automatic power commands. Hardware Matter startup remains unproven.
+
+- Local 0.1.1 validation: app 1,704,880/1,966,080 bytes, static RAM 73,004;
+  linked-module check, 25 Python tests and nine browser/USB programs pass. The
+  prior fourteen native suites are unchanged. Runtime readiness remains a hardware
+  retest, not established by the successful build or mocked browser checks.

@@ -11,7 +11,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = '6aadc3f171f5b501cc325dcd78daf3d625b01d32'
-VERSION = '0.1.0-tasmota'
+VERSION = '0.1.1-tasmota'
 UPSTREAM = ROOT / '.tools/tasmota-src'
 STAGE = ROOT / '.pio/tasmota-src'
 PROTOTYPE = ROOT / 'experimental/tasmota'
@@ -112,6 +112,18 @@ def prepare():
     all_plugins=replace_once(all_plugins,'plugins_classes = register_native_classes()',
         'plugins_classes = {"v_light0":Matter_Plugin_Virt_Light0}')
     write(STAGE/'lib/libesp32/berry_matter/src/embedded/Matter_Plugin_z_All.be',all_plugins)
+    # Matter needs Berry's native mDNS module even with generic Tasmota discovery off.
+    for relative in ['lib/libesp32/berry/default/be_modtab.c',
+                     'lib/libesp32/berry_tasmota/src/be_mdns_module.c',
+                     'tasmota/tasmota_xdrv_driver/xdrv_52_3_berry_mdns.ino']:
+        source=original(relative)
+        if relative.endswith('be_modtab.c'):
+            source=replace_once(source,'#ifdef USE_DISCOVERY\n    &be_native_module(mdns),',
+                '#if defined(USE_DISCOVERY) || defined(USE_BERRY_MDNS)\n    &be_native_module(mdns),')
+        else:
+            source=replace_once(source,'#ifdef USE_DISCOVERY',
+                '#if defined(USE_DISCOVERY) || defined(USE_BERRY_MDNS)')
+        write(STAGE/relative,source)
     # The existing pinned minimal Arduino SDK omits SHA512, while the new HTTPUpdate
     # accepts it. No HTTPUpdate listener or OTA state machine is reachable here.
     write(STAGE / 'lighthouse-partitions.csv',(ROOT/'partitions.csv').read_bytes())
@@ -197,6 +209,14 @@ def source_fingerprint():
         digest.update((ROOT/relative).read_bytes())
     return digest.hexdigest()
 
+REQUIRED_MODULES = ('json','crypto','mdns','path','introspect','string','math','matter')
+def validate_runtime_modules(elf, nm):
+    listing=subprocess.check_output([str(nm),str(elf)],text=True)
+    symbols={line.split()[-1] for line in listing.splitlines() if line.split()}
+    missing=[name for name in REQUIRED_MODULES if 'be_native_module_'+name not in symbols]
+    if missing: raise ValueError('Missing linked Berry modules: '+', '.join(missing))
+
+
 def package_build():
     import zipfile
     from build_matter import validate_segments
@@ -226,6 +246,7 @@ def package_build():
         'new_install_prompt_erase':True,'new_install_improv_wait_time':0,
         'builds':[{'chipFamily':'ESP32','parts':parts}]},indent=2)+'\n')
     size_tool=ROOT/'.pio/tasmota-pio-core/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp-elf-size'
+    validate_runtime_modules(build/'firmware.elf',size_tool.with_name('xtensa-esp-elf-nm'))
     sections=subprocess.check_output([str(size_tool),'-A',str(build/'firmware.elf')],text=True)
     ram=sum(int(line.split()[1]) for line in sections.splitlines() if line.startswith(('.dram0.data ','.dram0.bss ')))
     info={'version':VERSION,'engine':'tasmota-berry','upstream_commit':PIN,'app_bytes':len(segments[-1][1]),
@@ -238,7 +259,7 @@ def package_build():
     temporary=archive.with_suffix('.zip.tmp')
     with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED) as bundle:
         for file in sorted(output.iterdir()):
-            if file.suffix not in ['.tmp','.zip'] and file.name!='manifest.json': bundle.write(file,file.name)
+            if file.name in {entry.split()[1] for entry in checksums}|{'SHA256SUMS','build-info.json'}: bundle.write(file,file.name)
         bundle.write(PROTOTYPE/'README.md','READ-ME-FIRST.md')
         bundle.write(PROTOTYPE/'LICENSE.txt','LICENSE-TASMOTA.txt')
         bundle.write(ROOT/'VERSION.md','VERSION.md')

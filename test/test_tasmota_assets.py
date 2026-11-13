@@ -13,7 +13,7 @@ class TasmotaAssetsTests(unittest.TestCase):
     def test_exact_layout_and_ota_payload(self):
         folder=ROOT/'dist/tasmota'
         manifest=json.loads((folder/'manifest.json').read_text())
-        self.assertEqual(manifest['version'],'0.1.0-tasmota')
+        self.assertEqual(manifest['version'],'0.1.1-tasmota')
         build=manifest['builds'][0]
         self.assertEqual(build['chipFamily'],'ESP32')
         self.assertEqual([p['offset'] for p in build['parts']],[0x1000,0x8000,0xe000,0x10000])
@@ -24,7 +24,7 @@ class TasmotaAssetsTests(unittest.TestCase):
         self.assertEqual((folder/'lighthouse-tasmota-partitions.bin').read_bytes(),
                          (ROOT/'dist/lighthouse-bridge-partitions.bin').read_bytes())
         app=(folder/'lighthouse-tasmota-app.bin').read_bytes()
-        ota=(folder/'lighthouse-bridge-0.1.0-tasmota.lhota').read_bytes()
+        ota=(folder/'lighthouse-bridge-0.1.1-tasmota.lhota').read_bytes()
         self.assertLessEqual(len(app),0x1e0000)
         self.assertEqual(struct.unpack_from('<H',app,12)[0],0)
         self.assertEqual(ota[64:],app)
@@ -32,7 +32,7 @@ class TasmotaAssetsTests(unittest.TestCase):
         self.assertEqual(ota[28:60],hashlib.sha256(app).digest())
 
     def test_source_distribution_is_complete_and_private_files_excluded(self):
-        archive=ROOT/'dist/tasmota/lighthouse-bridge-0.1.0-tasmota.zip'
+        archive=ROOT/'dist/tasmota/lighthouse-bridge-0.1.1-tasmota.zip'
         with zipfile.ZipFile(archive) as bundle:
             names=set(bundle.namelist())
             self.assertFalse(any(set(Path(name).parts)&{'.codex-attachments','.cache','.git','.pio'} for name in names))
@@ -49,7 +49,7 @@ class TasmotaAssetsTests(unittest.TestCase):
     def test_extracted_source_preparation(self):
         with tempfile.TemporaryDirectory(prefix='lighthouse-source-') as temporary:
             folder=Path(temporary)
-            with zipfile.ZipFile(ROOT/'dist/tasmota/lighthouse-bridge-0.1.0-tasmota.zip') as bundle:
+            with zipfile.ZipFile(ROOT/'dist/tasmota/lighthouse-bridge-0.1.1-tasmota.zip') as bundle:
                 for name in bundle.namelist():
                     if name.startswith('source/'): bundle.extract(name,folder)
             source=folder/'source'
@@ -58,6 +58,13 @@ class TasmotaAssetsTests(unittest.TestCase):
                 cwd=source,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=90)
             self.assertEqual(result.returncode,0,result.stdout)
             self.assertTrue((source/'tasmota-upstream/tasmota/web_ui_gzip.h').is_file())
+
+    def test_linked_matter_modules(self):
+        import sys
+        sys.path.insert(0,str(ROOT/'tools'))
+        from build_tasmota import validate_runtime_modules
+        validate_runtime_modules(ROOT/'.pio/tasmota-src/.pio/build/lighthouse/firmware.elf',
+            ROOT/'.pio/tasmota-pio-core/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp-elf-nm')
 
     def test_staged_safety_boundaries(self):
         stage=ROOT/'.pio/tasmota-src'
