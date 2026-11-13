@@ -295,7 +295,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.8-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.9-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -715,10 +715,42 @@ Never copy the credential-bearing raw log into the repository.
 - Ignore `.codex-attachments` in Git and exclude it from stable source ZIP traversal.
   Matter source ZIPs include every local .h plus build requirements. Tests must
   check privacy exclusion and complete local build inputs without storing raw logs.
-- Actual 0.3.8 saved-station startup, recovery, runtime heap/stack, RF coexistence
-  and OTA remain owner hardware checks; no local ESP32 or Echo is attached.
+- Subsequent owner 0.3.8 startup/recovery evidence is negative (see 0.3.9 below).
+  Runtime heap/stack, RF coexistence and OTA remain hardware checks; no local
+  ESP32 or Echo is attached.
 
 - 0.3.8 local validation: both firmware builds, thirteen native suites, nineteen
   Python checks and all browser/USB flows pass. Matter app 1,963,088/1,966,080 bytes
   (2992 flash bytes reserve), static RAM 123,284 bytes. Runtime heap/stack,
   saved-station startup and failure recovery remain unverified on hardware.
+
+## Experimental 0.3.9 uninitialized-cluster cleanup correction
+
+- Owner 0.3.8 evidence is negative: repeated boot loops, usually after building
+  station 1 with only 3.1–3.4 KiB free byte heap. The exact CI ELF SHA matches;
+  the abort is LazyRegisteredServerCluster::Destroy via Descriptor shutdown,
+  endpoint::destroy and our rollback. Recovery was not reached. No raw log stored.
+- Pinned esp-matter 1.5 endpoint::destroy invokes cluster shutdown even before
+  their init ran; the lazy Descriptor shutdown asserts when unconstructed.
+  `include/matter_endpoint.h` owns the tested discardMatterEndpoint policy:
+  for never-initialized endpoints first unlink/free all cluster metadata through
+  public cluster::destroy, then endpoint::destroy on the empty endpoint. For
+  initialized endpoints retain normal SDK shutdown. Propagate cleanup errors.
+- Track successful enable calls explicitly on the CHIP task in bounded 17-handle
+  storage; SDK is_enabled is not an init-history flag (create defaults enabled,
+  resume does not). Disable each new/resumed bare endpoint before adding clusters.
+  Keep root endpoint 0, mandatory light clusters, station/endpoint/fabric NVS and
+  monotonic SDK allocation metadata intact. No private casts or SDK key edits.
+- Before each light require its admission budget plus 2048 free byte heap; start
+  at a conservative 4096-byte light cost and raise it to the largest measured
+  completed light construction cost. This can reject before another SDK OOM,
+  not guarantee heap sufficiency. No station truncation or reduced 16 capacity.
+  Failure leaves readiness false, releases reserve and withholds the BLE worker.
+- 0.3.9 targets the established rollback abort, not proven multi-station RAM
+  sufficiency. Actual saved-station boot/recovery, BLE, OTA and memory margins
+  remain unverified on hardware. Stacks/MTU/pools and the exact slots are unchanged.
+
+- 0.3.9 local validation: both builds, thirteen native suites (including the
+  uninitialized-shutdown regression), nineteen Python checks and all browser/USB
+  simulations pass. Matter app 1,963,600/1,966,080 bytes (2480 flash bytes reserve),
+  static RAM 123,284 bytes. These are not runtime memory margins or device tests.

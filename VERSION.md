@@ -3,6 +3,22 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental cleanup correction 0.3.9-matter
+
+The owner's 0.3.8 retest still boot-loops. Its exact CI ELF identifies the new
+abort in our rollback: SDK endpoint destruction calls Descriptor shutdown although
+that cluster was never initialized. Keep explicit initialization history, disable
+bare endpoints immediately, and unlink/free uninitialized cluster metadata using
+public SDK APIs before destroying the now-empty endpoint. Initialized endpoints
+keep normal SDK shutdown. Native tests reproduce the unsafe shutdown contract and
+exercise both disposal paths, failures, empty endpoints and light-budget bounds.
+
+Admit another light only with its estimated byte-heap cost plus recovery headroom;
+raise that estimate from each completed light. Retain every saved station, endpoint,
+fabric and both app slots; do not publish a truncated model. This corrects the
+identified cleanup path but does not establish enough RAM for all configured lights.
+Real boot/recovery and multi-station operation still require a device test.
+
 ## Experimental saved-station startup recovery 0.3.8-matter
 
 Owner evidence confirms 0.3.7 accepts/persists a station save and sends its reply,

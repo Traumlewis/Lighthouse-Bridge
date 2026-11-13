@@ -10,7 +10,7 @@ Use Chrome or Edge on a computer.
 ## Experimental Matter choice
 
 `matter.html` is a separate, explicitly experimental installer for
-`0.3.8-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
+`0.3.9-matter`; the main page and `manifest.json` continue to offer stable 0.3.9.
 The full test firmware retains saved settings and includes the production
 dashboard, discovery/editor, local API and Wi-Fi updates for up to 16 stations.
 New installations have a protected non-blocking Wi-Fi setup portal. The USB panel
@@ -18,6 +18,8 @@ reads key/address using `LH_INFO` and pairing/status using `LH_MATTER_INFO` thro
 one serial connection. After personal-password login, **Matter setup** in the
 local dashboard reveals the code and can open a 15-minute pairing window.
 Keep erasing unchecked to retain settings when installing or returning to stable.
+Version 0.3.9 corrects the 0.3.8 rollback abort; saved-station RAM sufficiency
+and HTTP recovery still require hardware retesting. Use USB for a looping 0.3.8.
 See the [prototype guide](../experimental/matter/README.md) for pairing and limits.
 
 `tools/build_matter.py` builds with the pinned Arduino CLI environment and packages
@@ -25,7 +27,7 @@ See the [prototype guide](../experimental/matter/README.md) for pairing and limi
 headers, size limit, per-image hashes and exact equality of both partition tables,
 then creates `_site/matter-manifest.json` and `firmware/matter/`. Both app slots and
 the NVS addresses are retained. No merged factory image is offered for
-the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.8-matter.lhota`
+the experiment. A separate `firmware/matter/lighthouse-bridge-0.3.9-matter.lhota`
 contains only the app for subsequent dashboard uploads; Pages checks it against
 the USB app image. Its ZIP includes source, checksums, version notes and licenses.
 

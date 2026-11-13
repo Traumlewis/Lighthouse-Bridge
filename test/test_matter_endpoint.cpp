@@ -32,7 +32,61 @@ struct FakeSdk {
   bool destroy(Handle p) {assert(!p->enabled);endpoints.erase(p->id);return true;}
   void yield() {}
 };
+struct CleanupSdk {
+  struct Cluster { Cluster* next; bool alive; };
+  struct Endpoint { bool initialized; Cluster* first; bool removed; };
+  using Handle = Endpoint*;
+  unsigned metadataDeletes = 0, shutdowns = 0;
+  bool unsafeShutdown = false, failCluster = false, failEndpoint = false;
+  Cluster* firstCluster(Handle endpoint) { return endpoint->first; }
+  Cluster* nextCluster(Cluster* cluster) { assert(cluster->alive); return cluster->next; }
+  Endpoint* owner = nullptr;
+  bool destroyCluster(Cluster* cluster) {
+    if (failCluster) return false;
+    assert(owner->first == cluster && cluster->alive);
+    owner->first = cluster->next; cluster->alive = false; ++metadataDeletes; return true;
+  }
+  bool destroyEndpoint(Handle endpoint) {
+    if (failEndpoint) return false;
+    for (auto* cluster = endpoint->first; cluster; cluster = cluster->next) {
+      if (!endpoint->initialized) { unsafeShutdown = true; return false; }
+      ++shutdowns;
+    }
+    endpoint->removed = true; return true;
+  }
+};
 int main(){
+  for (bool initialized : {false,true}) {
+    CleanupSdk sdk;
+    CleanupSdk::Cluster second{nullptr,true}, first{&second,true};
+    CleanupSdk::Endpoint endpoint{initialized,&first,false}; sdk.owner = &endpoint;
+    if (!initialized) {
+      // Pinned SDK endpoint::destroy invokes Descriptor shutdown before init:
+      // LazyRegisteredServerCluster::Destroy would abort on !IsConstructed().
+      assert(!sdk.destroyEndpoint(&endpoint) && sdk.unsafeShutdown);
+      sdk.unsafeShutdown = false;
+    }
+    assert(bridge::discardMatterEndpoint(sdk,&endpoint,initialized));
+    assert(endpoint.removed && !sdk.unsafeShutdown);
+    assert(sdk.shutdowns == (initialized ? 2U : 0U));
+    assert(sdk.metadataDeletes == (initialized ? 0U : 2U));
+  }
+  CleanupSdk broken; CleanupSdk::Cluster cluster{nullptr,true};
+  CleanupSdk::Endpoint partial{false,&cluster,false}; broken.owner=&partial; broken.failCluster=true;
+  assert(!bridge::discardMatterEndpoint(broken,&partial,false));
+  assert(!partial.removed && !broken.unsafeShutdown && cluster.alive);
+  broken.failCluster=false; broken.failEndpoint=true;
+  assert(!bridge::discardMatterEndpoint(broken,&partial,false));
+  assert(!partial.removed && broken.metadataDeletes==1 && !broken.unsafeShutdown);
+  broken.failEndpoint=false;
+  assert(bridge::discardMatterEndpoint(broken,&partial,false));
+  bridge::MatterLightBudget budget;
+  assert(!budget.allows(6143) && budget.allows(6144));
+  budget.record(14000,3200);
+  assert(budget.cost==10800 && !budget.allows(3200));
+  assert(!budget.allows(12847) && budget.allows(12848));
+  budget.record(3000,4000); assert(budget.cost==10800);
+  assert(!budget.allows(0) && budget.allows(0xffffffff));
   FakeSdk old;
   assert(!old.resume(2,0,nullptr)); // Reproduce the pre-start 0.2/0.3.1 failure.
   for(uint32_t persisted : {1U,3U,20U}){
@@ -65,5 +119,5 @@ int main(){
   oom.failCreate=true;assert(!bridge::stableMatterEndpoint(oom,5,0,nullptr));
   FakeSdk mismatch;mismatch.begin(1);mismatch.badCounter=true;
   assert(!bridge::stableMatterEndpoint(mismatch,2,0,nullptr));assert(mismatch.endpoints.size()==1);
-  std::cout<<"Matter endpoint lifecycle passed: pre-start failure, fresh/restored counters, stable IDs, gaps, 16 lights, exhaustion and allocation failures.\n";
+  std::cout<<"Matter endpoint lifecycle passed: pre-start failure, fresh/restored counters, stable IDs, gaps, 16 lights, exhaustion, allocation failures, uninitialized shutdown regression and light memory admission.\n";
 }

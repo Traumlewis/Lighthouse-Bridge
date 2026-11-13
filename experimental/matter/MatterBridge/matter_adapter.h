@@ -205,13 +205,21 @@ struct MatterEndpointSdk {
   uint32_t next;
   Handle find(uint16_t id) { return esp_matter::endpoint::get(node,id); }
   Handle create(uint8_t flags,void* data) {
-    return esp_matter::endpoint::create(node,flags | ENDPOINT_FLAG_DESTROYABLE,data);
+    auto* endpoint = esp_matter::endpoint::create(node,flags | ENDPOINT_FLAG_DESTROYABLE,data);
+    if (endpoint) esp_matter::endpoint::disable(endpoint);
+    return endpoint;
   }
   Handle resume(uint16_t id,uint8_t flags,void* data) {
-    return esp_matter::endpoint::resume(node,flags | ENDPOINT_FLAG_DESTROYABLE,id,data);
+    auto* endpoint = esp_matter::endpoint::resume(node,flags | ENDPOINT_FLAG_DESTROYABLE,id,data);
+    if (endpoint) esp_matter::endpoint::disable(endpoint);
+    return endpoint;
   }
   uint16_t id(Handle value) { return esp_matter::endpoint::get_id(value); }
-  bool destroy(Handle value) { return esp_matter::endpoint::destroy(node,value) == ESP_OK; }
+  esp_matter::cluster_t* firstCluster(Handle value) { return esp_matter::cluster::get_first(value); }
+  esp_matter::cluster_t* nextCluster(esp_matter::cluster_t* value) { return esp_matter::cluster::get_next(value); }
+  bool destroyCluster(esp_matter::cluster_t* value) { return esp_matter::cluster::destroy(value) == ESP_OK; }
+  bool destroyEndpoint(Handle value) { return esp_matter::endpoint::destroy(node,value) == ESP_OK; }
+  bool destroy(Handle value,bool initialized = false) { return discardMatterEndpoint(*this,value,initialized); }
   void yield() { delay(1); }
 };
 void matterStartupFailure(const char* phase,const char* error,int code = -1) {
@@ -305,6 +313,9 @@ void initializeMatterEndpoints(intptr_t) {
   struct Build {
     MatterEndpointSdk sdk{node::get(),1};
     endpoint_t* parent = nullptr;
+    endpoint_t* initialized[kStations+1] = {};
+    unsigned initializedCount = 0;
+    MatterLightBudget lightBudget;
     const char* phase = "sdk_counter";
     const char* error = "MATTER_ENDPOINT_FAILED";
     bool healthy() {
@@ -325,19 +336,22 @@ void initializeMatterEndpoints(intptr_t) {
       if ((!cluster::get(parent,Descriptor::Id) && !cluster::descriptor::create(parent,&descriptor,CLUSTER_FLAG_SERVER)) ||
           endpoint::aggregator::add(parent,&aggregate) != ESP_OK || !healthy()) return false;
       for (unsigned i = 0; i < kStations; ++i) if (configs[i].id && configs[i].mac[0]) {
+        const uint32_t before = matterDataFree();
+        if (!lightBudget.allows(before)) { phase = "light_budget"; error = "OUT_OF_MEMORY"; return false; }
         phase = "light_create";
         if (!createLamp(i,parent,sdk) || !healthy()) return false;
+        lightBudget.record(before,matterDataFree());
         Serial.printf("Matter model: station=%u, free_8bit=%u, largest_8bit=%u\n",configs[i].id,matterDataFree(),matterDataLargest());
       }
       return true;
     }
     bool activate() {
       phase = "bridge_enable";
-      if (endpoint::enable(parent) != ESP_OK || !healthy()) return false;
+      if (!enable(parent)) return false;
       for (unsigned i = 0; i < kStations; ++i) if (lamps[i].active) {
         phase = "light_enable";
         auto* endpoint = sdk.find(lamps[i].getEndPointId());
-        if (!endpoint || esp_matter::endpoint::enable(endpoint) != ESP_OK || !healthy()) return false;
+        if (!endpoint || !enable(endpoint)) return false;
         phase = "command_verify";
         if (chip::app::CommandHandlerInterfaceRegistry::Instance().GetCommandHandler(lamps[i].getEndPointId(),OnOff::Id) != &powerHandler) {
           error = "MATTER_HANDLER_CHANGED"; return false;
@@ -345,11 +359,20 @@ void initializeMatterEndpoints(intptr_t) {
       }
       return true;
     }
+    bool enable(endpoint_t* endpoint) {
+      if (esp_matter::endpoint::enable(endpoint) != ESP_OK) return false;
+      initialized[initializedCount++] = endpoint;
+      return healthy();
+    }
     void rollback() {
       auto* endpoint = esp_matter::endpoint::get_first(sdk.node);
       while (endpoint) {
         auto* next = esp_matter::endpoint::get_next(endpoint);
-        if (esp_matter::endpoint::get_id(endpoint) != 0) sdk.destroy(endpoint);
+        if (esp_matter::endpoint::get_id(endpoint) != 0) {
+          bool wasInitialized = false;
+          for (unsigned i = 0; i < initializedCount; ++i) wasInitialized |= initialized[i] == endpoint;
+          if (!sdk.destroy(endpoint,wasInitialized)) { phase = "endpoint_cleanup"; error = "MATTER_CLEANUP_FAILED"; }
+        }
         endpoint = next;
       }
       for (unsigned i = 0; i < kStations; ++i) lamps[i].active = false;

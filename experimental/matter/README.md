@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.8-matter
+# Experimental Matter prototype — 0.3.9-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -6,6 +6,14 @@ The owner confirms that the prior single-station 0.1.1 test switches ON/OFF and
 shows the correct light type/status. Multiple stations, long-run reliability,
 specifically external state changes and this full integration still need
 hardware testing. No ESP32 or Echo is attached locally.
+
+The 0.3.8 saved-station retest still boot-loops: a failed allocation is followed
+by an abort in our cleanup of never-initialized Descriptor clusters. Version 0.3.9
+corrects that lifecycle path and checks a light construction budget before trying
+the next endpoint. It does not prove sufficient RAM for all saved stations. On
+failure the intended result is an explicit startup error with HTTP/OTA recovery,
+not a partial bridge. Actual recovery still needs a device retest. Recover an
+already looping 0.3.8 using the USB installer with **Erase device unchecked**.
 
 The owner reports that full 0.3.0 loaded the web page but returned a memory error
 for status, showed no Matter section and no discovery results/logs. Version 0.3.1

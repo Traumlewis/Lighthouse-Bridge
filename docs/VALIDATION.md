@@ -1,5 +1,37 @@
 # Validation report — 0.3.9
 
+## Experimental cleanup correction 0.3.9-matter
+
+The private owner 0.3.8 attachment contains repeated software-reset aborts. The
+matching retained CI ELF has the reported SHA prefix. It decodes the abort as
+LazyRegisteredServerCluster<ESPMatterDescriptorCluster>::Destroy, Descriptor
+shutdown, endpoint::destroy and the application's rollback. Most cycles complete
+station 1 with roughly 3.1–3.4 KiB free byte heap, then fail command/cluster
+allocation while constructing the next light. One abort occurs without a preceding
+station-complete line. No successful HTTP recovery or full startup is shown.
+The 0.3.8 recovery claim therefore has negative hardware evidence. No raw log or
+private identifiers are retained here.
+
+SDK 1.5 destruction invokes shutdown callbacks without requiring successful init;
+LazyRegisteredServerCluster::Destroy asserts when never constructed. The new
+production cleanup helper removes never-initialized metadata with public
+cluster::destroy before endpoint::destroy. Explicit bounded enable history selects
+the normal shutdown path only for initialized endpoints. Creation/resumption also
+explicitly disables bare endpoints; SDK enabled state alone does not prove init.
+The root and saved identities/fabrics remain intact. Admission checks use a minimum
+4096-byte light estimate, raised by completed light construction costs, plus
+2048 bytes of byte-heap headroom. This is conservative admission, not a proof that
+a future allocation will succeed or that sixteen lights fit this hardware.
+
+Native lifecycle tests reproduce an uninitialized shutdown failure and verify
+metadata removal avoids it, initialized shutdown remains intact, deletion failures
+are propagated and admission bounds do not underflow. Actual SDK runtime cleanup,
+saved-station startup, HTTP recovery, RF and OTA need an owner hardware retest.
+Both firmware builds, thirteen native suites, nineteen Python checks and all
+browser/USB simulations pass locally. Matter app size is 1,963,600/1,966,080 bytes
+(2480 flash bytes reserve); static RAM is 123,284 bytes. No hardware runtime
+margin or successful saved-station boot/recovery is established by these checks.
+
 ## Experimental saved-station startup recovery 0.3.8-matter
 
 The private owner 0.3.7 log confirms the save reply accepted=true/complete=true,
