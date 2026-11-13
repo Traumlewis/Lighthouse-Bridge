@@ -3,6 +3,22 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental Matter startup correction 0.3.2-matter
+
+Fix endpoint restoration before Matter stack startup. Start the root stack first,
+then create or resume the exact saved bridge/light IDs on the CHIP task using the
+SDK's restored allocation counter. Enable complete endpoints and report descriptor
+changes. Preserve stations, pairing credentials, fabrics and partition layout;
+no automatic power command or reset is introduced.
+
+Show Matter startup failures even when there is no code. Remove the renderer's
+nested code-element dependency and copy from response state, so replacement of
+button contents cannot break rendering or change the copied code. Add an explicit
+initialization state and startup-phase diagnostics. The owner's 0.3.1 response
+confirmed MATTER_BRIDGE_FAILED, ready=false and a null code. Software regression
+checks do not establish successful startup on the owner's ESP32; retest required.
+Stable firmware remains 0.3.9.
+
 ## Experimental memory correction 0.3.1-matter
 
 Fix the full Matter dashboard's fixed 32-KiB status allocation and additional

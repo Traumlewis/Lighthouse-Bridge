@@ -6,12 +6,17 @@
 #include <app/server/Server.h>
 #include <mdns.h>
 #include <atomic>
+#include <nvs.h>
+#include <app/reporting/reporting.h>
+#include "matter_endpoint.h"
 #include "matter_config.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32) || !defined(CONFIG_ESP_MATTER_ENABLE_DATA_MODEL) || CONFIG_ENABLE_CHIPOBLE
 #error Classic ESP32 Matter with CHIPoBLE disabled is required
 #endif
 using namespace chip::app::Clusters;
 constexpr char kMatterTestName[] = "Lighthouse-Bridge Matter Test";
+std::atomic<bool> matterInitializing{false};
+std::atomic<const char*> matterStartupPhase{"waiting_wifi"};
 std::atomic<bool> matterReady{false}, matterPaired{false}, matterServicesReady{false};
 std::atomic<bool> matterWindowOpen{false}, matterWindowPending{false}, matterDnsReady{false};
 std::atomic<bool> matterHostnameDirty{false}, matterWorkPending{false};
@@ -142,13 +147,51 @@ bool loadRegistry(Preferences& own) {
   return true;
 }
 
-bool createLamp(unsigned index, esp_matter::endpoint_t* parent) {
+// The pinned SDK restores this metadata during Matter.begin(). Read it without
+// changing SDK keys, fabrics or credentials. Match its legacy-namespace fallback.
+bool readMatterSdkCounter(uint32_t& next) {
+  next = 1;
+  for (const char* space : {"esp_matter_kvs","node"}) {
+    nvs_handle_t handle;
+    esp_err_t result = nvs_open_from_partition(ESP_MATTER_NVS_PART_NAME,space,NVS_READONLY,&handle);
+    if (result == ESP_ERR_NVS_NOT_FOUND) continue;
+    if (result != ESP_OK) return false;
+    uint16_t value = 0; result = nvs_get_u16(handle,"min_uu_ep_id",&value); nvs_close(handle);
+    if (result == ESP_ERR_NVS_NOT_FOUND) continue;
+    if (result != ESP_OK || !value) return false;
+    next = value; return true;
+  }
+  return true;
+}
+struct MatterEndpointSdk {
+  using Handle = esp_matter::endpoint_t*;
+  esp_matter::node_t* node;
+  uint32_t next;
+  Handle find(uint16_t id) { return esp_matter::endpoint::get(node,id); }
+  Handle create(uint8_t flags,void* data) {
+    return esp_matter::endpoint::create(node,flags | ENDPOINT_FLAG_DESTROYABLE,data);
+  }
+  Handle resume(uint16_t id,uint8_t flags,void* data) {
+    return esp_matter::endpoint::resume(node,flags | ENDPOINT_FLAG_DESTROYABLE,id,data);
+  }
+  uint16_t id(Handle value) { return esp_matter::endpoint::get_id(value); }
+  bool destroy(Handle value) { return esp_matter::endpoint::destroy(node,value) == ESP_OK; }
+  void yield() { delay(1); }
+};
+void matterStartupFailure(const char* phase,const char* error,int code = -1) {
+  matterReady = false; matterError = error; matterStartupPhase = phase; matterInitializing = false;
+  Serial.printf("Matter startup failed: phase=%s, code=%d, free=%u, largest=%u\n",
+    phase,code,ESP.getFreeHeap(),ESP.getMaxAllocHeap());
+}
+void initializeMatterEndpoints(intptr_t);
+
+bool createLamp(unsigned index, esp_matter::endpoint_t* parent, MatterEndpointSdk& sdk) {
   using namespace esp_matter;
-  const auto& config = configs[index];
+  StationConfig config; { Lock lock; config = configs[index]; }
   const int binding = matterBindingIndex((*matterRegistry),config.hueId,config.mac);
   if (binding < 0) return false;
   auto& lamp = lamps[index]; lamp.binding = (*matterRegistry).entries[binding];
-  auto* endpoint = endpoint::resume(node::get(),ENDPOINT_FLAG_NONE,lamp.binding.endpoint,&lamp);
+  auto* endpoint = stableMatterEndpoint(sdk,lamp.binding.endpoint,ENDPOINT_FLAG_BRIDGE,&lamp);
   if (!endpoint) return false;
   endpoint::on_off_light::config_t lightConfig;
   lightConfig.on_off.on_off = false;
@@ -171,6 +214,7 @@ bool createLamp(unsigned index, esp_matter::endpoint_t* parent) {
   }
   if (!cluster::bridged_device_basic_information::attribute::create_node_label(basic,const_cast<char*>(config.name),length) ||
       !cluster::bridged_device_basic_information::attribute::create_unique_id(basic,const_cast<char*>(unique.c_str()),unique.length())) return false;
+  if (endpoint::enable(endpoint) != ESP_OK) return false;
   lamp.setEndPointId(lamp.binding.endpoint); lamp.active = true;
   return true;
 }
@@ -200,34 +244,52 @@ bool matterBridgeBegin() {
   if (!loadRegistry(own)) { own.end(); return false; }
   own.end(); Matter.setSetupDiscriminator(discriminator);
   MatterBridgeInitializer::prepare();
-  auto* parent = endpoint::resume(node::get(),ENDPOINT_FLAG_NONE,kMatterAggregatorEndpoint,nullptr);
-  endpoint::aggregator::config_t aggregate;
-  if (!parent || endpoint::aggregator::add(parent,&aggregate) != ESP_OK) { matterError = "MATTER_BRIDGE_FAILED"; return false; }
-  for (unsigned i = 0; i < kStations; ++i) if (configs[i].id && configs[i].mac[0] && !createLamp(i,parent)) {
-    matterError = "MATTER_ENDPOINT_FAILED"; return false;
-  }
+  if (!node::get()) { matterStartupFailure("root_create","MATTER_ROOT_FAILED"); return false; }
   if (chip::app::CommandHandlerInterfaceRegistry::Instance().RegisterCommandHandler(&powerHandler) != CHIP_NO_ERROR) {
-    matterError = "MATTER_COMMAND_FAILED"; return false;
+    matterStartupFailure("command_register","MATTER_COMMAND_FAILED"); return false;
   }
+  matterInitializing = true; matterError = "MATTER_INITIALIZING"; matterStartupPhase = "stack_start";
   Matter.onEvent([](matterEvent_t event, const chip::DeviceLayer::ChipDeviceEvent*) {
     if (event == MATTER_DNSSD_INITIALIZED) { matterDnsReady = true; matterHostnameDirty = true; }
     matterPaired = Matter.isDeviceCommissioned();
     matterWindowOpen = chip::Server::GetInstance().GetCommissioningWindowManager().IsCommissioningWindowOpen();
   });
   Matter.begin(); manualCode = Matter.getManualPairingCode();
-  if (!manualCode.length()) { matterError = "MATTER_START_FAILED"; return false; }
+  if (!manualCode.length()) { matterStartupFailure("stack_start","MATTER_START_FAILED"); return false; }
+  if (chip::DeviceLayer::PlatformMgr().ScheduleWork(initializeMatterEndpoints,0) != CHIP_NO_ERROR) {
+    matterStartupFailure("endpoint_schedule","MATTER_START_FAILED"); return false;
+  }
+  return true;
+}
+void initializeMatterEndpoints(intptr_t) {
+  using namespace esp_matter;
+  matterStartupPhase = "sdk_counter";
+  MatterEndpointSdk sdk{node::get(),1};
+  if (!readMatterSdkCounter(sdk.next)) { matterStartupFailure("sdk_counter","MATTER_STORAGE_FAILED"); return; }
+  auto* parent = stableMatterEndpoint(sdk,kMatterAggregatorEndpoint,ENDPOINT_FLAG_NONE,nullptr);
+  if (!parent) { matterStartupFailure("bridge_allocate","MATTER_BRIDGE_FAILED"); return; }
+  endpoint::aggregator::config_t aggregate;
+  const auto aggregateResult = endpoint::aggregator::add(parent,&aggregate);
+  if (aggregateResult != ESP_OK) { matterStartupFailure("bridge_add","MATTER_BRIDGE_FAILED",aggregateResult); return; }
+  const auto enableResult = endpoint::enable(parent);
+  if (enableResult != ESP_OK) { matterStartupFailure("bridge_enable","MATTER_BRIDGE_FAILED",enableResult); return; }
+  for (unsigned i = 0; i < kStations; ++i) if (configs[i].id && configs[i].mac[0] && !createLamp(i,parent,sdk)) {
+    matterStartupFailure("light_create","MATTER_ENDPOINT_FAILED"); return;
+  }
   for (unsigned n = 0; n < kStations; ++n) if (lamps[n].active &&
       chip::app::CommandHandlerInterfaceRegistry::Instance().GetCommandHandler(lamps[n].getEndPointId(),OnOff::Id) != &powerHandler) {
-    matterError = "MATTER_HANDLER_CHANGED"; return false;
+    matterStartupFailure("command_verify","MATTER_HANDLER_CHANGED"); return;
   }
-  matterReady = true; matterError = "";
-  return true;
+  MatterReportingAttributeChangeCallback(0,Descriptor::Id,Descriptor::Attributes::PartsList::Id);
+  MatterReportingAttributeChangeCallback(kMatterAggregatorEndpoint,Descriptor::Id,Descriptor::Attributes::PartsList::Id);
+  matterError = ""; matterStartupPhase = "ready"; matterReady = true; matterInitializing = false;
+  Serial.println("Matter endpoints ready; no startup power commands sent.");
 }
 
 // Save the mapping checkpoint before the station record. Surviving identities
 // remain valid even if the subsequent station save is interrupted.
 bool matterPrepareConfiguration(const StationConfig* next, std::string& error) {
-  if (!matterRegistryValid || restartPending) { error = "MATTER_NOT_READY"; return false; }
+  if (!matterRegistryValid || matterInitializing || restartPending) { error = "MATTER_NOT_READY"; return false; }
   std::unique_ptr<MatterRegistry> planned(new(std::nothrow) MatterRegistry);
   if (!planned) { error = "OUT_OF_MEMORY"; return false; }
   if (!planMatterRegistry(configs,next,(*matterRegistry),*planned,error)) return false;
@@ -254,6 +316,7 @@ void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   doc["ready"] = matterReady.load(); doc["paired"] = matterPaired.load();
   doc["commissioning_open"] = matterWindowOpen.load();
   doc["commissioning_pending"] = matterWindowPending.load();
+  doc["startup_phase"] = matterStartupPhase.load();
   doc["commissioning_error"] = matterWindowError.load(); doc["error"] = matterError.load();
   if (includeCode && matterReady && manualCode.length()) doc["pairing_code"] = manualCode;
   else doc["pairing_code"] = nullptr;

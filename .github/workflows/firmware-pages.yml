@@ -67,6 +67,8 @@ jobs:
         run: |
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_status.cpp -o /tmp/lighthouse-status-test
           /tmp/lighthouse-status-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_matter_endpoint.cpp -o /tmp/lighthouse-matter-endpoint-test
+          /tmp/lighthouse-matter-endpoint-test
       - name: Install isolated Matter prototype dependencies
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json

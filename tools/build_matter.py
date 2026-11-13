@@ -13,7 +13,7 @@ import zipfile
 from ota_package import package
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.1-matter'
+VERSION = '0.3.2-matter'
 CORE = '3.3.12'
 FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
 APP_LIMIT = 0x1e0000

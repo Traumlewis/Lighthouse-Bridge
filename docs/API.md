@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.1-matter**, with the Matter-only private endpoints below. The separate
+**0.3.2-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -39,7 +39,7 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 
 - `GET /api/matter`: returns `bridge_name`, `version`, `ready`, `paired`,
   `pairing_code` (null until ready), `error`, `commissioning_open`,
-  `commissioning_pending` and `commissioning_error`. Use `Cache-Control: no-store`;
+  `commissioning_pending`, `commissioning_error` and non-secret `startup_phase`. Use `Cache-Control: no-store`;
   do not save or include the returned code in URLs/logs. This route accepts
   neither API-key authentication nor bootstrap sessions.
 - `POST /api/matter/commissioning`, JSON `{}`: same personal-session restriction

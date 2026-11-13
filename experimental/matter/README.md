@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.1-matter
+# Experimental Matter prototype — 0.3.2-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -14,6 +14,13 @@ streamed response. The Matter section is also independent of general status.
 This is a software correction pending owner hardware retesting, not a claim of
 confirmed full operation. Discovery now logs queue/start/end; memory diagnostics
 report free/largest/minimum heap without credentials or device identifiers.
+
+The owner's 0.3.1 API response confirmed `MATTER_BRIDGE_FAILED`, `ready:false`
+and no setup code. Version 0.3.2 corrects startup order: the root stack starts
+before the CHIP task creates/resumes saved endpoints and enables them. IDs and
+pairing credentials remain intact; no factory reset is required by this change.
+Startup errors now remain visible before the code control is rendered. This
+correction still needs a real ESP32 retest.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read

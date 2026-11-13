@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.1-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.2-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -359,6 +359,24 @@ status change. Keep current facts, not a conversation log. User instructions win
   sessions still cannot show the panel or retrieve the code. Scan queue/start/end
   logs are read-only and contain no device identifiers. Startup/status expose
   free heap/largest block/minimum for diagnosis, never claim hardware RAM margins.
+- Owner's 0.3.1 private-info response confirms ready=false/paired=false,
+  error=MATTER_BRIDGE_FAILED and pairing_code=null; the UI only showed the bridge
+  name. Version 0.3.2 starts the root Matter stack before scheduling bridge/light
+  construction on the CHIP task. Never resume endpoints before Matter.begin():
+  SDK resume requires an already allocated ID below its restored counter.
+  `matter_endpoint.h` selects resume/create with the restored counter and preserves
+  exact IDs, skipping gaps using empty destroyable endpoints that are never enabled.
+  Read SDK counter metadata only (pinned namespace/key, legacy fallback); never
+  edit SDK keys/fabrics or use private struct casts. Only SDK create advances it.
+  Enable completed endpoints and invalidate root/aggregator PartsList. Block config
+  saves during initialization and keep commands rejected until all endpoints pass
+  handler validation. Startup failure remains explicit with a non-secret phase.
+- The setup-code button owns its text directly, without a nested code-node lookup;
+  display status/errors before the code. Copy the code from authenticated response
+  state, not translated DOM text. Preserve language/logout/privacy behavior.
+  The missing-descendant renderer failure is reproduced in software, not proven
+  as the cause of the owner's browser behavior. Do not claim physical startup
+  success from simulated allocation or browser tests.
 - The authenticated dashboard retrieves the manual code on explicit GET
   `/api/matter`; a personal-password web session is required, never API key or
   bootstrap. General status contains no pairing code. POST
@@ -377,12 +395,12 @@ status change. Keep current facts, not a conversation log. User instructions win
   0.1.0 result supports basic operation; runtime memory, persistence/return across
   framework versions, prolonged BLE coexistence and exact Alexa status behavior
   remain unverified. The 0.1.1 lamp/switch/status report is positive owner evidence;
-  multi-station and full 0.3.1-matter still need hardware testing.
+  multi-station and full 0.3.2-matter still need hardware testing.
   Test attestation is not product certification. Do not claim a fix from a build
   or simulated browser test. Keep the prototype guide and validation report current.
 - The owner now requests the full dashboard/API/OTA integration and web-accessible
   Matter setup code without waiting for the multi-station hardware test.
-  The single-station 0.1.1 test is owner-confirmed. Full 0.3.1-matter behavior,
+  The single-station 0.1.1 test is owner-confirmed. Full 0.3.2-matter behavior,
   actual OTA, runtime memory and multi-station operation remain hardware checks.
 
 - Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:

@@ -1,5 +1,44 @@
 # Validation report — 0.3.9
 
+## Experimental Matter startup correction 0.3.2-matter
+
+The owner reports only the bridge name after clicking Show setup code, without a
+status message. Their private-info response reports version 0.3.1-matter,
+ready=false, paired=false, error=MATTER_BRIDGE_FAILED and pairing_code=null.
+It contains no usable pairing code; UI rendering alone cannot create one.
+
+The pinned SDK's endpoint resume implementation rejects IDs at or above its
+minimum-unused counter. Local binary disassembly confirms the bound and SDK
+metadata namespace/key. The previous adapter resumed bridge 2 before Matter.begin
+restored that counter. The corresponding upstream implementation is documented in
+[Espressif's data model source](https://github.com/espressif/esp-matter/blob/main/components/esp_matter/data_model/esp_matter_data_model.cpp).
+The corrected lifecycle starts the root stack, then schedules endpoint creation
+on the CHIP task, reading its counter without modifying SDK storage directly.
+New IDs use create; existing IDs use resume. Retired gaps use empty, destroyable
+placeholders that are removed before registration. Finished endpoints are enabled
+and root/aggregator PartsList reports are invalidated. Commands remain gated by
+readiness; config saves are blocked during initialization. No power write/reset
+or station-identity migration is introduced.
+
+Native tests reproduce pre-start resume rejection and exercise fresh/restored
+counters, legacy IDs 1/2, gaps, all 16 lights, duplicate rejection, final valid
+ID/exhaustion, counter mismatch and allocation failures. These tests model the
+verified SDK counter semantics; they are not a hardware Matter stack test.
+
+A separate browser reproduction removes the old button's nested code element:
+it displays only the bridge name and throws before rendering status. This is a
+renderer weakness, not established as the owner's browser cause. The new button
+owns its text directly; errors render first. The browser test uses the owner's
+failure state, checks the translated error/no code, then a successful code,
+replacement button contents, copy from response state, language and logout.
+
+The local application is 1,963,840 bytes in the unchanged 1,966,080-byte slot,
+with 123,724 bytes of linker static RAM. The 2,240-byte flash reserve is not a
+runtime heap margin. All eight native test programs pass locally.
+
+Actual startup/pairing, runtime memory and BLE coexistence on the ESP32 remain
+unverified for this correction. Do not erase NVS to work around this error.
+
 ## Experimental Matter memory correction 0.3.1-matter
 
 Owner hardware evidence for full 0.3.0: the HTML page loads, but the interface
