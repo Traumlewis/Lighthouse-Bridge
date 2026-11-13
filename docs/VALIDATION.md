@@ -1,5 +1,37 @@
 # Validation report — 0.3.9
 
+## Experimental blank-page follow-up 0.3.4-matter
+
+Owner evidence for 0.3.3 confirms worker reservation/release, Matter endpoint
+readiness and HTTP readiness. The owner explicitly reports a completely blank
+browser page. A request to misspelled `/api/metter` returns NOT_FOUND; the correct
+`/api/matter` remains private and requires an own-password session. No raw log,
+credentials or hardware identifiers are retained. The core-dump partition warning
+alone does not establish an application crash; shown resets report POWERON_RESET.
+
+The compressed dashboard was approximately 17 KiB and passed to one socket write.
+Reported largest free blocks are approximately 9 KiB. The pinned NetworkClient
+passes the whole remaining length to nonblocking `send` and stops on errors other
+than EAGAIN; TCP buffer pressure is a possible explanation, not a reproduced cause.
+0.3.4 sends at most 512 bytes per write directly from mapped flash, handles partial
+writes, closes incomplete responses and logs actual body byte counts/time/heap.
+It does not allocate a full page or change partitions. Complete byte counts prove
+socket acceptance only, not browser delivery or rendering. A native binary-payload
+test covers a body larger than the reported largest block, embedded zeros, partial
+writes, a short final chunk, disconnect and empty input.
+
+The zero default hostname suffix is separately addressed using ESP-IDF STA MAC
+retrieval independent of Wi-Fi netif readiness, retaining the original last three
+bytes and custom-name override. No NVS erase or credential rotation is performed.
+Local verification: stable 0.3.9 and Matter 0.3.4 builds pass. The Matter app is
+1,965,696/1,966,080 bytes (384 bytes flash reserve); static RAM is 123,724 bytes.
+This is not runtime memory headroom. All ten native programs, 16 Python tests and
+the complete browser/USB suite pass. The browser test additionally serves the
+actual generated gzip bytes over real localhost HTTP in 512-byte writes, checks
+browser decoding against the original HTML and waits for the visible login form
+without JavaScript errors. Other API interactions remain mocked. No actual ESP32
+web rendering, memory/coexistence, OTA or multi-station success is claimed.
+
 ## Experimental worker startup/recovery 0.3.3-matter
 
 The owner's 0.3.2 boot log reaches Matter endpoints ready, BLE initialization

@@ -71,6 +71,8 @@ jobs:
           /tmp/lighthouse-matter-endpoint-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_startup.cpp -o /tmp/lighthouse-startup-test
           /tmp/lighthouse-startup-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_http_body.cpp -o /tmp/lighthouse-http-body-test
+          /tmp/lighthouse-http-body-test
       - name: Install isolated Matter prototype dependencies
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json

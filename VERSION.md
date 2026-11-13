@@ -3,6 +3,17 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental web delivery diagnostics 0.3.4-matter
+
+Send the compressed dashboard in checked 512-byte socket writes, preserving binary
+zeros and Content-Length; stop on incomplete transmission. Log begin/end byte
+counts and heap without credentials. Derive default Matter setup/host suffix from
+the ESP-IDF STA MAC before the network interface exists; custom names are retained.
+
+Owner evidence now confirms 0.3.3 reaches worker/endpoints/HTTP ready, but the
+browser is completely blank. Large TCP writes under low heap are a hypothesis;
+0.3.4 needs owner retesting. Stable remains 0.3.9, partitions and settings unchanged.
+
 ## Experimental worker startup/recovery 0.3.3-matter
 
 Reserve the unchanged 8-KiB BLE-worker stack before Matter fragments or consumes

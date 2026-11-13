@@ -4,11 +4,31 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=path.resolve(__dirname,'..');
 const version=JSON.parse(fs.readFileSync(path.join(root,'_site/matter-manifest.json'),'utf8')).version;
 const generated=fs.readFileSync(path.join(root,'.pio/matter-sketch/MatterBridge/web_ui_gzip.h'),'utf8');
-const html=zlib.gunzipSync(Buffer.from(generated.split('{')[1].split('}')[0].split(',').map(Number))).toString();
+const compressed=Buffer.from(generated.split('{')[1].split('}')[0].split(',').map(Number));
+const html=zlib.gunzipSync(compressed).toString();
 assert.ok(html.includes('Bridge '+version));
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{
+  // Use a real HTTP response for browser gzip decoding. route.fulfill(html)
+  // below tests UI logic but bypasses the firmware's encoded transport entirely.
+  const transport=require('node:http').createServer((req,res)=>{
+   if(req.url==='/'){
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Encoding':'gzip','Content-Length':compressed.length});
+    for(let i=0;i<compressed.length;i+=512)res.write(compressed.subarray(i,i+512));
+    res.end();
+   }else{res.writeHead(401,{'Content-Type':'application/json'});res.end('{"error":"LOGIN_REQUIRED"}');}
+  });
+  await new Promise(resolve=>transport.listen(0,'127.0.0.1',resolve));
+  const transportPage=await browser.newPage(),transportErrors=[];
+  transportPage.on('pageerror',e=>transportErrors.push(e.message));
+  try{
+   const response=await transportPage.goto('http://127.0.0.1:'+transport.address().port+'/');
+   assert.equal(response.headers()['content-encoding'],'gzip');
+   assert.equal(await response.text(),html);
+   await transportPage.locator('#login-password').waitFor({state:'visible'});
+   assert.deepEqual(transportErrors,[]);
+  }finally{await transportPage.close();await new Promise(resolve=>transport.close(resolve));}
   for(const lang of ['en','de']){
    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],calls=[];
    page.on('pageerror',e=>errors.push(e.message));
@@ -80,6 +100,6 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    assert.deepEqual(errors,[]);await page.close();
   }
-  console.log('Matter gzip dashboard: private code, pairing window, copy, language and logout passed (mock HTTP).');
+  console.log('Matter gzip dashboard: real localhost gzip/login rendering; private code, pairing window, copy, language and logout passed (mock API).');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -27,6 +27,8 @@
 #include "web_ui_gzip.h"
 #include "status_api.h"
 #include "startup_sequence.h"
+#include "http_body.h"
+#include <esp_mac.h>
 #include <atomic>
 #endif
 #include "password_hash.h"
@@ -753,7 +755,17 @@ void configureRoutes() {
     server.sendHeader("X-Frame-Options", "DENY");
 #ifdef LH_MATTER_BUILD
     server.sendHeader("Content-Encoding", "gzip");
-    server.send_P(200, "text/html; charset=utf-8", reinterpret_cast<const char*>(WEB_UI_GZIP), sizeof(WEB_UI_GZIP));
+    const uint32_t started = millis();
+    Serial.printf("Web UI begin: bytes=%u, free=%u, largest=%u\n",
+                  unsigned(sizeof(WEB_UI_GZIP)), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    server.setContentLength(sizeof(WEB_UI_GZIP));
+    server.send(200, "text/html; charset=utf-8", "");
+    auto client = server.client();
+    const size_t sent = writeHttpBody(client, WEB_UI_GZIP, sizeof(WEB_UI_GZIP));
+    if (sent != sizeof(WEB_UI_GZIP)) client.stop();
+    Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free=%u, largest=%u\n",
+                  unsigned(sent), unsigned(sizeof(WEB_UI_GZIP)), sent == sizeof(WEB_UI_GZIP) ? "true" : "false",
+                  unsigned(millis() - started), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
 #else
     server.send_P(200, "text/html; charset=utf-8", WEB_UI);
 #endif
@@ -1122,7 +1134,21 @@ void setup() {
       if (webSalt.length() != 32 || webHash.length() != 64) { webSalt = ""; webHash = ""; }
     }
   }
+#ifdef LH_MATTER_BUILD
+  // NetworkInterface::macAddress can return zeros before its netif exists.
+  // Derive the same STA suffix independently of asynchronous Wi-Fi startup.
+  uint8_t stationMac[6]{};
+  char suffixBytes[7];
+  if (esp_read_mac(stationMac, ESP_MAC_WIFI_STA) != ESP_OK) {
+    Serial.println("DEVICE_MAC_READ_FAILED");
+    ESP.restart();
+    return;
+  }
+  snprintf(suffixBytes, sizeof(suffixBytes), "%02X%02X%02X", stationMac[3], stationMac[4], stationMac[5]);
+  String suffix = suffixBytes;
+#else
   String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
+#endif
   apName = "Lighthouse-Setup-" + suffix;
   hostname = "lighthouse-" + suffix; hostname.toLowerCase();
   customDeviceName = prefs.getString("dev_name", "");

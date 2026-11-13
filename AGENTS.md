@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.3-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.4-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -564,3 +564,24 @@ failure. Code inspection reproduces malformed/unpadded new unique IDs. Version
 0.3.2 corrects the format and tests serialized discovery metadata. Owner Alexa
 rediscovery remains required; no attached hardware validates the discovery fix.
 Never copy the credential-bearing raw log into the repository.
+
+## Experimental 0.3.4 web delivery follow-up
+
+- Owner's 0.3.3 log confirms worker reservation/release, endpoints ready and HTTP
+  ready; the browser still shows a completely blank page. Reported largest free
+  block is about 9 KiB; the compressed page is about 17 KiB. This does not prove
+  TCP pressure as the cause. Do not retain the raw log, credentials or identifiers.
+- Matter dashboard delivery uses `http_body.h`: fixed Content-Length, binary-safe
+  socket writes capped at 512 bytes, partial-write handling and disconnect on an
+  incomplete body. Begin/end diagnostics log only byte counts, time and heap.
+  Complete writes mean socket acceptance, not proven browser receipt/rendering.
+- Matter default setup/host suffix uses `esp_read_mac(..., ESP_MAC_WIFI_STA)` before
+  a Wi-Fi netif exists, preserving legacy suffix bytes/custom names; never persist
+  a fabricated zero suffix. Stable 0.3.9 behavior remains unchanged.
+- Correct private route is `/api/matter`; `/api/metter` returns NOT_FOUND. It needs
+  an own-password session, not bootstrap/API key. No code is public.
+- Full 0.3.4 hardware startup/web/OTA/multi-station reliability remains unverified.
+- 0.3.4 local checks: both builds, ten native programs, 16 Python checks and all
+  browser/USB flows pass; real localhost gzip delivery renders the login form.
+  Matter app 1,965,696/1,966,080 bytes (384-byte flash reserve), static RAM 123,724.
+  These are software/linker results, not measured runtime margins or device flashes.

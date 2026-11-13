@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.3-matter
+# Experimental Matter prototype — 0.3.4-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -26,10 +26,21 @@ The owner's 0.3.2 device reached Matter/BLE initialization but could not allocat
 the BLE worker; its startup then waited forever before starting HTTP. Version
 0.3.3 reserves that same 8-KiB task earlier and gates its radio work. HTTP starts
 earlier and remains a recovery path when worker/BLE startup fails. Radio controls
-are disabled in that state; firmware upload remains available. The correction
-still needs owner hardware retesting. For an already stalled 0.3.2, install 0.3.3
+are disabled in that state; firmware upload remains available. The owner's 0.3.3
+log confirms worker release and ready startup, but the page stays blank. For an
+already stalled 0.3.2 or a blank 0.3.3 dashboard, install 0.3.4
 using the USB WebFlasher with **Erase device unchecked**; its OTA endpoint cannot
 be reached. Existing settings and pairing data remain unchanged.
+
+Version 0.3.4 bounds compressed dashboard socket writes to 512 bytes, checks
+partial writes and logs the requested/sent byte counts plus heap diagnostics.
+The former single write was about 17 KiB with only about 9 KiB as the largest
+reported free block. TCP send pressure is a hypothesis, not a proven cause of
+the owner's blank page. A complete send log proves local socket acceptance,
+not browser receipt/rendering. STA-derived legacy naming now reads the MAC via
+ESP-IDF independently of Wi-Fi netif startup to avoid a zero suffix; custom names
+remain unchanged. `/api/matter` (not `/api/metter`) requires a personal-password
+web session. No actual hardware fix is claimed without another owner test.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read
