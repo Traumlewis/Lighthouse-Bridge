@@ -1,4 +1,4 @@
-# Experimental Matter prototype — 0.3.2-matter
+# Experimental Matter prototype — 0.3.3-matter
 
 This next test exposes **up to 16 configured Lighthouse V2 stations as separate
 On/Off Lights** on the original ESP-WROOM-32 / ESP-32S with at least 4 MB flash.
@@ -21,6 +21,15 @@ before the CHIP task creates/resumes saved endpoints and enables them. IDs and
 pairing credentials remain intact; no factory reset is required by this change.
 Startup errors now remain visible before the code control is rendered. This
 correction still needs a real ESP32 retest.
+
+The owner's 0.3.2 device reached Matter/BLE initialization but could not allocate
+the BLE worker; its startup then waited forever before starting HTTP. Version
+0.3.3 reserves that same 8-KiB task earlier and gates its radio work. HTTP starts
+earlier and remains a recovery path when worker/BLE startup fails. Radio controls
+are disabled in that state; firmware upload remains available. The correction
+still needs owner hardware retesting. For an already stalled 0.3.2, install 0.3.3
+using the USB WebFlasher with **Erase device unchecked**; its OTA endpoint cannot
+be reached. Existing settings and pairing data remain unchanged.
 
 The test bridge name is **Lighthouse-Bridge Matter Test**. The owner wants the
 finished bridge named **Lighthouse-Bridge** after testing. Station names are read

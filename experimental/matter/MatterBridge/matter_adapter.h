@@ -29,6 +29,7 @@ String manualCode;
 class MatterBridgeInitializer : public ArduinoMatter {
 public:
   static void prepare() { _init(); }
+  static bool started() { return isStackStarted(); }
 };
 
 struct MatterStation : public MatterEndPoint {
@@ -74,7 +75,7 @@ public:
     bool accepted = false, on = command == OnOff::Commands::On::Id;
     unsigned stationId = 0;
     const int lamp = lampIndex(context.mRequestPath.mEndpointId);
-    if (valid && lamp >= 0 && matterReady.load() && matterServicesReady.load()) {
+    if (valid && lamp >= 0 && matterReady.load() && matterServicesReady.load() && bleWorkerAvailable.load()) {
       Lock lock;
       const int index = bindingStationIndex(lamps[lamp].binding);
       if (index >= 0 && !blePaused && !portalRequested && !otaPrepared && !restartPending) {
@@ -313,12 +314,12 @@ void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
   doc["bridge_name"] = kMatterTestName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
-  doc["ready"] = matterReady.load(); doc["paired"] = matterPaired.load();
+  doc["ready"] = matterReady.load() && bleWorkerAvailable.load(); doc["paired"] = matterPaired.load();
   doc["commissioning_open"] = matterWindowOpen.load();
   doc["commissioning_pending"] = matterWindowPending.load();
   doc["startup_phase"] = matterStartupPhase.load();
-  doc["commissioning_error"] = matterWindowError.load(); doc["error"] = matterError.load();
-  if (includeCode && matterReady && manualCode.length()) doc["pairing_code"] = manualCode;
+  doc["commissioning_error"] = matterWindowError.load(); doc["error"] = bleWorkerAvailable.load() ? matterError.load() : bleStartupError.load();
+  if (includeCode && matterReady && bleWorkerAvailable && manualCode.length()) doc["pairing_code"] = manualCode;
   else doc["pairing_code"] = nullptr;
 }
 void emitMatterInfo() {
@@ -356,7 +357,7 @@ void matterCommissioningWork(intptr_t) {
   matterWindowPending = false;
 }
 bool matterOpenCommissioning() {
-  if (!matterReady || restartPending) return false;
+  if (!matterReady || !bleWorkerAvailable || restartPending) return false;
   if (matterWindowOpen || matterWindowPending.exchange(true)) return true;
   matterWindowError = "";
   if (chip::DeviceLayer::PlatformMgr().ScheduleWork(matterCommissioningWork,0) != CHIP_NO_ERROR) {
@@ -384,7 +385,7 @@ void matterPeriodicWork(intptr_t) {
 }
 void matterBridgeLoop() {
   static uint32_t last = 0;
-  if (matterReady && millis() - last >= 500 && !matterWorkPending.exchange(true)) {
+  if (MatterBridgeInitializer::started() && millis() - last >= 500 && !matterWorkPending.exchange(true)) {
     last = millis();
     if (chip::DeviceLayer::PlatformMgr().ScheduleWork(matterPeriodicWork,0) != CHIP_NO_ERROR) matterWorkPending = false;
   }

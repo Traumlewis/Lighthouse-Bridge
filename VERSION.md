@@ -3,6 +3,24 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Experimental worker startup/recovery 0.3.3-matter
+
+Reserve the unchanged 8-KiB BLE-worker stack before Matter fragments or consumes
+heap. Gate the task until BLE initialization completes; startup still reads only
+and never sends power commands. Free the temporary configuration text earlier.
+
+Start authenticated HTTP before Matter/BLE initialization. Worker/driver/power-save
+failures leave web and firmware recovery available, reject radio requests and
+show a specific error. Disable radio controls while keeping firmware upload
+available. Report worker availability and safe allocation diagnostics. Matter
+commands/code/window readiness also require the worker. Stable remains 0.3.9.
+
+The owner observed 0.3.2 reaching Matter and BLE initialization, then failing to
+create the worker before HTTP. Recover that stalled version by USB without erase;
+its OTA endpoint is unreachable. Partitions, credentials and station identities
+are unchanged. Native/browser failure tests do not establish actual runtime RAM
+headroom; a hardware retest remains required.
+
 ## Experimental Matter startup correction 0.3.2-matter
 
 Fix endpoint restoration before Matter stack startup. Start the root stack first,

@@ -1,5 +1,38 @@
 # Validation report — 0.3.9
 
+## Experimental worker startup/recovery 0.3.3-matter
+
+The owner's 0.3.2 boot log reaches Matter endpoints ready, BLE initialization
+success and then "Could not start BLE task". HTTP registration follows that
+infinite-wait branch, explaining the inaccessible web interface. The log does
+not contain allocation/free/largest-block diagnostics; insufficient contiguous
+memory and total exhaustion cannot be distinguished from this evidence alone.
+The credential-bearing raw log and identifiers are deliberately not retained.
+The separate missing-core-dump-partition startup diagnostic is not the recorded
+stop point; the partition layout is unchanged.
+
+The corrected startup reserves the same 8192-byte worker stack first. An atomic
+gate prevents all worker radio operations until BLE initialization succeeds.
+Temporary boot-configuration text is freed before reservation. HTTP starts before
+Matter/BLE initialization; worker allocation, BLE-init and coexistence-policy
+failures return to the serviced recovery interface instead of an infinite wait.
+Matter commands/pairing readiness also check worker availability. Radio APIs reject
+unavailable work with 503; the UI disables radio actions while keeping OTA usable.
+Reservation logs add only status/stack/free/largest values, without credentials.
+
+The native test exercises the production startup orchestrator: reservation before
+Matter, HTTP before initialization, no worker reads before release, recovery on
+worker/driver failure, local radio service despite a Matter-only failure, and no
+automatic writes. The browser test checks unavailable-radio controls and continued
+firmware-upload access. These simulate failures, not actual heap allocation on
+ESP32. The local app uses 1,965,328 of 1,966,080 slot bytes (752 bytes reserve)
+with 123,724 bytes of linker static RAM; these are not runtime heap margins.
+Early reservation is a correction to allocation order, not proof that the
+full runtime always has sufficient memory. Actual memory/coexistence/OTA remain
+hardware checks. The stalled 0.3.2 needs settings-preserving USB recovery.
+All nine native tests, 16 Python checks and the complete mock browser/USB suite
+pass locally. These are software checks only.
+
 ## Experimental Matter startup correction 0.3.2-matter
 
 The owner reports only the bridge name after clicking Show setup code, without a

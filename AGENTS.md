@@ -293,7 +293,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Critical flash-layout rule
 
-- Experimental **0.3.2-matter** is a separate, multi-station Matter prototype in
+- Experimental **0.3.3-matter** is a separate, multi-station Matter prototype in
   `experimental/matter/MatterBridge/`, offered at the existing Pages `matter.html`.
   Stable firmware stays **0.3.9** with its existing PlatformIO environment. The
   owner explicitly rejected larger/single app slots: **retain both 1.875 MiB slots
@@ -377,6 +377,23 @@ status change. Keep current facts, not a conversation log. User instructions win
   The missing-descendant renderer failure is reproduced in software, not proven
   as the cause of the owner's browser behavior. Do not claim physical startup
   success from simulated allocation or browser tests.
+- Owner's 0.3.2 boot reaches Matter endpoints ready and BLE ready, then fails
+  to create the BLE worker and never starts HTTP. The supplied log contains real
+  credentials: never copy it, its key or device identifiers into source/docs/tests.
+  Version 0.3.3 reserves the unchanged 8192-byte worker task before Matter heap
+  allocations. The task waits on an atomic gate until BLE initialization succeeds;
+  it cannot scan/connect/read/write early. `startup_sequence.h` owns the tested
+  reserve -> HTTP -> Matter -> BLE -> release order. Free the boot-config text
+  before reservation. Do not shrink stacks without measured high-water evidence.
+- Worker reservation, BLE init or modem-sleep failure must not trap Matter firmware
+  before HTTP. Preserve authenticated web/OTA/USB recovery, reject radio requests
+  with 503 and the startup error, disable radio buttons but keep firmware upload
+  enabled. App/Matter readiness/code/window require a usable worker as well as
+  completed endpoints. Expose `ble_worker_available` / `ble_startup_error` and
+  non-secret reservation/free/largest-block diagnostics. No automatic power writes.
+  If the Matter stack never started, HTTP mDNS may start without taking over an
+  active Matter DNS-SD service. Recover an already stalled 0.3.2 via four-part USB
+  with erasing unchecked; its HTTP OTA service was never reached.
 - The authenticated dashboard retrieves the manual code on explicit GET
   `/api/matter`; a personal-password web session is required, never API key or
   bootstrap. General status contains no pairing code. POST
@@ -395,12 +412,12 @@ status change. Keep current facts, not a conversation log. User instructions win
   0.1.0 result supports basic operation; runtime memory, persistence/return across
   framework versions, prolonged BLE coexistence and exact Alexa status behavior
   remain unverified. The 0.1.1 lamp/switch/status report is positive owner evidence;
-  multi-station and full 0.3.2-matter still need hardware testing.
+  multi-station and full 0.3.3-matter still need hardware testing.
   Test attestation is not product certification. Do not claim a fix from a build
   or simulated browser test. Keep the prototype guide and validation report current.
 - The owner now requests the full dashboard/API/OTA integration and web-accessible
   Matter setup code without waiting for the multi-station hardware test.
-  The single-station 0.1.1 test is owner-confirmed. Full 0.3.2-matter behavior,
+  The single-station 0.1.1 test is owner-confirmed. Full 0.3.3-matter behavior,
   actual OTA, runtime memory and multi-station operation remain hardware checks.
 
 - Current release **0.3.9**. USB WebFlasher updates use exactly four files at offsets:

@@ -26,6 +26,8 @@
 #else
 #include "web_ui_gzip.h"
 #include "status_api.h"
+#include "startup_sequence.h"
+#include <atomic>
 #endif
 #include "password_hash.h"
 
@@ -51,6 +53,10 @@ Preferences prefs;
 SemaphoreHandle_t stateMutex;
 StationConfig configs[kStations];
 StationState states[kStations];
+#ifdef LH_MATTER_BUILD
+std::atomic<bool> bleWorkerAvailable{false};
+std::atomic<const char*> bleStartupError{"BLE_STARTING"};
+#endif
 uint32_t nextHueId = 1;
 String customDeviceName;
 bool otaPrepared = false, otaUploading = false, otaSucceeded = false, otaCandidateReady = false, otaRequestAuthorized = false;
@@ -186,6 +192,9 @@ bool occupied(bool includeRead = true) { // Caller holds stateMutex.
   return false;
 }
 bool queueTarget(int slot, Target target) {
+#ifdef LH_MATTER_BUILD
+  if (!bleWorkerAvailable.load()) return false;
+#endif
   Lock lock;
   bool accepted = false;
   if (blePaused || portalRequested || otaPrepared || restartPending) return false;
@@ -345,6 +354,9 @@ void discoverStations() {
 }
 
 void bleWorker(void*) {
+#ifdef LH_MATTER_BUILD
+  while (!bleWorkerAvailable.load()) vTaskDelay(pdMS_TO_TICKS(20));
+#endif
   unsigned cursor = 0;
   for (;;) {
     waitForBleCleanup();
@@ -768,7 +780,7 @@ void configureRoutes() {
     if (!authenticated(true, true)) return;
     StaticJsonDocument<512> doc;
 #ifdef LH_MATTER_BUILD
-    doc["alexa_protocol"] = "matter"; doc["matter_ready"] = matterReady.load();
+    doc["alexa_protocol"] = "matter"; doc["matter_ready"] = matterReady.load() && bleWorkerAvailable.load();
 #endif
     doc["password_required"] = !webHash.length();
     doc["setup_ssid"] = apName; doc["hostname"] = hostname;
@@ -802,12 +814,18 @@ void configureRoutes() {
   });
   server.on("/api/refresh", HTTP_POST, [] {
     if (!mutationAllowed()) return;
+#ifdef LH_MATTER_BUILD
+    if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
+#endif
     { Lock lock; for (unsigned i = 0; i < kStations; ++i) if (configs[i].mac[0]) refreshRequested[i] = true; }
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/status", HTTP_GET, statusRoute);
   server.on("/api/power", HTTP_POST, [] {
     if (!mutationAllowed()) return;
+#ifdef LH_MATTER_BUILD
+    if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
+#endif
     StaticJsonDocument<256> doc;
     if (!readBody(doc)) return;
     Target target;
@@ -826,6 +844,9 @@ void configureRoutes() {
   });
   server.on("/api/scan", HTTP_POST, [] {
     if (!mutationAllowed()) return;
+#ifdef LH_MATTER_BUILD
+    if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
+#endif
     bool queued = false;
     { Lock lock; if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; } if (!scanning) { queued = !scanPending; scanPending = true; } }
     if (queued) Serial.println("BLE discovery: queued (read-only).");
@@ -986,12 +1007,14 @@ void startServices() {
   if (powerSaveResult != ESP_OK) {
     Serial.printf("Wi-Fi modem sleep failed: %s; BLE will not start.\n",
                   esp_err_to_name(powerSaveResult));
+#ifndef LH_MATTER_BUILD
     while (true) delay(1000);
+#endif
   }
-  Serial.println("Wi-Fi connected; modem sleep enabled for Wi-Fi/BLE coexistence.");
+  if (powerSaveResult == ESP_OK) Serial.println("Wi-Fi connected; modem sleep enabled for Wi-Fi/BLE coexistence.");
   stateMutex = xSemaphoreCreateMutex();
   if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
-  const String saved = prefs.getString("stations", "");
+  String saved = prefs.getString("stations", "");
 #ifdef LH_MATTER_BUILD
   bool validSavedConfig = !saved.length() && !prefs.isKey("stations");
 #endif
@@ -1017,9 +1040,36 @@ void startServices() {
     }
   }
 #ifdef LH_MATTER_BUILD
-  if (validSavedConfig) matterBridgeBegin();
-  else matterError = "SAVED_CONFIG_INVALID";
-#endif
+  saved = String(); // Free the boot configuration text before reserving resources.
+  struct Services {
+    bool validConfig, coexReady;
+    bool reserveWorker() {
+      if (!coexReady) { bleStartupError = "WIFI_SLEEP_FAILED"; return false; }
+      const bool ok = xTaskCreatePinnedToCore(bleWorker,"lighthouse-ble",8192,nullptr,1,nullptr,0) == pdPASS;
+      Serial.printf("BLE worker reservation: ok=%s, stack_bytes=8192, free=%u, largest=%u\n",
+        ok ? "true" : "false",ESP.getFreeHeap(),ESP.getMaxAllocHeap());
+      return ok;
+    }
+    void startWeb() { configureRoutes(); server.begin(); matterServicesReady = true; }
+    void startMatter() {
+      if (validConfig) matterBridgeBegin(); else matterError = "SAVED_CONFIG_INVALID";
+    }
+    bool startBle() {
+      Serial.println("Initializing BLE ...");
+      return NimBLEDevice::init("Lighthouse Bridge");
+    }
+    void failed(const char* code) {
+      if (strcmp(bleStartupError.load(),"BLE_STARTING") == 0) bleStartupError = code;
+      if (!MatterBridgeInitializer::started() && MDNS.begin(hostname.c_str())) MDNS.addService("http","tcp",80);
+      Serial.printf("BLE startup failed: error=%s, free=%u, largest=%u; HTTP recovery remains available.\n",
+        bleStartupError.load(),ESP.getFreeHeap(),ESP.getMaxAllocHeap());
+    }
+    void releaseWorker() { bleStartupError = ""; bleWorkerAvailable = true; Serial.println("BLE worker released (read-only startup)."); }
+  } services{validSavedConfig,powerSaveResult == ESP_OK};
+  startMatterServices(services);
+  alexaReady = matterReady.load() && bleWorkerAvailable.load();
+  matterSetHostname(hostname);
+#else
   Serial.println("Initializing BLE ...");
   if (!NimBLEDevice::init("Lighthouse Bridge")) {
     Serial.println("BLE initialization failed.");
@@ -1030,22 +1080,18 @@ void startServices() {
     Serial.println("Could not start BLE task"); while (true) delay(1000);
   }
   configureRoutes();
-#ifdef LH_MATTER_BUILD
-  server.begin();
-  alexaReady = matterReady.load();
-  matterServicesReady = true;
-  matterSetHostname(hostname);
-#else
   alexaReady = alexa.begin(&server);
   if (!alexaReady) { Serial.println("SSDP startup failed; the web interface remains available."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
 #endif
   Serial.printf("Web interface: http://%s/ or http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
   servicesStarted = true;
-  Serial.println("Lighthouse Bridge ready.");
 #ifdef LH_MATTER_BUILD
+  Serial.println(bleWorkerAvailable.load() ? "Lighthouse Bridge ready." : "HTTP recovery ready; Bluetooth unavailable.");
   Serial.printf("Memory ready: free=%u, largest=%u, minimum=%u, status_snapshot_bytes=%u\n",
     ESP.getFreeHeap(),ESP.getMaxAllocHeap(),ESP.getMinFreeHeap(),static_cast<unsigned>(sizeof(StatusSnapshot)));
+#else
+  Serial.println("Lighthouse Bridge ready.");
 #endif
   emitDeviceInfo();
 }
@@ -1135,7 +1181,7 @@ void loop() {
 #ifdef LH_MATTER_BUILD
   server.handleClient();
   matterBridgeLoop();
-  alexaReady = matterReady.load();
+  alexaReady = matterReady.load() && bleWorkerAvailable.load();
 #else
   alexa.loop();
 #endif
