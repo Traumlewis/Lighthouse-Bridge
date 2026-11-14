@@ -3,6 +3,25 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype rejection-path diagnostics 0.1.8-rs-matter
+
+- Log the actual sorted endpoint IDs at startup and bounded numeric paths for
+  SDK attribute/command rejections: operation, endpoint, cluster and attribute
+  or command ID. Preserve existing fixed error/event labels. Raw SDK messages,
+  node/fabric identities, names, credentials and packet bodies stay excluded.
+- Parse only the pinned SDK's typed status-path format, reject malformed or
+  overflowing numeric fields, retain the 256-byte formatter and 32-event queue,
+  and defer all output until protocol polling has returned and locks are released.
+- Owner 0.1.7 still reports GS014 despite CASE and CommissioningComplete
+  persistence. An UnsupportedEndpoint read remains, without its request path.
+  This diagnostic release does not claim to fix GS014. The endpoint-order
+  correction, identities, settings, capacities and both app slots remain.
+- The owner measured only 692 bytes left on the foreground task stack. Move
+  2 KiB from the separate compile-checked Rust future arena to that task stack:
+  ESP32 arena 14 KiB, task stack 18 KiB, still 32 KiB together. Keep the exact
+  future size/alignment + 1 KiB compile guard, host arena and BLE stack unchanged.
+  Runtime margins and Alexa acceptance remain hardware checks.
+
 ## Rust prototype endpoint lookup correction 0.1.7-rs-matter
 
 - Sort the Matter metadata endpoints by their existing IDs. The previous order

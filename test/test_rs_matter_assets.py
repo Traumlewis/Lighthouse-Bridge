@@ -10,7 +10,7 @@ class RsMatterAssetsTests(unittest.TestCase):
     def test_exact_layout_and_ota_payload(self):
         folder=ROOT/'dist/rs-matter'
         manifest=json.loads((folder/'manifest.json').read_text())
-        self.assertEqual(manifest['version'],'0.1.7-rs-matter')
+        self.assertEqual(manifest['version'],'0.1.8-rs-matter')
         build=manifest['builds'][0]
         self.assertEqual(build['chipFamily'],'ESP32')
         self.assertEqual([p['offset'] for p in build['parts']],[0x1000,0x8000,0xe000,0x10000])
@@ -20,9 +20,9 @@ class RsMatterAssetsTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((folder/Path(path.path).name).read_bytes()).hexdigest(),parse_qs(path.query)['sha'][0])
         self.assertEqual((folder/'lighthouse-rs-matter-partitions.bin').read_bytes(),(ROOT/'dist/lighthouse-bridge-partitions.bin').read_bytes())
         app=(folder/'lighthouse-rs-matter-app.bin').read_bytes()
-        for marker in [b'rs-matter protocol: module=',b'case_sessions=',b'commissioning_complete_persisted']:
+        for marker in [b'rs-matter protocol: module=',b'case_sessions=',b'commissioning_complete_persisted',b'rs-matter path: operation=',b'rs-matter endpoint: id=',b'loop_stack_bytes=']:
             self.assertIn(marker,app)
-        ota=(folder/'lighthouse-bridge-0.1.7-rs-matter.lhota').read_bytes()
+        ota=(folder/'lighthouse-bridge-0.1.8-rs-matter.lhota').read_bytes()
         self.assertLessEqual(len(app),0x1e0000)
         self.assertEqual(struct.unpack_from('<H',app,12)[0],0)
         self.assertEqual(ota[64:],app)
@@ -35,7 +35,7 @@ class RsMatterAssetsTests(unittest.TestCase):
         for address in info['cache_safe_libc'].values():
             self.assertTrue(0x40000000 <= int(address,16) < 0x40070000 or 0x40080000 <= int(address,16) < 0x400a0000)
     def test_complete_rebuild_sources_and_no_private_logs(self):
-        with zipfile.ZipFile(ROOT/'dist/rs-matter/lighthouse-bridge-0.1.7-rs-matter.zip') as archive:
+        with zipfile.ZipFile(ROOT/'dist/rs-matter/lighthouse-bridge-0.1.8-rs-matter.zip') as archive:
             names=set(archive.namelist())
             self.assertIn('source/experimental/rs-matter/rust/src/diagnostics.rs',names)
             for name in ['experimental/rs-matter/RsMatter.ino','experimental/rs-matter/rs_platform.cpp','experimental/rs-matter/rs_diagnostics.h','experimental/rs-matter/rs_network.h','experimental/rs-matter/rust/Cargo.toml','experimental/rs-matter/rust/Cargo.lock','experimental/rs-matter/rust/src/lib.rs','experimental/rs-matter/rust/src/model.rs','experimental/rs-matter/rust/src/platform.rs','tools/matter_dashboard.py','tools/rs_matter_link.py','src/main.cpp','partitions.csv']:

@@ -8,6 +8,18 @@ use rs_matter::dm::{
 static WRITES: AtomicU32 = AtomicU32::new(0);
 static LOCK_DEPTH: AtomicU32 = AtomicU32::new(0);
 static TRACE: std::sync::Mutex<std::vec::Vec<std::string::String>> = std::sync::Mutex::new(std::vec::Vec::new());
+static PATHS: std::sync::Mutex<std::vec::Vec<[u32; 4]>> = std::sync::Mutex::new(std::vec::Vec::new());
+static ENDPOINTS: std::sync::Mutex<std::vec::Vec<u32>> = std::sync::Mutex::new(std::vec::Vec::new());
+#[no_mangle]
+extern "C" fn lh_rs_trace_path(operation: u32, endpoint: u32, cluster: u32, leaf: u32) {
+    assert_eq!(LOCK_DEPTH.load(Ordering::SeqCst), 0);
+    PATHS.lock().unwrap().push([operation, endpoint, cluster, leaf]);
+}
+#[no_mangle]
+extern "C" fn lh_rs_trace_endpoint(endpoint: u32) {
+    assert_eq!(LOCK_DEPTH.load(Ordering::SeqCst), 0);
+    ENDPOINTS.lock().unwrap().push(endpoint);
+}
 #[no_mangle]
 unsafe extern "C" fn lh_rs_trace(_: u32, event: *const u8, event_len: usize, error: *const u8, error_len: usize) {
     assert_eq!(LOCK_DEPTH.load(Ordering::SeqCst), 0, "serial must be outside stack/queue locks");
@@ -189,6 +201,8 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
         poll_runtime();
     }
     assert!(lh_rs_arena_used() > 0);
+    assert_eq!(*ENDPOINTS.lock().unwrap(), (0..18).collect::<std::vec::Vec<u32>>(),
+        "startup diagnostics must list the actual sorted node metadata once");
     assert!(lh_rs_arena_used() + 1024 <= lh_rs_arena_bytes());
     // Retain protocol minima while freeing reservations, rather than limiting peers.
     assert!(rs_matter::fabric::MAX_FABRICS >= 5);
@@ -277,6 +291,18 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     assert_eq!(trace.len() - before, 33, "32 bounded entries plus explicit overflow");
     assert!(trace[before..before + 32].iter().all(|line| line == "sdk_warning_or_error:none"));
     assert_eq!(trace.last().unwrap(), "diagnostic_queue_overflow:events_dropped");
+    drop(trace);
+    use rs_matter::im::{AttrPath, AttrStatus, CmdPath, CmdStatus, IMStatusCode};
+    let status = AttrStatus::new(AttrPath {
+        node: Some(0xfeed123456789abc), endpoint: Some(7), cluster: Some(29), attr: Some(0),
+        ..Default::default()
+    }, IMStatusCode::UnsupportedEndpoint, None);
+    log::error!(target: "rs_matter_im::invoker", "Error processing attribute read: {:?}", status);
+    let command = CmdStatus::new(CmdPath::new(Some(0),Some(48),Some(6)), IMStatusCode::UnsupportedCommand, None, None);
+    log::error!(target: "rs_matter_im::invoker", "Error processing command: {:?}", command);
+    diagnostics::drain();
+    assert_eq!(*PATHS.lock().unwrap(), [[1,7,29,0],[3,0,48,6]]);
+    assert!(!TRACE.lock().unwrap().iter().any(|text| text.contains("feed123456789abc") || text.contains("183693")));
 }
 #[test]
 fn invalid_registry_or_commissioning_input_is_rejected() {

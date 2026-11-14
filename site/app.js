@@ -1,6 +1,6 @@
-import { translations } from './translations.js?v=rs-matter-0.1.7';
-import { validUpdateParts } from './flash-layout.mjs?v=rs-matter-0.1.7';
-import { watchDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.7';
+import { translations } from './translations.js?v=rs-matter-0.1.8';
+import { validUpdateParts } from './flash-layout.mjs?v=rs-matter-0.1.8';
+import { watchDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.8';
 
 const installer = document.getElementById('installer');
 const install = document.getElementById('install');

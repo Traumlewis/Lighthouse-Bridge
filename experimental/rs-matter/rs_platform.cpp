@@ -45,6 +45,12 @@ extern "C" void lh_rs_trace_state(uint32_t fabrics,uint32_t pase,uint32_t operat
   esp_rom_printf("rs-matter state: fabrics=%u pase_sessions=%u case_sessions=%u failsafe=%s window=%s\n",
     fabrics,pase,operational,failsafe?"armed":"disarmed",open?"open":"closed");
 }
+extern "C" void lh_rs_trace_path(uint32_t operation,uint32_t endpoint,uint32_t cluster,uint32_t leaf) {
+  esp_rom_printf("rs-matter path: operation=%u endpoint=%u cluster=%u leaf=%u\n",operation,endpoint,cluster,leaf);
+}
+extern "C" void lh_rs_trace_endpoint(uint32_t endpoint) {
+  esp_rom_printf("rs-matter endpoint: id=%u\n",endpoint);
+}
 extern "C" void lh_rs_emit_network_diagnostics() {
   esp_rom_printf("rs-matter UDP: tx=%u rx=%u retry=%u error=%u timeout=%u mdns_tx=%u mdns_rx=%u ipv6_addrs=%u\n",
     static_cast<unsigned>(udpTx.load()),static_cast<unsigned>(udpRx.load()),

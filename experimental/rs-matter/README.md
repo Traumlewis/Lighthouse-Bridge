@@ -1,21 +1,37 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.7-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.8-rs-matter
 
-This version fixes an endpoint metadata ordering defect in our adapter. The
-pinned SDK requires endpoints in ascending ID order for its resumable path
-expander; the former root 0 / aggregator 2 / station 1 order violated that
-contract. Metadata is now sorted in place while every saved endpoint ID,
-station binding and station-indexed state stays unchanged.
+This version adds numeric rejection-path diagnostics. The owner still reports
+Alexa GS014 with 0.1.7 even though CASE and CommissioningComplete persistence
+succeed. The remaining UnsupportedEndpoint label has no request path, so it
+cannot yet be classified as causal or a harmless controller probe.
+
+Startup now prints the actual sorted metadata endpoint IDs. SDK rejection
+records gain a numeric `rs-matter path` line: operation 1=attribute read,
+2=attribute write, 3=command; endpoint, cluster, and leaf (attribute/command ID).
+The value 4294967295 means a missing/wildcard field. Only validated typed numeric
+fields cross the filter; node/fabric IDs, names, credentials, certificates,
+bodies and original SDK text remain excluded. Keep the log running from boot
+through the Alexa error and for two minutes after it.
+
+The formatter is still 256 bytes; the queue retains 32 events with bounded
+numeric storage. All output drains outside SDK locks after polling. This is a
+diagnostic release and does not claim a GS014 fix. Settings, endpoint identities,
+protocol capacities and the exact dual-slot flash layout are preserved.
+
+Endpoint metadata is sorted by the existing IDs for the SDK resumable path
+expander. Every saved endpoint ID, station binding and station-indexed state
+stays unchanged.
 
 Real SDK Descriptor-read regressions cover individual and wildcard paths with
 full, sparse, shuffled and empty configurations in debug and release profiles.
 The legacy order fails the SDK assertion in debug and produces
 a missing endpoint 1 in release-mode wildcard reads. Earlier direct-lookup tests bypassed that path.
 
-Owner 0.1.6 diagnostics now confirm CASE and CommissioningComplete persistence,
-then an UnsupportedEndpoint read. This supports protocol-level commissioning;
-Alexa device enumeration and control with the correction still need a hardware
-test. The foreground watermark reached 788 bytes with zero allocation failures;
-this is not a claim of sufficient stack/RAM margins. Stacks are unchanged.
+The latest owner trace leaves only 692 bytes on the 16 KiB foreground task
+stack, with zero allocation failures. The task now receives 18 KiB while the
+ESP32 future arena receives 14 KiB; their combined 32 KiB reservation is
+unchanged. The exact future must fit with alignment + 1 KiB reserve at compile
+time. This is not a claim of sufficient measured runtime stack/RAM margins.
 
 The existing bounded `rs-matter protocol` and `rs-matter state` diagnostics remain.
 Only fixed event/error labels and non-secret counts are printed. No automatic
@@ -65,7 +81,7 @@ Local validation: 1,836,704/1,966,080 app bytes; 66,924 static RAM bytes. Rust
 runtime objects allocate separately. Four native Rust tests, sixteen C++ test
 programs, 31 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
-16 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
+18 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
 heap, largest block and stack watermark for the next hardware test.
 
 Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur

@@ -16,6 +16,8 @@ extern "C" {
         error_len: usize,
     );
     fn lh_rs_trace_state(fabrics: u32, pase: u32, case: u32, failsafe: bool, open: bool);
+    fn lh_rs_trace_path(operation: u32, endpoint: u32, cluster: u32, leaf: u32);
+    fn lh_rs_trace_endpoint(endpoint: u32);
 }
 
 const EVENTS: &[(&str, &str)] = &[
@@ -148,22 +150,32 @@ struct Event {
     module: u8,
     event: u8,
     error: u8,
+    operation: u8,
+    path: [u32; 3],
 }
 struct Queue {
     entries: [Event; 32],
     head: usize,
     count: usize,
     dropped: u32,
+    endpoints: [u16; 18],
+    endpoint_count: usize,
+    endpoints_pending: bool,
 }
 static QUEUE: Mutex<RefCell<Queue>> = Mutex::new(RefCell::new(Queue {
     entries: [Event {
         module: 0,
         event: 0,
         error: 0,
+        operation: 0,
+        path: [u32::MAX; 3],
     }; 32],
     head: 0,
     count: 0,
     dropped: 0,
+    endpoints: [0; 18],
+    endpoint_count: 0,
+    endpoints_pending: false,
 }));
 struct Logger;
 static LOGGER: Logger = Logger;
@@ -201,6 +213,50 @@ fn module(target: &str) -> u8 {
         0
     }
 }
+// Parse only the pinned SDK's typed status-path Debug format. No other fields,
+// node IDs, strings or original log text are ever forwarded to the C++ sink.
+fn optional_number(text: &str, field: &str, maximum: u32) -> Option<u32> {
+    let (before, rest) = text.split_once(field)?;
+    if !before.trim().is_empty() && !before.trim_end().ends_with(',') {
+        return None;
+    }
+    if let Some(tail) = rest.strip_prefix("None") {
+        return (tail.trim().is_empty() || tail.starts_with(',')).then_some(u32::MAX);
+    }
+    let (digits, tail) = rest.strip_prefix("Some(")?.split_once(')')?;
+    if !tail.trim().is_empty() && !tail.starts_with(',') {
+        return None;
+    }
+    if digits.is_empty() {
+        return None;
+    }
+    let mut number = 0u32;
+    for b in digits.bytes() {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        number = number.checked_mul(10)?.checked_add((b - b'0') as u32)?;
+    }
+    (number <= maximum).then_some(number)
+}
+fn status_path(event: u8, text: &str) -> Option<(u8, [u32; 3])> {
+    let label = EVENTS.get(event as usize)?.1;
+    let (operation, prefix, leaf) = match label {
+        "attribute_read_status" => (1, "AttrStatus { path: AttrPath {", "attr: "),
+        "attribute_write_status" => (2, "AttrStatus { path: AttrPath {", "attr: "),
+        "command_status" => (3, "CmdStatus { path: CmdPath {", "cmd: "),
+        _ => return None,
+    };
+    let path = text.split_once(prefix)?.1.split_once('}')?.0;
+    Some((
+        operation,
+        [
+            optional_number(path, "endpoint: ", u16::MAX as u32)?,
+            optional_number(path, "cluster: ", u32::MAX)?,
+            optional_number(path, leaf, u32::MAX)?,
+        ],
+    ))
+}
 fn classify(target: &str, level: Level, text: &str) -> Option<Event> {
     let module = module(target);
     if module == 0 || level > Level::Info {
@@ -224,10 +280,13 @@ fn classify(target: &str, level: Level, text: &str) -> Option<Event> {
     if event as usize == EVENTS.len() && level == Level::Warn && error == 0 {
         return None;
     }
+    let (operation, path) = status_path(event, text).unwrap_or((0, [u32::MAX; 3]));
     Some(Event {
         module,
         event,
         error,
+        operation,
+        path,
     })
 }
 impl Log for Logger {
@@ -265,8 +324,34 @@ pub fn install() {
         log::set_max_level(LevelFilter::Info);
     }
 }
+pub fn record_endpoints(endpoints: &[rs_matter::dm::Endpoint<'_>]) {
+    assert!(endpoints.len() <= 18);
+    critical_section::with(|cs| {
+        let mut q = QUEUE.borrow(cs).borrow_mut();
+        for (i, endpoint) in endpoints.iter().enumerate() {
+            q.endpoints[i] = endpoint.id;
+        }
+        q.endpoint_count = endpoints.len();
+        q.endpoints_pending = true;
+    });
+}
 // Drain only after the stack poll returns, outside all SDK/critical-section locks.
 pub fn drain() {
+    let endpoints = critical_section::with(|cs| {
+        let mut q = QUEUE.borrow(cs).borrow_mut();
+        if !q.endpoints_pending {
+            return None;
+        }
+        q.endpoints_pending = false;
+        Some((q.endpoints, q.endpoint_count))
+    });
+    if let Some((endpoints, count)) = endpoints {
+        for endpoint in &endpoints[..count] {
+            unsafe {
+                lh_rs_trace_endpoint(*endpoint as u32);
+            }
+        }
+    }
     loop {
         let event = critical_section::with(|cs| {
             let mut q = QUEUE.borrow(cs).borrow_mut();
@@ -294,6 +379,14 @@ pub fn drain() {
                 error.as_ptr(),
                 error.len(),
             );
+            if event.operation != 0 {
+                lh_rs_trace_path(
+                    event.operation as u32,
+                    event.path[0],
+                    event.path[1],
+                    event.path[2],
+                );
+            }
         }
     }
     let dropped = critical_section::with(|cs| {
@@ -356,6 +449,37 @@ pub fn state_changed() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn path_parser_accepts_only_bounded_typed_fields() {
+        assert!(core::mem::size_of::<Event>() <= 16);
+        assert_eq!(
+            optional_number("endpoint: Some(65535), cluster: None", "endpoint: ", 65535),
+            Some(65535)
+        );
+        for text in [
+            "endpoint: Some(65536)",
+            "endpoint: Some(-1)",
+            "endpoint: Some(7secret)",
+            "endpoint: Some(7)secret",
+            "endpoint: Some(7",
+            "endpoint: Some(42949672960)",
+            "endpoint: NoneSecret",
+            "secret_endpoint: Some(7)",
+        ] {
+            assert_eq!(optional_number(text, "endpoint: ", 65535), None, "{text}");
+        }
+        assert_eq!(
+            optional_number("endpoint: None, cluster: Some(0)", "endpoint: ", 65535),
+            Some(u32::MAX)
+        );
+        let event = classify("rs_matter_im::invoker", Level::Error,
+            "Error processing attribute read: AttrStatus { path: AttrPath { node: Some(123456789012345), endpoint: Some(4), cluster: Some(29), attr: Some(3), list_index: None }, status: UnsupportedEndpoint }").unwrap();
+        assert_eq!(event.operation, 1);
+        assert_eq!(event.path, [4, 29, 3]);
+        let fake = classify("rs_matter_im::invoker", Level::Error,
+            "Error processing attribute read: secret={ endpoint: Some(4), cluster: Some(29), attr: Some(3) }").unwrap();
+        assert_eq!(fake.operation, 0);
+    }
     #[test]
     fn only_fixed_events_and_error_tokens_leave_the_logger() {
         assert!(EVENTS.iter().all(|(_, label)| label.len() < 64));

@@ -1,6 +1,50 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.7-rs-matter
+## Independent rs-matter prototype 0.1.8-rs-matter
+
+The owner confirms Alexa GS014 still occurs with 0.1.7. The supplied log again
+establishes a CASE session and successful processing/persistence of
+CommissioningComplete, followed by UnsupportedEndpoint. UnsupportedCommand and
+UnsupportedCluster appear earlier. Their bare labels do not establish whether
+they are fatal or optional controller probes; the logged request path is absent.
+No allocation failure is reported. UDP has four temporary retries but no hard
+errors/timeouts; heap minimum is 3476 and foreground watermark 692 bytes.
+These values are not evidence of sufficient stack/RAM margins or an OOM cause.
+
+0.1.8 emits the actual sorted metadata endpoint inventory once at startup and
+numeric paths alongside SDK rejection labels. The bounded filter recognizes
+only the pinned SDK's typed AttrStatus/AttrPath or CmdStatus/CmdPath Debug
+layout. Output is limited to endpoint, cluster and attribute/command ID, with
+operation 1=read, 2=write, 3=command; 0xffffffff denotes a missing/wildcard field.
+Node/fabric identifiers and arbitrary log text are excluded. Malformed, signed,
+truncated or overflowing numeric fields fail closed. The formatter remains
+256 bytes and the queue holds 32 numeric records of at most 16 bytes each.
+Output, including the startup inventory, occurs after polling and outside locks.
+No SDK patch, new protocol acknowledgement, stack reduction or reset is added.
+
+This is a diagnostic release, not a confirmed GS014 correction. Successful
+server-side CommissioningComplete processing is not proof of Alexa app acceptance.
+
+The owner measured only 692 bytes left of the 16 KiB foreground task stack.
+0.1.8 shifts 2 KiB from the independently allocated Rust future arena to the CPU
+task stack: 14 KiB arena + 18 KiB task, preserving the former 32 KiB total for
+these two reservations. The exact 12664-byte future must still fit with alignment
+and a 1024-byte reserve at compile time. No protocol/station/peer/buffer limit or
+BLE stack is reduced; the 64-bit host arena stays 24 KiB. Startup logs include
+loop_stack_bytes. Additional numeric diagnostics have a small static RAM cost;
+the rebalance is not a claim of sufficient measured stack/RAM margins.
+
+Local verification passes six Rust host tests in debug and release profiles.
+Real typed SDK AttrStatus/CmdStatus fixtures produce only their expected numeric
+paths; synthetic 64-bit node identities are omitted. Malformed/overflow/truncated
+fields and unrelated bodies are rejected. Mock FFI checks inventory/path output
+outside critical sections, and startup inventory matches actual sorted metadata.
+The classic app is 1,924,864/1,966,080 bytes, static RAM 67,524 bytes. Compiled ELF
+getters confirm a 14 KiB arena and a 52,528-byte Stack object; app_main passes
+18432 to xTaskCreateUniversal (task stack), and the exact-future compile guard
+passes. These are build/software checks, not physical Echo or OTA validation.
+
+## rs-matter endpoint lookup correction 0.1.7 evidence
 
 The owner's 0.1.6 trace establishes a successful protocol-level commissioning:
 CASE becomes active, CommissioningComplete is requested and persisted, the

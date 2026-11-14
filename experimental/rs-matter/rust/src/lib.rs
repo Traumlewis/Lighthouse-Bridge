@@ -24,7 +24,7 @@ use rand::Rng;
 // The 32-bit operational future is ~12 KiB. Host pointers need more space.
 // platform::Wifi::run checks the exact allocated future at compile time.
 const BUMP: usize = if core::mem::size_of::<usize>() == 4 {
-    16384
+    14336
 } else {
     24576
 };
@@ -153,8 +153,8 @@ async fn run() -> Result<(), Error> {
             vendor_name: "Lighthouse Bridge",
             serial_no: platform::text(&cfg.serial),
             unique_id: platform::text(&cfg.serial),
-            sw_ver: 0x000107,
-            sw_ver_str: "0.1.7-rs-matter",
+            sw_ver: 0x000108,
+            sw_ver_str: "0.1.8-rs-matter",
             ..TEST_DEV_DET
         })
         .map_err(|_| Error::from(rs_matter::error::ErrorCode::NoSpace))?,

@@ -89,8 +89,9 @@ bool matterBridgeBegin() {
     strncpy(station.unique,unique.c_str(),sizeof(station.unique)-1);
   }
   matterStartupPhase="rs_model";
-  Serial.printf("rs-matter allocations: stack_bytes=%u task_bytes=%u free_8bit=%u largest_8bit=%u\n",
-    static_cast<unsigned>(lh_rs_stack_bytes()),static_cast<unsigned>(lh_rs_task_bytes()),matterDataFree(),matterDataLargest());
+  Serial.printf("rs-matter allocations: stack_bytes=%u task_bytes=%u loop_stack_bytes=%u free_8bit=%u largest_8bit=%u\n",
+    static_cast<unsigned>(lh_rs_stack_bytes()),static_cast<unsigned>(lh_rs_task_bytes()),
+    static_cast<unsigned>(getArduinoLoopTaskStackSize()),matterDataFree(),matterDataLargest());
   rsStarted=lh_rs_begin(config.get());config.reset();
   if(!rsStarted){matterError="MATTER_START_FAILED";return false;}
   const uint32_t began=millis();

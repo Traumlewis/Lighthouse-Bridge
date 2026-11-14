@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.7-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.8-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -806,10 +806,10 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,921,968/1,966,080 bytes, static RAM 67,076 bytes; five
+- Local validation: app 1,924,864/1,966,080 bytes, static RAM 67,524 bytes; six
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), sixteen native C++ programs, 31 Python checks and nine browser/USB
-  programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
+  programs pass. The Arduino foreground stack is 18 KiB; BLE remains 8 KiB.
   Explicit Matter timed commands issue one expiry request, cancelled if a newer
   command generation supersedes it; they never create a startup timer or resend.
 - The saved Wi-Fi configuration remains owned by Lighthouse. Seed rs-matter's
@@ -950,3 +950,30 @@ Never copy the credential-bearing raw log into the repository.
   former model fails the new SDK-read regression before the fix. The classic
   app remains within 1,966,080 bytes. Tests are software evidence, not Echo app
   acceptance or a hardware switching test.
+
+- Owner 0.1.7 explicitly still reports Alexa GS014. Its log again reaches CASE
+  and CommissioningComplete persistence, then UnsupportedEndpoint; command and
+  cluster rejection probes precede completion too. Allocation failures remain
+  zero; UDP records four temporary retries with no hard errors/timeouts, heap
+  minimum 3476 and foreground watermark 692 bytes. The sorted-metadata fix is
+  valid but does not establish the Alexa failure cause. Do not equate any single
+  Unsupported* label with a fatal pairing error or claim safe memory margins.
+- 0.1.8 adds numeric rejection paths and the actual sorted endpoint inventory at
+  startup. Parse only pinned typed AttrStatus/AttrPath and CmdStatus/CmdPath
+  formats, forwarding endpoint (u16), cluster/leaf (u32) and operation 1=read,
+  2=write, 3=command. 0xffffffff represents a missing/wildcard field. Reject
+  malformed/overflowing fields; never forward node/fabric IDs, names, credentials,
+  certificates, bodies or original SDK text. Keep the 256-byte formatter and
+  32-event queue, with <=16 bytes per numeric event and explicit overflow.
+  Drain inventory and paths outside stack/queue locks through ROM output.
+  No SDK fork, task-stack/protocol-capacity reduction, identity reset, protocol workaround or
+  promised GS014 fix. Exact request paths are required before deciding whether
+  the post-completion rejection is causal or a harmless controller probe.
+- Rebalance the existing 32 KiB foreground/future reservation: the ESP32 future
+  arena is 14 KiB and the foreground CPU task stack 18 KiB (formerly 16+16).
+  The operational future still needs 12664 bytes; retain the exact-type compile
+  assertion for size + alignment + 1024 reserve. Host arena stays 24 KiB. This
+  increases task-stack headroom for observed commissioning depth without growing
+  these two reservations' sum or changing protocol buffer/peer/station limits.
+  Diagnostic numeric storage has its own small static RAM cost. Log the configured
+  loop_stack_bytes; no safe hardware stack/RAM margin or GS014 fix is established.
