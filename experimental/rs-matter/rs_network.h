@@ -1,6 +1,8 @@
 #pragma once
 #include <algorithm>
 #include <errno.h>
+#include <stdint.h>
+#include <sys/socket.h>
 namespace rsNetwork {
 constexpr int kDynamicTxBuffers=4;
 constexpr int kDynamicRxBuffers=8;
@@ -18,5 +20,12 @@ inline bool temporarySocketError(int error) {
 }
 inline int socketResult(int result,int error) {
   return result>=0 ? result : temporarySocketError(error) ? -1 : -2;
+}
+// Probe without consuming a datagram or reserving the Matter shared RX buffer.
+// A zero-length UDP datagram is readable too; this is not TCP disconnect.
+inline int peekDatagram(int fd) {
+  uint8_t byte;
+  const int n=::recv(fd,&byte,1,MSG_PEEK|MSG_DONTWAIT);
+  return n>=0 ? 1 : temporarySocketError(errno) ? 0 : -1;
 }
 }

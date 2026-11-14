@@ -33,6 +33,7 @@ extern "C" {
     fn lh_rs_net(info: *mut NetInfo) -> bool;
     fn lh_rs_socket(port: u16, ip4: *const u8, interface: u32) -> i32;
     fn lh_rs_close(fd: i32);
+    fn lh_rs_peek(fd: i32) -> i32;
     fn lh_rs_recv(fd: i32, buf: *mut u8, size: usize, addr: *mut WireAddr) -> i32;
     fn lh_rs_send_timeout();
     fn lh_rs_send(fd: i32, buf: *const u8, size: usize, addr: *const WireAddr) -> i32;
@@ -327,8 +328,13 @@ impl NetworkSend for Half {
 }
 impl NetworkReceive for Half {
     async fn wait_available(&mut self) -> Result<(), Error> {
-        Timer::after_millis(5).await;
-        Ok(())
+        loop {
+            match unsafe { lh_rs_peek(self.0) } {
+                1 => return Ok(()),
+                0 => Timer::after_millis(5).await,
+                _ => return Err(ErrorCode::StdIoError.into()),
+            }
+        }
     }
     async fn recv_from(&mut self, data: &mut [u8]) -> Result<(usize, Address), Error> {
         loop {

@@ -1,4 +1,4 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.4-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.5-rs-matter
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -40,7 +40,7 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,836,512/1,966,080 app bytes; 66,924 static RAM bytes. Rust
+Local validation: 1,836,704/1,966,080 app bytes; 66,924 static RAM bytes. Rust
 runtime objects allocate separately. Four native Rust tests, sixteen C++ test
 programs, 31 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
@@ -131,3 +131,30 @@ UDP TX/RX/temporary failures/hard send errors/timeouts, mDNS socket traffic and
 reported IPv6 address count, without payloads/addresses/keys. Socket acceptance
 is not proof of Echo receipt or successful mDNS parsing. Physical Alexa pairing,
 network isolation/IPv6 routing, sustained heap margin and OTA remain open.
+
+Owner 0.1.4 evidence confirms the configured Wi-Fi profile (static RX 4,
+dynamic RX 8, dynamic TX 4, Block Ack 6), one IPv6 address, no explicit panic,
+and four initial mDNS sends followed by tx=4/rx=0 with mdns_rx=0 throughout the
+open window. Heap minima still reach 192/236 bytes and BLE_NO_MEMORY recurs.
+Neither queue bounds nor a locally open window establish Echo discovery.
+
+The adapter violated the public NetworkReceive::wait_available contract: a
+fixed 5 ms delay falsely signalled packet readiness on empty sockets. The Matter
+receiver acquires the shared RX buffer after this call, then blocks in recv_from;
+a ready mDNS socket cannot get that buffer. The full-stack regression injects
+one standard wire-format _matterc._udp.local PTR question on mDNS while the
+Matter socket remains idle. Before the fix it fails with zero consumed packets;
+after the fix it consumes the query and emits a Basic Commissioning response.
+Earlier probes checked outgoing announcements/code consistency, not inbound
+queries, and therefore missed the starvation. This is a reproduced adapter bug;
+it does not prove the unique cause of every hardware allocation failure.
+
+0.1.5 probes recv(MSG_PEEK|MSG_DONTWAIT) with one stack byte, preserving the
+queued datagram until actual receive. Empty/transient cases wait 5 ms; readable
+(including zero-length) returns success and fatal errors fail. No false readiness,
+extra heap-backed poll/select object, SDK private-layout access or protocol-capacity
+reduction. Native datagram socketpair tests verify empty/ready/repeated peek,
+payload retention, zero-length and closed sockets; the same real-Rust host test
+checks inbound DNS through the full stack and the existing expiry/power policies.
+Actual radio/IPv6 multicast delivery, Alexa pairing, sustained RAM and OTA still
+need an owner hardware test. No real network/Echo was used in the host regression.

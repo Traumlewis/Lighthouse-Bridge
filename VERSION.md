@@ -3,6 +3,23 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype UDP receive-readiness correction 0.1.5-rs-matter
+
+Fix the adapter's NetworkReceive::wait_available contract: it previously returned
+success after 5 ms even for an empty socket. The Matter receive task then held
+the shared RX buffer while waiting for UDP/5540, blocking ready mDNS/5353 input.
+This matches the owner's four initial mDNS sends followed by zero received UDP.
+The defect reproduces in the full Rust stack with a queued DNS PTR query: old
+adapter consumes zero packets, corrected adapter consumes the query and emits a
+Basic Commissioning DNS response. Previous send-only host probes missed this.
+
+Use a nonblocking, non-consuming MSG_PEEK probe and wait only while no datagram
+is available, before the stack acquires RX storage. Treat zero-length UDP as
+readable and propagate fatal socket errors. Native socket tests cover empty,
+ready, repeated peek, full payload retention, zero-length and closed sockets.
+Preserve stack sizes, Wi-Fi bounds, protocol capacities, NVS and flash layout.
+Actual Alexa pairing and the effect on hardware heap pressure still need testing.
+
 ## Rust prototype bounded Wi-Fi buffers and UDP backpressure 0.1.4-rs-matter
 
 Owner 0.1.3 evidence has no panic, but over 24,000 allocation failures, recurring

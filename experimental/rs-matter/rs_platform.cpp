@@ -101,6 +101,7 @@ extern "C" void lh_rs_close(int fd) {
   int expected=fd;mdnsFd.compare_exchange_strong(expected,-1);
   close(fd);
 }
+extern "C" int lh_rs_peek(int fd) { return rsNetwork::peekDatagram(fd); }
 extern "C" int lh_rs_recv(int fd,uint8_t* data,size_t size,WireAddr* remote) {
   sockaddr_in6 address{}; socklen_t length=sizeof(address);
   int n=recvfrom(fd,data,size,MSG_DONTWAIT,reinterpret_cast<sockaddr*>(&address),&length);

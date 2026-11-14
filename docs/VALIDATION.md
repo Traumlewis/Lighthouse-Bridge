@@ -1,6 +1,33 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.4-rs-matter
+## Independent rs-matter prototype 0.1.5-rs-matter
+
+Owner 0.1.4 evidence confirms the configured Wi-Fi profile (static RX 4,
+dynamic RX 8, dynamic TX 4, Block Ack 6), one IPv6 address, no explicit panic,
+and four initial mDNS sends followed by tx=4/rx=0 with mdns_rx=0 throughout the
+open window. Heap minima still reach 192/236 bytes and BLE_NO_MEMORY recurs.
+Neither queue bounds nor a locally open window establish Echo discovery.
+
+The adapter violated the public NetworkReceive::wait_available contract: a
+fixed 5 ms delay falsely signalled packet readiness on empty sockets. The Matter
+receiver acquires the shared RX buffer after this call, then blocks in recv_from;
+a ready mDNS socket cannot get that buffer. The full-stack regression injects
+one standard wire-format _matterc._udp.local PTR question on mDNS while the
+Matter socket remains idle. Before the fix it fails with zero consumed packets;
+after the fix it consumes the query and emits a Basic Commissioning response.
+Earlier probes checked outgoing announcements/code consistency, not inbound
+queries, and therefore missed the starvation. This is a reproduced adapter bug;
+it does not prove the unique cause of every hardware allocation failure.
+
+0.1.5 probes recv(MSG_PEEK|MSG_DONTWAIT) with one stack byte, preserving the
+queued datagram until actual receive. Empty/transient cases wait 5 ms; readable
+(including zero-length) returns success and fatal errors fail. No false readiness,
+extra heap-backed poll/select object, SDK private-layout access or protocol-capacity
+reduction. Native datagram socketpair tests verify empty/ready/repeated peek,
+payload retention, zero-length and closed sockets; the same real-Rust host test
+checks inbound DNS through the full stack and the existing expiry/power policies.
+Actual radio/IPv6 multicast delivery, Alexa pairing, sustained RAM and OTA still
+need an owner hardware test. No real network/Echo was used in the host regression.
 
 Owner 0.1.3 evidence: no abort/backtrace/panic appears in this excerpt; one
 accepted config save has its intended restart, and a later POWERON_RESET does
@@ -92,7 +119,7 @@ installer, runtime, packaging and tests have been removed. Historical Tasmota
 results below describe the retired implementation and are not evidence for the
 new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
 its no_std library links with the existing production C++ dashboard/API/OTA and
-single NimBLE worker. The final local build is 1,836,512/1,966,080 app bytes, with 66,924 static RAM
+single NimBLE worker. The final local build is 1,836,704/1,966,080 app bytes, with 66,924 static RAM
 bytes. Runtime Rust objects are allocated separately; these linker figures do not
 establish operational headroom. The Arduino foreground task reserves 16 KiB and
 the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.

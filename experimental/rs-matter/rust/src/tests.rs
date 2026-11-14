@@ -160,6 +160,7 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
         ));
     }
     assert!(!paired && open);
+    mdns_receive_checks();
     assert_ne!(platform::text(&code), "34970112332");
     CLOCK_US.fetch_add(901000000, Ordering::SeqCst);
     for _ in 0..20 {
@@ -273,8 +274,8 @@ unsafe extern "C" fn lh_rs_wifi(ssid: *mut u8, password: *mut u8) -> u32 {
     4 | (9 << 16)
 }
 #[no_mangle]
-extern "C" fn lh_rs_socket(_: u16, _: *const u8, _: u32) -> i32 {
-    1
+extern "C" fn lh_rs_socket(port: u16, _: *const u8, _: u32) -> i32 {
+    if port == 5353 { 2 } else { 1 }
 }
 static UDP_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
 #[no_mangle]
@@ -282,9 +283,25 @@ extern "C" fn lh_rs_send_timeout() { UDP_TIMEOUTS.fetch_add(1, Ordering::SeqCst)
 static SOCKET_CLOSES: AtomicU32 = AtomicU32::new(0);
 #[no_mangle]
 extern "C" fn lh_rs_close(_: i32) { SOCKET_CLOSES.fetch_add(1, Ordering::SeqCst); }
+static MDNS_INBOX: std::sync::Mutex<std::collections::VecDeque<std::vec::Vec<u8>>> = std::sync::Mutex::new(std::collections::VecDeque::new());
+static MDNS_RECEIVED: AtomicU32 = AtomicU32::new(0);
+static UDP_OUTPUT: std::sync::Mutex<std::vec::Vec<(i32, std::vec::Vec<u8>)>> = std::sync::Mutex::new(std::vec::Vec::new());
 #[no_mangle]
-extern "C" fn lh_rs_recv(_: i32, _: *mut u8, _: usize, _: *mut u8) -> i32 {
-    -1
+extern "C" fn lh_rs_peek(fd: i32) -> i32 {
+    if fd == 2 && !MDNS_INBOX.lock().unwrap().is_empty() { 1 } else { 0 }
+}
+#[repr(C)]
+struct HostWireAddr { ip: [u8; 16], port: u16, scope: u32 }
+#[no_mangle]
+unsafe extern "C" fn lh_rs_recv(fd: i32, out: *mut u8, size: usize, addr: *mut u8) -> i32 {
+    if fd != 2 { return -1; }
+    let Some(packet) = MDNS_INBOX.lock().unwrap().pop_front() else { return -1; };
+    assert!(packet.len() <= size);
+    core::ptr::copy_nonoverlapping(packet.as_ptr(), out, packet.len());
+    let mut ip = [0; 16]; ip[15] = 1;
+    core::ptr::write(addr.cast::<HostWireAddr>(), HostWireAddr { ip, port: 5353, scope: 1 });
+    MDNS_RECEIVED.fetch_add(1, Ordering::SeqCst);
+    packet.len() as i32
 }
 struct SendPlan {
     values: [i32; 4], len: usize, pos: usize, fallback: i32, calls: u32,
@@ -298,7 +315,10 @@ fn send_plan(values: &[i32], fallback: i32) {
     plan.values[..values.len()].copy_from_slice(values);
 }
 #[no_mangle]
-extern "C" fn lh_rs_send(_: i32, _: *const u8, size: usize, _: *const u8) -> i32 {
+extern "C" fn lh_rs_send(fd: i32, data: *const u8, size: usize, _: *const u8) -> i32 {
+    if fd == 2 {
+        UDP_OUTPUT.lock().unwrap().push((fd, unsafe { core::slice::from_raw_parts(data,size) }.to_vec()));
+    }
     let mut plan = SEND_PLAN.lock().unwrap();
     plan.calls += 1;
     let result = if plan.pos < plan.len {
@@ -369,4 +389,20 @@ fn udp_backpressure_checks() {
     assert!(matches!(send.as_mut().poll(&mut cx), Poll::Ready(Ok(()))));
     drop(send);
     send_plan(&[], i32::MAX);
+}
+
+
+fn mdns_receive_checks() {
+    // Leave the Matter UDP socket idle, then deliver a real DNS PTR query to
+    // mDNS. Both consumers share the stack RX buffer; an idle socket must not
+    // take it and block the ready mDNS socket indefinitely.
+    let query = b"\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x08_matterc\x04_udp\x05local\x00\x00\x0c\x00\x01";
+    let before = UDP_OUTPUT.lock().unwrap().len();
+    MDNS_INBOX.lock().unwrap().push_back(query.to_vec());
+    for _ in 0..100 { poll_runtime(); }
+    assert_eq!(MDNS_RECEIVED.load(Ordering::SeqCst), 1,
+               "idle Matter socket starved a ready mDNS socket of the shared RX buffer");
+    let output = UDP_OUTPUT.lock().unwrap();
+    assert!(output[before..].iter().any(|(_,p)| p.len()>12 && p[2]&0x80!=0 && p.windows(8).any(|s| s==b"_matterc") && p.windows(4).any(|s| s==b"CM=1")),
+            "PTR query did not receive a Basic Commissioning DNS response");
 }

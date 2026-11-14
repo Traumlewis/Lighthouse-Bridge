@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.4-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.5-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,7 +801,7 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,836,512/1,966,080 bytes, static RAM 66,924 bytes; four
+- Local validation: app 1,836,704/1,966,080 bytes, static RAM 66,924 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), sixteen native C++ programs, 31 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
@@ -882,3 +882,21 @@ Never copy the credential-bearing raw log into the repository.
   Keep 16 stations/all protocol capacities, stacks, NVS, partitions and BLE worker
   policy. Alexa discovery, routing/isolation, actual OTA and sustained RAM margin
   remain hardware checks. Do not copy raw owner logs or credential frames.
+
+- Owner 0.1.4 confirms Wi-Fi 4 static RX/8 dynamic RX/4 dynamic TX/BA 6 and IPv6
+  count 1, but UDP tx=4/rx=0 and mdns_rx=0 stay fixed with an open window. Heap
+  minimum 192/236 and BLE_NO_MEMORY remain. No explicit panic in the excerpt.
+- 0.1.5 fixes the adapter's false receive readiness. wait_available must wait for
+  actual socket data before rs-matter acquires its shared RX buffer. The old
+  unconditional 5 ms success let an empty Matter socket hold RX and starve mDNS.
+  A full-stack inbound DNS PTR regression fails old (0 packets consumed) and
+  passes fixed (query consumed + Basic Commissioning response). Prior send-only
+  announcement/code probes did not validate receive progress.
+- Use one-byte non-consuming recv(MSG_PEEK|MSG_DONTWAIT), with 5 ms waits for
+  empty/transient cases, true readiness for zero-length UDP too, and fatal error
+  propagation. Native socketpair tests cover empty/ready/repeated peek, intact
+  payload, zero-length and closed sockets. Keep all stacks, Wi-Fi bounds, protocol
+  capacities, endpoint identities, NVS and flash layout. No extra poll/select
+  allocation, SDK fork or private casts. Full hardware Alexa discovery/pairing,
+  multicast routing and heap-pressure improvement remain unverified. Do not
+  claim the host-shim regression is a physical network test or commit raw logs.
