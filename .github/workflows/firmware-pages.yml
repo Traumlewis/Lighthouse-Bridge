@@ -108,6 +108,8 @@ jobs:
           CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path experimental/rs-matter/rust/Cargo.toml
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test
           /tmp/lighthouse-rs-matter-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test
+          /tmp/lighthouse-rs-diagnostics-test
       - name: Build WebFlasher site
         run: python tools/build_pages.py
       - name: Test WebFlasher assets

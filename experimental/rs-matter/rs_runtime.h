@@ -4,6 +4,8 @@
 struct RsStation { uint16_t endpoint; char name[41]; char unique[40]; };
 struct RsConfig { uint32_t passcode; uint16_t discriminator, count; RsStation stations[16]; char serial[33]; };
 extern "C" {
+bool lh_rs_init_diagnostics();
+uint32_t lh_rs_allocation_failures();
 bool lh_rs_begin(const RsConfig* configuration);
 int lh_rs_pump();
 bool lh_rs_open();

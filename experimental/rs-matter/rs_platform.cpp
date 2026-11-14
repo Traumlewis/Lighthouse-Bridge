@@ -11,7 +11,12 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <nvs.h>
+#include <esp_log.h>
+#include <esp_rom_sys.h>
+#include "rs_diagnostics.h"
 #include "rs_runtime.h"
+extern "C" bool lh_rs_init_diagnostics() { return rsDiagnostics::install(); }
+extern "C" uint32_t lh_rs_allocation_failures() { return rsDiagnostics::failures.load(std::memory_order_relaxed); }
 struct NetInfo { uint8_t mac[8],ip4[4],ip6[4][16]; uint32_t ipv6_count, interface; bool connected; };
 static_assert(sizeof(NetInfo)==88,"Rust interface ABI");
 struct WireAddr { uint8_t ip[16]; uint16_t port; uint32_t scope; };

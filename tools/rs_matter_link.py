@@ -28,3 +28,37 @@ def validate_cache_safe_symbols(nm_output):
         if kind not in ('T', 'A') or not safe_address:
             raise ValueError(f'Unsafe cache-off symbol: {name} at {address:#x} ({kind})')
     return {name: f'{symbols[name][0]:#010x}' for name in CACHE_OFF_SYMBOLS}
+
+
+def validate_diagnostics_symbols(nm_output):
+    """Keep the heap failure hook and its data usable with the flash cache off.
+
+    GCC LTO can discard an inline function's IRAM section attribute. Check
+    the final definitions, including the local-symbol suffixes it generates.
+    """
+    prefixes = {
+        'allocation_failed_hook': r'_ZN13rsDiagnosticsL?16allocationFailedE',
+        'format': r'_ZN13rsDiagnosticsL13failureFormatE',
+        'failures': r'_ZN13rsDiagnosticsL8failuresE',
+        'last_report_ms': r'_ZN13rsDiagnosticsL12lastReportMsE',
+    }
+    found = {}
+    for line in nm_output.splitlines():
+        match = re.fullmatch(r'\s*([0-9a-fA-F]+)\s+(\S)\s+(\S+)\s*', line)
+        if not match:
+            continue
+        for key, prefix in prefixes.items():
+            if re.match(prefix, match[3]):
+                if key in found:
+                    raise ValueError(f'Duplicate allocation diagnostic symbol: {key}')
+                address, kind = int(match[1], 16), match[2]
+                safe = (0x40080000 <= address < 0x400A0000 and kind in ('t', 'T')
+                        if key == 'allocation_failed_hook' else
+                        0x3FF80000 <= address < 0x40000000 and kind in ('b', 'B', 'd', 'D', 'r', 'R'))
+                if not safe:
+                    raise ValueError(f'Unsafe allocation diagnostic symbol: {key} at {address:#x}')
+                found[key] = f'{address:#010x}'
+    for key in prefixes:
+        if key not in found:
+            raise ValueError(f'Missing allocation diagnostic symbol: {key}')
+    return found

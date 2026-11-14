@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.2-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.3-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,9 +801,9 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,834,576/1,966,080 bytes, static RAM 66,812 bytes; four
+- Local validation: app 1,836,624/1,966,080 bytes, static RAM 66,960 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
-  shims), fourteen native C++ programs, 26 Python checks and nine browser/USB
+  shims), fifteen native C++ programs, 29 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
   Explicit Matter timed commands issue one expiry request, cancelled if a newer
   command generation supersedes it; they never create a startup timer or resend.
@@ -839,3 +839,23 @@ Never copy the credential-bearing raw log into the repository.
   capacities and 16 stations, no heap/private-layout tricks or SDK fork.
   Host startup/window/expiry tests exercise the same driver with host-sized arena.
   HTTP/OTA, pairing and sustained RAM headroom remain hardware checks.
+
+- Owner 0.1.2 now confirms UI discovery/assignment/save for four stations. The
+  logged accepted config-save restart and session loss are intentional. Retained
+  stations read SLEEP; no commissioning/power operation is established here.
+  One explicit later panic matches the published ELF: Wi-Fi/coexistence logging
+  reaches UART/newlib mutex initialization and aborts on failed allocation.
+  Heap minimum 92 bytes and BLE_NO_MEMORY show pressure; stable later samples
+  do not establish a leak or identify the transient request. Other POWERON_RESET
+  entries are not proof of software crashes. Do not retain raw logs/identifiers.
+- 0.1.3 installs ROM-based SDK vprintf before Wi-Fi (preserve levels/messages;
+  ROM does not support float/long-long). No lazy newlib FILE/UART allocation in
+  that log callback. An allocation-free IRAM heap-failure hook prints numeric
+  bytes/caps/count through ROM with DRAM format/counters and 1-second throttling;
+  ignore the SDK function-name pointer. Include all events in periodic count.
+  Keep the hook non-inlined: GCC LTO otherwise discarded its IRAM placement.
+  Packaging validates final IRAM/DRAM symbols, including skip-compile. Native
+  tests cover routing, ignored invalid pointer, throttle/wrap and hook errors.
+  Preserve 16 KiB foreground/arena and 8 KiB BLE stacks, all capacities, NVS and
+  partitions. Underlying pressure, sustained stability, OTA and pairing remain
+  hardware checks; this logging-path correction is not a general OOM fix.

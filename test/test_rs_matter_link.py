@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from rs_matter_link import CACHE_OFF_SYMBOLS, validate_cache_safe_symbols
+from rs_matter_link import CACHE_OFF_SYMBOLS, validate_cache_safe_symbols, validate_diagnostics_symbols
 
 
 class CacheOffLinkTests(unittest.TestCase):
@@ -28,3 +28,28 @@ class CacheOffLinkTests(unittest.TestCase):
             validate_cache_safe_symbols('\n'.join(line for line in self.listing().splitlines() if not line.endswith(' memmove')))
         with self.assertRaisesRegex(ValueError, 'Duplicate cache-off symbol: memmove'):
             validate_cache_safe_symbols(self.listing() + '\n400914ac T memmove')
+
+
+class AllocationDiagnosticLinkTests(unittest.TestCase):
+    def listing(self):
+        return "\n".join([
+            "40081338 T _ZN13rsDiagnosticsL16allocationFailedEjmPKc$lto_priv$0",
+            "3ffc07c0 d _ZN13rsDiagnosticsL13failureFormatE",
+            "3ffc5288 b _ZN13rsDiagnosticsL8failuresE$lto_priv$0",
+            "3ffc5bc0 b _ZN13rsDiagnosticsL12lastReportMsE",
+        ])
+
+    def test_final_iram_hook_and_dram_data(self):
+        self.assertEqual(len(validate_diagnostics_symbols(self.listing())), 4)
+
+    def test_lto_inline_section_loss_and_missing_hook_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Unsafe allocation diagnostic symbol: allocation_failed_hook'):
+            validate_diagnostics_symbols(self.listing().replace('40081338', '400db348'))
+        with self.assertRaisesRegex(ValueError, 'Missing allocation diagnostic symbol: allocation_failed_hook'):
+            validate_diagnostics_symbols('\n'.join(self.listing().splitlines()[1:]))
+
+    def test_flash_data_and_duplicates_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Unsafe allocation diagnostic symbol: format'):
+            validate_diagnostics_symbols(self.listing().replace('3ffc07c0', '3f401234'))
+        with self.assertRaisesRegex(ValueError, 'Duplicate allocation diagnostic symbol: format'):
+            validate_diagnostics_symbols(self.listing() + '\n' + self.listing().splitlines()[1])

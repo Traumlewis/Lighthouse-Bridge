@@ -1,4 +1,4 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.2-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.3-rs-matter
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -40,9 +40,9 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,834,576/1,966,080 app bytes; 66,812 static RAM bytes. Rust
-runtime objects allocate separately. Four native Rust tests, fourteen C++ test
-programs, 26 Python checks and nine simulated browser/USB programs pass. This is
+Local validation: 1,836,624/1,966,080 app bytes; 66,960 static RAM bytes. Rust
+runtime objects allocate separately. Four native Rust tests, fifteen C++ test
+programs, 29 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
 16 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
 heap, largest block and stack watermark for the next hardware test.
@@ -74,3 +74,27 @@ uses one arena allocation; no SDK source/private layout casts are introduced.
 Arena used/capacity are logged. BLE remains 8192 bytes and every protocol/station
 capacity stays unchanged. Hardware HTTP delivery, actual OTA, pairing stack peaks
 and Alexa interoperability remain unverified for this correction.
+
+Owner 0.1.2 evidence now confirms displayed dashboard, discovery of all four
+stations, assignment and successful save. The subsequent configuration restart
+and lost session are intentional; retained stations then read SLEEP. Other
+POWERON_RESET entries do not establish software crashes. The one explicit panic
+has the matching published ELF fingerprint and decodes to newlib
+lock_init_generic -> UART write -> vprintf -> Wi-Fi/coexistence/ppTask. The
+mutex creation returned null. Heap minima reach 92 bytes and BLE_NO_MEMORY is
+shown; later 15-second samples are around 14 KiB with an 11 KiB minimum before
+the panic. They do not identify its transient allocation or establish a leak.
+No open commissioning window, paired fabric or power command is shown.
+
+0.1.3 uses the public esp_log_set_vprintf/esp_rom_vprintf APIs before Wi-Fi starts,
+avoiding the identified lazy stdio/UART mutex allocation path. It retains SDK log
+levels and messages, with ROM formatter limitations (no float/long-long).
+An allocation-failure hook logs only numeric size/caps/count through ROM, once
+per second at most, without reading the SDK function-name string. The periodic
+counter includes throttled events. Its non-inlined callback and format/counters
+are verified in IRAM/DRAM in the final ELF, including skip-compile packaging;
+GCC LTO otherwise lost the inline callback's IRAM section in a local probe.
+Native tests cover ROM routing, failure registration, an invalid ignored string
+pointer, throttling and millis wrap. Hook disassembly calls ROM/IRAM helpers.
+Underlying allocation peaks, sustained RAM headroom, actual OTA and physical
+stability remain unverified; this is not a general OOM or Alexa pairing fix.

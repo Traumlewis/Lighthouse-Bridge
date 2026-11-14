@@ -1194,6 +1194,9 @@ void startServices() {
 
 void setup() {
   Serial.begin(115200);
+#ifdef LH_RS_MATTER_BUILD
+  if (!lh_rs_init_diagnostics()) Serial.println("RS_ALLOCATION_HOOK_UNAVAILABLE");
+#endif
   pinMode(0, INPUT_PULLUP);
   delay(500);
   prefs.begin("lhbridge", false);

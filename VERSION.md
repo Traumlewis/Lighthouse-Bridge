@@ -3,6 +3,23 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype allocation-safe SDK logging 0.1.3-rs-matter
+
+The owner can now discover, assign and save four stations through the dashboard.
+The restart and new login immediately after a successful configuration save are
+intentional. A later 0.1.2 panic is separate: its exact published ELF identifies
+failed UART mutex allocation in newlib, reached by Wi-Fi/coexistence logging.
+
+Route SDK logs through esp_rom_vprintf before Wi-Fi starts, retaining log levels
+and messages while bypassing that lazy stdio/UART allocation path. ROM formatting
+does not support float or long-long formats. Add a numeric-only, allocation-free
+heap-failure hook (requested bytes/capabilities/count), throttled to one report per
+second, and a cumulative counter in periodic diagnostics. Keep the hook in IRAM
+and its format/counters in DRAM, checked in the final ELF; GCC LTO requires a
+non-inlined hook to preserve its section. No further stack/capacity reductions,
+partition changes, credential resets or automatic power writes. Underlying
+memory-pressure peaks and physical stability still require an owner retest.
+
 ## Rust prototype HTTP memory correction 0.1.2-rs-matter
 
 The owner now reaches Matter/BLE ready on 0.1.1, but HTTP is unavailable with

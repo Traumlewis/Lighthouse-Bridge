@@ -11,10 +11,10 @@ import struct
 import subprocess
 import zipfile
 from ota_package import package
-from rs_matter_link import validate_cache_safe_symbols
+from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.2-rs-matter'
+VERSION = '0.1.3-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
@@ -84,8 +84,10 @@ def main():
     compiler_path = next(line.split('=', 1)[1] for line in properties.splitlines()
                          if line.startswith('compiler.path='))
     nm = Path(compiler_path) / 'xtensa-esp-elf-nm'
-    cache_symbols = validate_cache_safe_symbols(subprocess.check_output(
-        [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True))
+    nm_output = subprocess.check_output(
+        [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True)
+    cache_symbols = validate_cache_safe_symbols(nm_output)
+    diagnostic_symbols = validate_diagnostics_symbols(nm_output)
     print('Verified cache-off libc definitions: ' + json.dumps(cache_symbols, sort_keys=True))
     if fingerprint!=source_fingerprint(): raise ValueError('Source changed during compilation; rebuild required')
     if not args.skip_compile: stamp.write_text(fingerprint+'\n')
@@ -116,7 +118,7 @@ def main():
     }, indent=2) + '\n')
     info = {'version': VERSION, 'engine':'rs-matter','rs_matter_revision':RS_REV,'rust_toolchain':'1.97.0.0','arduino_esp32': CORE, 'nimble': '2.5.2',
             'app_bytes': len(segments[-1][1]), 'app_slot_bytes': APP_LIMIT,
-            'cache_safe_libc': cache_symbols, 'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
+            'cache_safe_libc': cache_symbols, 'allocation_diagnostics': diagnostic_symbols, 'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
             'device_type': 'on_off_light', 'dashboard': True, 'local_api': True, 'ota': True}
     (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     archive = output / f'lighthouse-bridge-{VERSION}.zip'
