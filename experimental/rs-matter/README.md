@@ -1,4 +1,20 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.5-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.6-rs-matter
+
+This version adds commissioning diagnostics; Alexa GS014 is still unresolved.
+Owner 0.1.5 logs confirm receive progress, but a fresh attempt loses its retained
+fabric with zero logged allocation failures. The existing counters do not show
+whether removal, rollback or secure-session establishment caused the failure.
+The new `rs-matter protocol` and `rs-matter state` lines distinguish AddNOC,
+CommissioningComplete request/persistence, RemoveFabric, failsafe expiry and
+CASE/exchange errors. Active PASE/CASE session counts are separate from fabric
+count. A stored fabric alone does not mean that Alexa setup completed.
+
+Diagnostics use a 32-record bounded queue and fixed event/error labels; raw SDK
+text, certificates, keys, addresses and packet contents are never forwarded.
+Output drains outside stack locks after each foreground poll. Debug/trace are
+compiled out. Keep recording through the Alexa error and for two minutes after
+it, without rebooting or resetting settings. This is diagnostic evidence, not
+a claimed pairing fix or an actual hardware validation.
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.

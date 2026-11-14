@@ -1,6 +1,6 @@
 [package]
 name = "lighthouse-rs-matter"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 
@@ -8,7 +8,8 @@ license = "MIT"
 crate-type = ["staticlib"]
 
 [dependencies]
-rs-matter = { git = "https://github.com/project-chip/rs-matter", rev = "43f61585a439f1a1e90924b696a6280850ef0145", default-features = false, features = ["rustcrypto", "groups", "stack-max-im-buffers-4", "stack-max-responders-2", "stack-max-subscriptions-8"] }
+rs-matter = { git = "https://github.com/project-chip/rs-matter", rev = "43f61585a439f1a1e90924b696a6280850ef0145", default-features = false, features = ["rustcrypto", "groups", "log", "stack-max-im-buffers-4", "stack-max-responders-2", "stack-max-subscriptions-8"] }
+log = { version = "0.4", default-features = false, features = ["max_level_info", "release_max_level_info"] }
 embassy-time = { version = "0.5", features = ["tick-hz-1_000_000"] }
 embassy-time-driver = { version = "0.2", features = ["tick-hz-1_000_000"] }
 critical-section = { version = "1.1", features = ["restore-state-u32"] }

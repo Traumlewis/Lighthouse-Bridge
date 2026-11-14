@@ -465,6 +465,7 @@ dependencies = [
  "embedded-hal 1.0.0",
  "embedded-hal-async",
  "futures-core",
+ "log",
 ]
 
 [[package]]
@@ -823,11 +824,12 @@ checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "lighthouse-rs-matter"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "critical-section",
  "embassy-time",
  "embassy-time-driver",
+ "log",
  "rand",
  "rs-matter",
 ]
@@ -1311,6 +1313,7 @@ source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e909
 dependencies = [
  "bitflags 2.13.2",
  "defmt",
+ "log",
  "rs-matter-bdx",
  "rs-matter-cert",
  "rs-matter-crypto",
@@ -1338,6 +1341,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1352,6 +1356,7 @@ source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e909
 dependencies = [
  "defmt",
  "der",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1396,6 +1401,7 @@ dependencies = [
  "elliptic-curve",
  "hkdf",
  "hmac",
+ "log",
  "p256",
  "pbkdf2",
  "primeorder",
@@ -1419,6 +1425,7 @@ dependencies = [
  "defmt",
  "either",
  "heapless",
+ "log",
  "nix",
  "num",
  "rand_core",
@@ -1460,6 +1467,7 @@ dependencies = [
  "cfg-if",
  "defmt",
  "either",
+ "log",
  "rand_core",
  "rs-matter-crypto",
  "rs-matter-im-core",
@@ -1474,6 +1482,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "rs-matter-crypto",
  "rs-matter-dm-core",
  "rs-matter-im-core",
@@ -1490,6 +1499,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1515,6 +1525,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "rand_core",
  "rs-matter-cert",
  "rs-matter-crypto",
@@ -1536,6 +1547,7 @@ dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
  "defmt",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1554,6 +1566,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "rs-matter-cert",
  "rs-matter-crypto",
  "rs-matter-dm-clusters",
@@ -1571,6 +1584,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "qrcodegen-no-heap",
  "rs-matter-crypto",
  "rs-matter-tlv",
@@ -1584,6 +1598,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "rs-matter-bdx",
  "rs-matter-crypto",
  "rs-matter-dm-core",
@@ -1599,6 +1614,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "num",
  "rand_core",
  "rs-matter-cert",
@@ -1619,6 +1635,7 @@ source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e909
 dependencies = [
  "cfg-if",
  "defmt",
+ "log",
  "rs-matter-crypto",
  "rs-matter-dm",
  "rs-matter-dm-core",
@@ -1639,6 +1656,7 @@ version = "0.4.1"
 source = "git+https://github.com/project-chip/rs-matter?rev=43f61585a439f1a1e90924b696a6280850ef0145#43f61585a439f1a1e90924b696a6280850ef0145"
 dependencies = [
  "defmt",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1658,6 +1676,7 @@ dependencies = [
  "defmt",
  "domain",
  "either",
+ "log",
  "num",
  "num-derive",
  "num-traits",
@@ -1684,6 +1703,7 @@ dependencies = [
  "embassy-time",
  "embedded-io-async",
  "heapless",
+ "log",
  "num_enum",
  "pinned-init",
 ]

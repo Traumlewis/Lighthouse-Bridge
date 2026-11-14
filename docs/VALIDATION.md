@@ -1,6 +1,38 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.5-rs-matter
+## Independent rs-matter prototype 0.1.6-rs-matter
+
+Owner 0.1.5 evidence now confirms mDNS and Matter receive progress. One attempt
+reaches has_fabrics=true while the window is still open and Alexa reports GS014.
+A fresh excerpt without a version header begins with a retained fabric and closed
+window, then reports
+has_fabrics=false with an open window. No allocator failure or explicit panic is
+shown in that excerpt; minimum data heap is 11412 bytes. The supplied counters
+do not identify a RemoveFabric request, failsafe rollback or secure-session error.
+Neither a RAM cause nor completed commissioning can be inferred from them.
+
+0.1.6 enables the pinned stack's log facade through a bounded filter. Debug and
+trace are compiled out. At most 256 bytes of SDK text are formatted locally;
+only fixed allowlisted event/error labels enter a 32-record numeric queue and
+cross FFI. Overflow is explicitly reported. Raw text, payloads, certificates,
+keys and peer/fabric identities never reach serial through this path. The queue
+is drained only after protocol polling, outside SDK/queue critical sections,
+using the ROM formatter. Public SDK state logs changes in fabric count, active
+PASE/CASE sessions, failsafe state and window state. No SDK source patch, private
+cast, stack reduction or protocol-validation bypass is introduced.
+
+This is a diagnostic release. Alexa GS014, physical network interoperability and
+OTA remain unverified; software checks must not be described as an Echo test.
+
+Local 0.1.6 checks: five real-Rust host tests, all sixteen native C++ programs,
+31 Python checks and all nine browser/USB simulations pass. The real SDK window-open
+event reaches the safe output; synthetic confidential text is discarded,
+unknown/oversized messages remain bounded, a 40-record burst produces 32 queued
+records plus an explicit overflow report, and mock FFI asserts that serial output
+occurs outside critical sections. The classic ESP32 app is 1,919,536/1,966,080
+bytes, static RAM 67,076 bytes; the Rust arena is still 16 KiB and the Stack
+object is still 54,576 bytes. These are software/linker checks, not measured
+runtime RAM or pairing performance. Log formatting adds bounded CPU/stack work.
 
 Owner 0.1.4 evidence confirms the configured Wi-Fi profile (static RX 4,
 dynamic RX 8, dynamic TX 4, Block Ack 6), one IPv6 address, no explicit panic,

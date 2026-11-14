@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.5-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.6-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,7 +801,7 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,836,704/1,966,080 bytes, static RAM 66,924 bytes; four
+- Local validation: app 1,919,536/1,966,080 bytes, static RAM 67,076 bytes; five
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), sixteen native C++ programs, 31 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
@@ -900,3 +900,26 @@ Never copy the credential-bearing raw log into the repository.
   allocation, SDK fork or private casts. Full hardware Alexa discovery/pairing,
   multicast routing and heap-pressure improvement remain unverified. Do not
   claim the host-shim regression is a physical network test or commit raw logs.
+
+- Owner 0.1.5 evidence confirms incoming mDNS and Matter traffic. One attempt
+  adds a fabric while the window remains open and still ends in Alexa GS014.
+  A fresh excerpt without a version header starts with a retained fabric/closed
+  window and later changes
+  to no fabric/open window, with zero allocation failures, minimum data heap
+  11412 and no explicit panic. These excerpts do not identify who removed the
+  fabric or prove a successful CommissioningComplete. Do not prescribe a RAM
+  fix/reset, or label has_fabrics as a confirmed Alexa pairing.
+- 0.1.6 is a diagnostic release, not an established GS014 fix. Enable upstream
+  info/warn/error logging through log, with debug/trace compiled out. The adapter
+  formats at most 256 bytes locally and emits ONLY fixed allowlisted event/error
+  labels, never SDK text, keys, certificates, addresses, node/fabric IDs or bodies.
+  Queue 32 small numeric records; report overflow explicitly. Serial/ROM output
+  drains after polling returns, outside all stack/queue critical sections. No
+  unbounded allocations, SDK forks or disabled protocol validation.
+- Public SDK state snapshots log changes in fabric count, active PASE/CASE session
+  counts, failsafe armed/disarmed and window state. A stored fabric alone still
+  does not prove completion. Known events distinguish AddNOC, completion request
+  and persistence, RemoveFabric, failsafe expiry and CASE/exchange errors.
+  All stacks, Wi-Fi bounds, capacities, BLE/power policy, credentials/identities,
+  NVS and exact partition table remain unchanged. Alexa failure cause and actual
+  commissioning/OTA reliability remain hardware checks.

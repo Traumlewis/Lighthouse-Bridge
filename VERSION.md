@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype commissioning diagnostics 0.1.6-rs-matter
+
+- Add bounded, privacy-filtered upstream protocol diagnostics for attestation,
+  AddNOC, CommissioningComplete, RemoveFabric, fail-safe expiry and CASE/exchange
+  errors. Only fixed event/error labels leave the Rust adapter; raw SDK log text,
+  packet data, credentials, certificate material and device identities are excluded.
+- Log public-state changes in fabric count, active PASE/CASE sessions, fail-safe
+  and window state. A saved fabric is not proof of completed Alexa commissioning.
+  Diagnostic serial output runs after protocol polling and outside stack locks.
+- Owner 0.1.5 logs now show receive progress, but Alexa still reports GS014.
+  A fresh attempt removes the previously retained fabric without any logged heap
+  allocation failure. Its cause is unresolved; this release adds evidence and
+  does not claim a hardware pairing fix. Settings, BLE policy and both app slots
+  are preserved.
+
 ## Rust prototype UDP receive-readiness correction 0.1.5-rs-matter
 
 Fix the adapter's NetworkReceive::wait_available contract: it previously returned

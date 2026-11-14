@@ -34,6 +34,17 @@ extern "C" esp_err_t __wrap_esp_wifi_init(const wifi_init_config_t* input) {
 static std::atomic<int> mdnsFd{-1};
 static std::atomic<uint32_t> udpTx{0},udpRx{0},udpRetry{0},udpError{0},udpTimeout{0},mdnsTx{0},mdnsRx{0},netIpv6{0};
 extern "C" void lh_rs_send_timeout() { udpTimeout.fetch_add(1,std::memory_order_relaxed); }
+extern "C" void lh_rs_trace(uint32_t module,const uint8_t* event,size_t eventLen,const uint8_t* error,size_t errorLen) {
+  // Rust passes only fixed allowlisted labels, after returning from stack polling.
+  char eventLabel[64]{},errorLabel[48]{};
+  if(eventLen>=sizeof(eventLabel) || errorLen>=sizeof(errorLabel)) return;
+  memcpy(eventLabel,event,eventLen);memcpy(errorLabel,error,errorLen);
+  esp_rom_printf("rs-matter protocol: module=%u event=%s error=%s\n",module,eventLabel,errorLabel);
+}
+extern "C" void lh_rs_trace_state(uint32_t fabrics,uint32_t pase,uint32_t operational,bool failsafe,bool open) {
+  esp_rom_printf("rs-matter state: fabrics=%u pase_sessions=%u case_sessions=%u failsafe=%s window=%s\n",
+    fabrics,pase,operational,failsafe?"armed":"disarmed",open?"open":"closed");
+}
 extern "C" void lh_rs_emit_network_diagnostics() {
   esp_rom_printf("rs-matter UDP: tx=%u rx=%u retry=%u error=%u timeout=%u mdns_tx=%u mdns_rx=%u ipv6_addrs=%u\n",
     static_cast<unsigned>(udpTx.load()),static_cast<unsigned>(udpRx.load()),

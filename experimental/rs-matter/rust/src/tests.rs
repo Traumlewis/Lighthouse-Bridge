@@ -6,12 +6,26 @@ use rs_matter::dm::{
     Metadata,
 };
 static WRITES: AtomicU32 = AtomicU32::new(0);
+static LOCK_DEPTH: AtomicU32 = AtomicU32::new(0);
+static TRACE: std::sync::Mutex<std::vec::Vec<std::string::String>> = std::sync::Mutex::new(std::vec::Vec::new());
+#[no_mangle]
+unsafe extern "C" fn lh_rs_trace(_: u32, event: *const u8, event_len: usize, error: *const u8, error_len: usize) {
+    assert_eq!(LOCK_DEPTH.load(Ordering::SeqCst), 0, "serial must be outside stack/queue locks");
+    let event = core::str::from_utf8(core::slice::from_raw_parts(event, event_len)).unwrap();
+    let error = core::str::from_utf8(core::slice::from_raw_parts(error, error_len)).unwrap();
+    TRACE.lock().unwrap().push(std::format!("{event}:{error}"));
+}
+#[no_mangle]
+extern "C" fn lh_rs_trace_state(_: u32, _: u32, _: u32, _: bool, _: bool) {
+    assert_eq!(LOCK_DEPTH.load(Ordering::SeqCst), 0);
+}
 #[no_mangle]
 extern "C" fn lh_rs_lock() -> u32 {
+    LOCK_DEPTH.fetch_add(1, Ordering::SeqCst);
     0
 }
 #[no_mangle]
-extern "C" fn lh_rs_unlock(_: u32) {}
+extern "C" fn lh_rs_unlock(_: u32) { LOCK_DEPTH.fetch_sub(1, Ordering::SeqCst); }
 #[no_mangle]
 extern "C" fn lh_rs_time() -> u64 {
     CLOCK_US.load(Ordering::SeqCst)
@@ -160,6 +174,8 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
         ));
     }
     assert!(!paired && open);
+    assert!(TRACE.lock().unwrap().iter().any(|line| line == "basic_window_opened:none"),
+        "real SDK events must reach the safe logger through runtime polling");
     mdns_receive_checks();
     assert_ne!(platform::text(&code), "34970112332");
     CLOCK_US.fetch_add(901000000, Ordering::SeqCst);
@@ -185,6 +201,19 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
         "real startup/window renewal cannot send power"
     );
     udp_backpressure_checks();
+    let before = TRACE.lock().unwrap().len();
+    log::error!(target: "rs_matter_respond", "Responder: Abandoned because of error {:?}; private=synthetic-secret", Error::from(rs_matter::error::ErrorCode::NoSpace));
+    diagnostics::drain();
+    assert_eq!(&TRACE.lock().unwrap()[before..], &["exchange_abandoned:NoSpace"]);
+    let before = TRACE.lock().unwrap().len();
+    for _ in 0..40 {
+        log::error!(target: "rs_matter_sc::case", "private={} opaque-body=synthetic", "x".repeat(400));
+    }
+    diagnostics::drain();
+    let trace = TRACE.lock().unwrap();
+    assert_eq!(trace.len() - before, 33, "32 bounded entries plus explicit overflow");
+    assert!(trace[before..before + 32].iter().all(|line| line == "sdk_warning_or_error:none"));
+    assert_eq!(trace.last().unwrap(), "diagnostic_queue_overflow:events_dropped");
 }
 #[test]
 fn invalid_registry_or_commissioning_input_is_rejected() {

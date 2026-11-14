@@ -4,6 +4,7 @@
 extern crate alloc;
 mod model;
 mod platform;
+mod diagnostics;
 use alloc::boxed::Box;
 use core::{
     future::Future,
@@ -66,6 +67,7 @@ pub unsafe extern "C" fn lh_rs_begin(cfg: *const Config) -> bool {
         return false;
     }
     CONFIG = Some(core::ptr::read(cfg));
+    diagnostics::install();
     let Ok(task) = Box::try_new(run()) else {
         return false;
     };
@@ -78,15 +80,20 @@ pub unsafe extern "C" fn lh_rs_pump() -> i32 {
         return -1;
     };
     let mut cx = Context::from_waker(Waker::noop());
-    match task.as_mut().poll(&mut cx) {
+    let result = task.as_mut().poll(&mut cx);
+    diagnostics::drain();
+    match result {
         Poll::Pending => {
             if READY {
+                diagnostics::state_changed();
                 1
             } else {
                 0
             }
         }
-        Poll::Ready(_) => {
+        Poll::Ready(result) => {
+            if let Err(error) = result { log::error!(target: "rs_matter_respond", "Runtime ended: {:?}", error); }
+            diagnostics::drain();
             READY = false;
             TASK = None;
             -1
@@ -146,8 +153,8 @@ async fn run() -> Result<(), Error> {
             vendor_name: "Lighthouse Bridge",
             serial_no: platform::text(&cfg.serial),
             unique_id: platform::text(&cfg.serial),
-            sw_ver: 0x000105,
-            sw_ver_str: "0.1.5-rs-matter",
+            sw_ver: 0x000106,
+            sw_ver_str: "0.1.6-rs-matter",
             ..TEST_DEV_DET
         })
         .map_err(|_| Error::from(rs_matter::error::ErrorCode::NoSpace))?,
