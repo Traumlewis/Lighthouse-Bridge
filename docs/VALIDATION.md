@@ -1,6 +1,40 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.6-rs-matter
+## Independent rs-matter prototype 0.1.7-rs-matter
+
+The owner's 0.1.6 trace establishes a successful protocol-level commissioning:
+CASE becomes active, CommissioningComplete is requested and persisted, the
+fail-safe disarms and the window closes. A RemoveFabric request removes the old
+fabric before the fresh attempt. An UnsupportedEndpoint read follows completion.
+UnsupportedCommand and UnsupportedCluster probes also occur during setup, but
+none of these error labels alone establishes the cause of Alexa's app result.
+Allocation-failure count stays zero; foreground stack watermark reaches 788 bytes.
+This is not a claim of adequate stack/RAM reserve or working light controls.
+
+The application supplied metadata as root 0, aggregator 2, then station 1 and
+later station IDs. That violates the pinned SDK's documented Node invariant.
+Its IM path expander resumes by binary_search_by_key; the old order can make a
+configured endpoint disappear during a read. The new regression builds real
+ReadRequest TLV, parses it and calls the SDK's expand_read, rather than directly
+calling Model::index or Node::endpoint. The legacy production model fails the
+SDK's sorted-endpoint debug assertion. A negative legacy-order fixture also
+checks that release-mode wildcard expansion silently omits endpoint 1. Corrected metadata sorts
+in place without changing persisted IDs or the separate station-indexed arrays.
+Tests exercise direct and wildcard Descriptor paths for full, sparse, shuffled
+and empty models in both debug and release host profiles; CI runs both profiles.
+Previous direct-lookup/construction-order tests did not exercise the IM expander.
+
+Physical Alexa acceptance after the correction remains open. Owner evidence now
+supports CASE and protocol commissioning, not Alexa device enumeration, power
+control, external-state synchronization, OTA or long-term runtime margins.
+
+All five real-Rust host tests pass in debug and release modes, including the
+real SDK Descriptor-read regression and the legacy-order negative control.
+Local classic-ESP32 app size is 1,921,968/1,966,080 bytes, static RAM 67,076.
+The arena stays 16 KiB, Stack object 54,576 bytes, foreground stack 16 KiB and
+BLE stack 8 KiB. These sizes are not runtime headroom or hardware pairing proof.
+
+## rs-matter commissioning diagnostics 0.1.6 evidence
 
 Owner 0.1.5 evidence now confirms mDNS and Matter receive progress. One attempt
 reaches has_fabrics=true while the window is still open and Alexa reports GS014.

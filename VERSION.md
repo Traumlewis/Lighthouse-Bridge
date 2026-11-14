@@ -3,6 +3,21 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype endpoint lookup correction 0.1.7-rs-matter
+
+- Sort the Matter metadata endpoints by their existing IDs. The previous order
+  `0, 2, 1, 3, ...` violated the pinned SDK's Node contract and its resumable
+  Interaction Model path expander's binary search. This changes metadata order
+  only; persisted endpoint IDs, station bindings and per-station state remain intact.
+- Exercise real parsed Descriptor reads through the SDK, for each endpoint and
+  a wildcard, with full, sparse, shuffled and empty configurations. Check debug
+  and release host profiles, including a negative legacy-order fixture.
+- Owner 0.1.6 evidence confirms CASE and CommissioningComplete persistence,
+  followed by an UnsupportedEndpoint read. The endpoint lookup defect is
+  reproduced in software; Alexa app acceptance with this correction still needs
+  hardware confirmation. Both app slots, all capacities, stacks and BLE/power
+  behavior are unchanged.
+
 ## Rust prototype commissioning diagnostics 0.1.6-rs-matter
 
 - Add bounded, privacy-filtered upstream protocol diagnostics for attestation,

@@ -59,6 +59,9 @@ impl Model {
                 ),
             ));
         }
+        // The SDK's resumable IM path expander binary-searches Node::endpoints.
+        // Sort metadata only; persisted endpoint IDs and station-index state stay intact.
+        endpoints.sort_unstable_by_key(|endpoint| endpoint.id);
         Self {
             endpoints,
             timers: core::array::from_fn(|_| Cell::new(Timed::default())),

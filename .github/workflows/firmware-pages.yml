@@ -108,6 +108,7 @@ jobs:
           . .tools/rs-export.sh
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py
           CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path experimental/rs-matter/rust/Cargo.toml
+          CARGO_BUILD_JOBS=2 cargo +esp test --locked --release --manifest-path experimental/rs-matter/rust/Cargo.toml
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test
           /tmp/lighthouse-rs-matter-test
           g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test

@@ -1,20 +1,25 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.6-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.7-rs-matter
 
-This version adds commissioning diagnostics; Alexa GS014 is still unresolved.
-Owner 0.1.5 logs confirm receive progress, but a fresh attempt loses its retained
-fabric with zero logged allocation failures. The existing counters do not show
-whether removal, rollback or secure-session establishment caused the failure.
-The new `rs-matter protocol` and `rs-matter state` lines distinguish AddNOC,
-CommissioningComplete request/persistence, RemoveFabric, failsafe expiry and
-CASE/exchange errors. Active PASE/CASE session counts are separate from fabric
-count. A stored fabric alone does not mean that Alexa setup completed.
+This version fixes an endpoint metadata ordering defect in our adapter. The
+pinned SDK requires endpoints in ascending ID order for its resumable path
+expander; the former root 0 / aggregator 2 / station 1 order violated that
+contract. Metadata is now sorted in place while every saved endpoint ID,
+station binding and station-indexed state stays unchanged.
 
-Diagnostics use a 32-record bounded queue and fixed event/error labels; raw SDK
-text, certificates, keys, addresses and packet contents are never forwarded.
-Output drains outside stack locks after each foreground poll. Debug/trace are
-compiled out. Keep recording through the Alexa error and for two minutes after
-it, without rebooting or resetting settings. This is diagnostic evidence, not
-a claimed pairing fix or an actual hardware validation.
+Real SDK Descriptor-read regressions cover individual and wildcard paths with
+full, sparse, shuffled and empty configurations in debug and release profiles.
+The legacy order fails the SDK assertion in debug and produces
+a missing endpoint 1 in release-mode wildcard reads. Earlier direct-lookup tests bypassed that path.
+
+Owner 0.1.6 diagnostics now confirm CASE and CommissioningComplete persistence,
+then an UnsupportedEndpoint read. This supports protocol-level commissioning;
+Alexa device enumeration and control with the correction still need a hardware
+test. The foreground watermark reached 788 bytes with zero allocation failures;
+this is not a claim of sufficient stack/RAM margins. Stacks are unchanged.
+
+The existing bounded `rs-matter protocol` and `rs-matter state` diagnostics remain.
+Only fixed event/error labels and non-secret counts are printed. No automatic
+power writes, identity resets, NVS changes or flash-layout changes are introduced.
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.

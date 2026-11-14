@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.6-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.7-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -786,6 +786,11 @@ Never copy the credential-bearing raw log into the repository.
 - Root/aggregator/bridged Descriptor metadata use actual retained endpoint IDs,
   not array positions. OnOff and Reachable read current C++ measurements and
   notify changes from the Rust handler; command acceptance never changes them.
+  Node::endpoints must be strictly ascending by ID for the pinned SDK's resumable
+  IM path expander. Sort the metadata vector in place after construction; never
+  renumber endpoint identities or reorder the station/configuration state arrays.
+  Keep direct and wildcard real-SDK Descriptor-read coverage in debug and release
+  host tests, including full, sparse, shuffled and empty configurations.
 - Manual private setup-code renewal remains personal-session/Origin/JSON gated,
   coalesces pending requests and opens a fresh 15-minute Basic window. Track the
   exact window identity; closed, pending or unknown enhanced windows expose no
@@ -801,7 +806,7 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,919,536/1,966,080 bytes, static RAM 67,076 bytes; five
+- Local validation: app 1,921,968/1,966,080 bytes, static RAM 67,076 bytes; five
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), sixteen native C++ programs, 31 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
@@ -925,3 +930,23 @@ Never copy the credential-bearing raw log into the repository.
   All stacks, Wi-Fi bounds, capacities, BLE/power policy, credentials/identities,
   NVS and exact partition table remain unchanged. Alexa failure cause and actual
   commissioning/OTA reliability remain hardware checks.
+
+- Owner 0.1.6 log now confirms a CASE session, CommissioningComplete persistence,
+  failsafe disarmed and window closed at 20:46:26, with no allocation failures.
+  A preceding RemoveFabric request is explicitly handled before the fresh PASE
+  attempt. UnsupportedCommand/Cluster probes occur during setup; an
+  UnsupportedEndpoint read follows completion. These labels alone do not prove
+  their relationship to Alexa GS014. Foreground watermark falls to 788 bytes;
+  do not claim stack/RAM margins or shrink any stack from this evidence.
+- 0.1.7 corrects our metadata order root 0 / aggregator 2 / station 1, which
+  violated the SDK's sorted-Node contract. A real parsed Descriptor read through
+  the SDK path expander fails its debug assertion on that legacy order; release
+  coverage verifies that endpoint 1 is silently omitted from wildcard reads. Earlier tests
+  checked construction order and direct lookups, bypassing that expander. Fixed
+  metadata preserves every ID, binding and station-indexed state. Full Alexa
+  discovery/app acceptance, external status and power control remain hardware
+  checks even though protocol commissioning is now observed on owner hardware.
+  All five Rust host tests pass in both debug and release profiles; the exact
+  former model fails the new SDK-read regression before the fix. The classic
+  app remains within 1,966,080 bytes. Tests are software evidence, not Echo app
+  acceptance or a hardware switching test.

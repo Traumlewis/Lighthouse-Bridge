@@ -71,6 +71,42 @@ fn configuration() -> Config {
     }
     cfg
 }
+fn sdk_descriptor_read_path(model: &impl Metadata, wanted: Option<u16>) -> std::vec::Vec<Result<u16, rs_matter::im::AttrStatus>> {
+    use rs_matter::acl::{Accessor, AccessorSubjects, AuthMode};
+    use rs_matter::im::{expand_read, AttrPath, ReadReq, ReportDataReq};
+    use rs_matter::tlv::{get_root_node_struct, TLVTag, TLVWrite, ToTLV};
+    use rs_matter::utils::storage::WriteBuf;
+    let ids = model.access(|node| node.endpoints.iter().map(|ep| ep.id).collect::<std::vec::Vec<_>>());
+    let matter = Matter::new(&TEST_DEV_DET,
+        DevCommData::Passcode(BasicCommData {
+            password: Spake2pVerifierPassword::from(20202021u32.to_le_bytes()), discriminator: 3840,
+        }), &TEST_DEV_ATT, 0);
+    let accessor = Accessor::new(0, false, AccessorSubjects::new(0), Some(AuthMode::Pase), &matter);
+    // Use the real SDK request parser and resumable path expander. Merely
+    // checking Model::index or Node::endpoint bypasses its binary-search cursor.
+        let mut bytes = [0; 128];
+        let mut writer = WriteBuf::new(&mut bytes);
+        writer.start_struct(&TLVTag::Anonymous).unwrap();
+        writer.start_array(&TLVTag::Context(0)).unwrap();
+        AttrPath { endpoint: wanted, cluster: Some(0x1d), attr: Some(0), ..Default::default() }
+            .to_tlv(&TLVTag::Anonymous, &mut writer).unwrap();
+        writer.end_container().unwrap();
+        writer.bool(&TLVTag::Context(3), false).unwrap();
+        writer.end_container().unwrap();
+        let req = ReadReq::new(get_root_node_struct(writer.as_slice()).unwrap());
+        let report = ReportDataReq::Read(&req);
+        expand_read(model, &report, &accessor, |_, _, _| true).unwrap()
+            .take(ids.len() + 2).map(|item| item.unwrap().map(|attr| attr.endpoint_id))
+            .collect::<std::vec::Vec<_>>()
+}
+fn sdk_descriptor_read_paths(model: &impl Metadata) {
+    let ids = model.access(|node| node.endpoints.iter().map(|ep| ep.id).collect::<std::vec::Vec<_>>());
+    for wanted in ids.iter().copied().map(Some).chain(core::iter::once(None)) {
+        let result = sdk_descriptor_read_path(model, wanted);
+        let expected = match wanted { Some(id) => std::vec![Ok(id)], None => ids.iter().copied().map(Ok).collect() };
+        assert_eq!(result, expected, "every configured Descriptor path must expand exactly once");
+    }
+}
 #[test]
 fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     unsafe {
@@ -80,13 +116,31 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     model.access(|node| {
         assert_eq!(node.endpoints.len(), 18);
         assert_eq!(node.endpoints[0].id, 0);
-        assert_eq!(node.endpoints[1].id, 2);
-        assert_eq!(node.endpoints[2].id, 1);
+        assert_eq!(node.endpoints[1].id, 1);
+        assert_eq!(node.endpoints[2].id, 2);
         assert_eq!(node.endpoints[17].id, 17);
         assert!(node
             .endpoints
             .iter()
             .all(|e| e.clusters.iter().any(|c| c.id == DescHandler::CLUSTER.id)));
+    });
+    sdk_descriptor_read_paths(&model);
+    model.access(|node| {
+        let mut legacy = node.endpoints.to_vec();
+        legacy.swap(1,2); // The old production order: root, aggregator, first station.
+        let legacy = rs_matter::dm::Node::new(&legacy);
+        if cfg!(debug_assertions) {
+            let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                sdk_descriptor_read_path(&legacy, None);
+            })).expect_err("legacy metadata must fail the SDK sorted-node assertion");
+            let message = failure.downcast_ref::<std::string::String>().map(|s| s.as_str())
+                .or_else(|| failure.downcast_ref::<&str>().copied()).unwrap_or("");
+            assert!(message.contains("must be sorted ascending"));
+        } else {
+            let broken = sdk_descriptor_read_path(&legacy, None);
+            let expected = node.endpoints.iter().filter(|ep| ep.id != 1).map(|ep| Ok(ep.id)).collect::<std::vec::Vec<_>>();
+            assert_eq!(broken, expected, "legacy release metadata silently omits endpoint 1");
+        }
     });
     assert_eq!(WRITES.load(Ordering::SeqCst), 0);
     // Reproduce a registry whose former endpoint 1 has been retired.
@@ -108,6 +162,14 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
             [0, 2, 7, 8, 9, 10]
         )
     });
+    sdk_descriptor_read_paths(&sparse);
+    let mut cfg = configuration();
+    cfg.count = 4;
+    for (entry, id) in cfg.stations.iter_mut().zip([10, 1, 7, 3]) { entry.endpoint = id; }
+    unsafe { CONFIG = Some(cfg); }
+    let shuffled = model::Model::new(&mut platform::Random);
+    shuffled.access(|node| assert_eq!(node.endpoints.iter().map(|ep| ep.id).collect::<std::vec::Vec<_>>(), [0,1,2,3,7,10]));
+    sdk_descriptor_read_paths(&shuffled);
     unsafe {
         (&mut *core::ptr::addr_of_mut!(CONFIG))
             .as_mut()
@@ -116,8 +178,9 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     }
     let empty = model::Model::new(&mut platform::Random);
     empty.access(|node| assert_eq!(node.endpoints.len(), 2));
+    sdk_descriptor_read_paths(&empty);
     assert_eq!(WRITES.load(Ordering::SeqCst), 0);
-    drop((model, sparse, empty));
+    drop((model, sparse, shuffled, empty));
     let cfg = configuration();
     unsafe {
         assert!(lh_rs_begin(&cfg));
