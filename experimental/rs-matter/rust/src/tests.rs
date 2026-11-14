@@ -183,6 +183,7 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
         0,
         "real startup/window renewal cannot send power"
     );
+    udp_backpressure_checks();
 }
 #[test]
 fn invalid_registry_or_commissioning_input_is_rejected() {
@@ -275,15 +276,35 @@ unsafe extern "C" fn lh_rs_wifi(ssid: *mut u8, password: *mut u8) -> u32 {
 extern "C" fn lh_rs_socket(_: u16, _: *const u8, _: u32) -> i32 {
     1
 }
+static UDP_TIMEOUTS: AtomicU32 = AtomicU32::new(0);
 #[no_mangle]
-extern "C" fn lh_rs_close(_: i32) {}
+extern "C" fn lh_rs_send_timeout() { UDP_TIMEOUTS.fetch_add(1, Ordering::SeqCst); }
+static SOCKET_CLOSES: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
+extern "C" fn lh_rs_close(_: i32) { SOCKET_CLOSES.fetch_add(1, Ordering::SeqCst); }
 #[no_mangle]
 extern "C" fn lh_rs_recv(_: i32, _: *mut u8, _: usize, _: *mut u8) -> i32 {
     -1
 }
+struct SendPlan {
+    values: [i32; 4], len: usize, pos: usize, fallback: i32, calls: u32,
+}
+static SEND_PLAN: std::sync::Mutex<SendPlan> = std::sync::Mutex::new(SendPlan {
+    values: [0; 4], len: 0, pos: 0, fallback: i32::MAX, calls: 0,
+});
+fn send_plan(values: &[i32], fallback: i32) {
+    let mut plan = SEND_PLAN.lock().unwrap();
+    *plan = SendPlan { values: [0; 4], len: values.len(), pos: 0, fallback, calls: 0 };
+    plan.values[..values.len()].copy_from_slice(values);
+}
 #[no_mangle]
 extern "C" fn lh_rs_send(_: i32, _: *const u8, size: usize, _: *const u8) -> i32 {
-    size as i32
+    let mut plan = SEND_PLAN.lock().unwrap();
+    plan.calls += 1;
+    let result = if plan.pos < plan.len {
+        let result = plan.values[plan.pos]; plan.pos += 1; result
+    } else { plan.fallback };
+    if result == i32::MAX { size as i32 } else { result }
 }
 #[no_mangle]
 extern "C" fn lh_rs_multicast(_: i32, _: bool, _: *const u8, _: u32) -> bool {
@@ -298,4 +319,54 @@ unsafe extern "C" fn lh_rs_hostname(out: *mut u8, size: usize) {
 fn poll_runtime() {
     CLOCK_US.fetch_add(100000, Ordering::SeqCst);
     assert!(unsafe { lh_rs_pump() } >= 0);
+}
+
+
+fn udp_backpressure_checks() {
+    use core::net::{Ipv4Addr, SocketAddr};
+    use rs_matter::stack::net::{NetSocket, NetStack};
+    use rs_matter::transport::network::{Address, NetworkSend};
+    let mut cx = Context::from_waker(Waker::noop());
+    let mut bind = Box::pin(platform::Net.bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), Ipv4Addr::LOCALHOST, 1));
+    let Poll::Ready(Ok(mut socket)) = bind.as_mut().poll(&mut cx) else { panic!("mock bind"); };
+    let (mut sender, _, _) = socket.split();
+    let address = Address::Udp(SocketAddr::from((Ipv4Addr::LOCALHOST, 5540)));
+    let payload = [1, 2, 3];
+    send_plan(&[-1, -1, 3], i32::MAX);
+    let mut send = Box::pin(sender.send_to(&payload, address));
+    assert!(send.as_mut().poll(&mut cx).is_pending());
+    CLOCK_US.fetch_add(10000, Ordering::SeqCst);
+    assert!(send.as_mut().poll(&mut cx).is_pending());
+    CLOCK_US.fetch_add(10000, Ordering::SeqCst);
+    assert!(matches!(send.as_mut().poll(&mut cx), Poll::Ready(Ok(()))));
+    assert_eq!(SEND_PLAN.lock().unwrap().calls, 3);
+    drop(send);
+    for result in [-2, 1] { // Permanent errors and short datagrams never ACK.
+        send_plan(&[result], i32::MAX);
+        let mut send = Box::pin(sender.send_to(&payload, address));
+        assert!(matches!(send.as_mut().poll(&mut cx), Poll::Ready(Err(_))));
+        assert_eq!(SEND_PLAN.lock().unwrap().calls, 1);
+    }
+    send_plan(&[], -1);
+    let mut send = Box::pin(sender.send_to(&payload, address));
+    let mut timed_out = false;
+    for _ in 0..20 {
+        if let Poll::Ready(result) = send.as_mut().poll(&mut cx) {
+            assert!(result.is_err()); timed_out = true; break;
+        }
+        CLOCK_US.fetch_add(100000, Ordering::SeqCst);
+    }
+    assert!(timed_out && SEND_PLAN.lock().unwrap().calls <= 17);
+    assert_eq!(UDP_TIMEOUTS.load(Ordering::SeqCst), 1);
+    drop(send);
+    send_plan(&[-1], i32::MAX);
+    let closes = SOCKET_CLOSES.load(Ordering::SeqCst);
+    let mut send = Box::pin(sender.send_to(&payload, address));
+    assert!(send.as_mut().poll(&mut cx).is_pending());
+    drop(send); // Cancellation must leave the socket usable.
+    assert_eq!(SOCKET_CLOSES.load(Ordering::SeqCst), closes);
+    let mut send = Box::pin(sender.send_to(&payload, address));
+    assert!(matches!(send.as_mut().poll(&mut cx), Poll::Ready(Ok(()))));
+    drop(send);
+    send_plan(&[], i32::MAX);
 }

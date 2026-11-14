@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.3-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.4-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,9 +801,9 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,835,120/1,966,080 bytes, static RAM 66,892 bytes; four
+- Local validation: app 1,836,512/1,966,080 bytes, static RAM 66,924 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
-  shims), fifteen native C++ programs, 29 Python checks and nine browser/USB
+  shims), sixteen native C++ programs, 31 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
   Explicit Matter timed commands issue one expiry request, cancelled if a newer
   command generation supersedes it; they never create a startup timer or resend.
@@ -861,3 +861,24 @@ Never copy the credential-bearing raw log into the repository.
   Preserve 16 KiB foreground/arena and 8 KiB BLE stacks, all capacities, NVS and
   partitions. Underlying pressure, sustained stability, OTA and pairing remain
   hardware checks; this logging-path correction is not a general OOM fix.
+
+- Owner 0.1.3 excerpt has no panic but >24,000 allocation failures, 180-byte
+  heap minimum and recurring BLE_NO_MEMORY. 1528/2308-byte INTERNAL|DEFAULT and
+  442-byte INTERNAL|DMA|8BIT requests fail; caller/unique cause is not established.
+  Pressure begins with a closed window; later open/paired=false persists and
+  Alexa reports device not found. Do not claim the open window proves discovery.
+- 0.1.4 wraps public esp_wifi_init arguments after Arduino's hard-coded defaults:
+  dynamic TX<=4, RX target 8 while preserving static RX/Block Ack minima and
+  stricter existing limits. Keep all other public config fields/magic/callbacks,
+  aggregation, static buffers, Wi-Fi credentials and modem sleep unchanged. No
+  SDK fork/private struct casts. Log actual counts and validate the linked wrapper.
+  Lower peak throughput is an intentional tradeoff; hardware results are open.
+- UDP EAGAIN/EWOULDBLOCK/ENOMEM/ENOBUFS/EINTR yield asynchronously (send 10 ms,
+  bounded 1.5 s retry window; receive 5 ms). Hard/short/timeout sends fail, never
+  false ACK or split datagrams; cancellation retains the socket. Host tests drive
+  the actual Rust adapter through shortage/success/hard/short/timeout/cancel.
+  Report UDP TX/RX/retry/hard-send-error/timeout, mDNS socket TX/RX and IPv6 count
+  without payloads/identifiers. Local syscall success does not prove Echo receipt.
+  Keep 16 stations/all protocol capacities, stacks, NVS, partitions and BLE worker
+  policy. Alexa discovery, routing/isolation, actual OTA and sustained RAM margin
+  remain hardware checks. Do not copy raw owner logs or credential frames.

@@ -11,10 +11,10 @@ import struct
 import subprocess
 import zipfile
 from ota_package import package
-from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols
+from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.3-rs-matter'
+VERSION = '0.1.4-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
@@ -76,7 +76,7 @@ def main():
                         'compiler.cpp.extra_flags=-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', ROOT/'experimental/rs-matter', sketch]),
                         '--build-property', 'compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
-                        '--build-property', 'compiler.c.elf.extra_flags=-flto',
+                        '--build-property', 'compiler.c.elf.extra_flags=-flto -Wl,--wrap=esp_wifi_init',
                         '--build-property', 'compiler.libraries.ldflags=-Wl,--undefined=memcpy,--undefined=memmove,--undefined=memset,--undefined=memcmp,--undefined=strlen -lc '+str(rustlib),
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     properties = subprocess.check_output([args.arduino_cli, 'compile', '--fqbn', FQBN,
@@ -88,6 +88,7 @@ def main():
         [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True)
     cache_symbols = validate_cache_safe_symbols(nm_output)
     diagnostic_symbols = validate_diagnostics_symbols(nm_output)
+    wifi_wrapper = validate_wifi_wrapper(nm_output)
     print('Verified cache-off libc definitions: ' + json.dumps(cache_symbols, sort_keys=True))
     if fingerprint!=source_fingerprint(): raise ValueError('Source changed during compilation; rebuild required')
     if not args.skip_compile: stamp.write_text(fingerprint+'\n')
@@ -118,7 +119,7 @@ def main():
     }, indent=2) + '\n')
     info = {'version': VERSION, 'engine':'rs-matter','rs_matter_revision':RS_REV,'rust_toolchain':'1.97.0.0','arduino_esp32': CORE, 'nimble': '2.5.2',
             'app_bytes': len(segments[-1][1]), 'app_slot_bytes': APP_LIMIT,
-            'cache_safe_libc': cache_symbols, 'allocation_diagnostics': diagnostic_symbols, 'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
+            'cache_safe_libc': cache_symbols, 'allocation_diagnostics': diagnostic_symbols, 'wifi_init_wrapper': wifi_wrapper, 'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
             'device_type': 'on_off_light', 'dashboard': True, 'local_api': True, 'ota': True}
     (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     archive = output / f'lighthouse-bridge-{VERSION}.zip'

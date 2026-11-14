@@ -6,6 +6,7 @@ struct RsConfig { uint32_t passcode; uint16_t discriminator, count; RsStation st
 extern "C" {
 bool lh_rs_init_diagnostics();
 uint32_t lh_rs_allocation_failures();
+void lh_rs_emit_network_diagnostics();
 bool lh_rs_begin(const RsConfig* configuration);
 int lh_rs_pump();
 bool lh_rs_open();

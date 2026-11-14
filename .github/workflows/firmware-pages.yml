@@ -110,6 +110,8 @@ jobs:
           /tmp/lighthouse-rs-matter-test
           g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test
           /tmp/lighthouse-rs-diagnostics-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_network.cpp -o /tmp/lighthouse-rs-network-test
+          /tmp/lighthouse-rs-network-test
       - name: Build WebFlasher site
         run: python tools/build_pages.py
       - name: Test WebFlasher assets

@@ -1,6 +1,39 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.3-rs-matter
+## Independent rs-matter prototype 0.1.4-rs-matter
+
+Owner 0.1.3 evidence: no abort/backtrace/panic appears in this excerpt; one
+accepted config save has its intended restart, and a later POWERON_RESET does
+not prove a software crash. The allocation-failure hook reaches >24,000 events.
+Reports include 1528/2308 bytes with INTERNAL|DEFAULT (0x1800) and 442 bytes
+with INTERNAL|DMA|8BIT (0x80c); heap minima reach 180 bytes and BLE_NO_MEMORY
+recurs. Failures start with the window closed. Later the window opens but the
+fabric remains unpaired; the owner says Alexa cannot find the device. This
+establishes pressure, not the precise allocator caller or a unique cause of
+failed discovery. No raw logs or device identities are retained.
+
+0.1.4 bounds Wi-Fi's public init config after Arduino 3.3.12's hard-coded 32/32
+dynamic defaults. This classic-board profile uses TX<=4 and RX<=8, raising the
+RX target only when required by existing static RX or Block Ack minima. Already
+stricter limits are retained. All unrelated fields, storage/callback/magic data,
+static buffer counts and aggregation remain unchanged. A linker wrapper forwards
+the copied config once to the real SDK init; no SDK fork/private casts. Startup
+logs show actual counts, and final ELF validation requires the wrapper.
+https://github.com/espressif/arduino-esp32/blob/3.3.12/libraries/WiFi/src/WiFiGeneric.cpp
+https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32/api-guides/wifi.html
+This bounds frame-buffer growth at the cost of peak throughput; actual RAM
+headroom and discovery are not established by the build.
+
+Temporary UDP send pressure now yields in 10 ms intervals, with a 1.5 s retry
+window; permanent errors, timeout and partial writes return failure. No false
+success or partial-datagram resend. Temporary receive errors remain pending.
+The real Rust host driver test covers eventual success after two shortages,
+hard/short failure, timeout and cancellation with socket reuse. C++ tests cover
+public config copy/limits/minima and errno classification. Serial counters show
+UDP TX/RX/temporary failures/hard send errors/timeouts, mDNS socket traffic and
+reported IPv6 address count, without payloads/addresses/keys. Socket acceptance
+is not proof of Echo receipt or successful mDNS parsing. Physical Alexa pairing,
+network isolation/IPv6 routing, sustained heap margin and OTA remain open.
 
 Owner 0.1.2 evidence now confirms displayed dashboard, discovery of all four
 stations, assignment and successful save. The subsequent configuration restart
@@ -59,7 +92,7 @@ installer, runtime, packaging and tests have been removed. Historical Tasmota
 results below describe the retired implementation and are not evidence for the
 new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
 its no_std library links with the existing production C++ dashboard/API/OTA and
-single NimBLE worker. The final local build is 1,835,120/1,966,080 app bytes, with 66,892 static RAM
+single NimBLE worker. The final local build is 1,836,512/1,966,080 app bytes, with 66,924 static RAM
 bytes. Runtime Rust objects are allocated separately; these linker figures do not
 establish operational headroom. The Arduino foreground task reserves 16 KiB and
 the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.
@@ -69,7 +102,7 @@ network/NVS shims, correct verifier/manual-code agreement, renewal, expiry, 0/16
 and sparse endpoint models, invalid configuration rejection and no startup/window
 power commands. Explicit timed commands expire once and yield to superseding
 command generations. These tests do not exercise a physical network or flash.
-All fifteen native C++ programs, 29 Python checks and nine simulated browser/USB
+All sixteen native C++ programs, 31 Python checks and nine simulated browser/USB
 programs pass locally. The stable firmware also builds. Packaging checks exact
 partition equality, classic chip ID, slot bounds, identical OTA payload and
 rebuild sources; Cargo dependency licenses are included with ZIP-safe timestamps. No device is

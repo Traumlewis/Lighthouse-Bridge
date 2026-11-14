@@ -16,7 +16,7 @@ use rs_matter::stack::{
     wireless::{WifiDriver, WifiTask},
 };
 use rs_matter::transport::network::{Address, NetworkMulticast, NetworkReceive, NetworkSend};
-use rs_matter::utils::timers::Timer;
+use rs_matter::utils::timers::{Instant, Timer};
 use rs_matter::{
     error::{Error, ErrorCode},
     persist::KvBlobStore,
@@ -34,6 +34,7 @@ extern "C" {
     fn lh_rs_socket(port: u16, ip4: *const u8, interface: u32) -> i32;
     fn lh_rs_close(fd: i32);
     fn lh_rs_recv(fd: i32, buf: *mut u8, size: usize, addr: *mut WireAddr) -> i32;
+    fn lh_rs_send_timeout();
     fn lh_rs_send(fd: i32, buf: *const u8, size: usize, addr: *const WireAddr) -> i32;
     fn lh_rs_multicast(fd: i32, join: bool, group: *const u8, interface: u32) -> bool;
 }
@@ -304,11 +305,23 @@ impl NetworkSend for Half {
             return Err(ErrorCode::InvalidAction.into());
         };
         let a = WireAddr::from(addr);
-        let n = unsafe { lh_rs_send(self.0, data.as_ptr(), data.len(), &a) };
-        if n == data.len() as i32 {
-            Ok(())
-        } else {
-            Err(ErrorCode::StdIoError.into())
+        let started = Instant::now();
+        loop {
+            if started.elapsed().as_millis() >= 1500 {
+                unsafe { lh_rs_send_timeout() };
+                return Err(ErrorCode::StdIoError.into());
+            }
+            let n = unsafe { lh_rs_send(self.0, data.as_ptr(), data.len(), &a) };
+            if n == data.len() as i32 {
+                return Ok(());
+            }
+            // UDP is atomic: never acknowledge short writes or split a datagram.
+            if n != -1 {
+                return Err(ErrorCode::StdIoError.into());
+            }
+            // Yield the foreground executor/HTTP while the radio drains buffers.
+            // Dropping this future cancels the wait without owning/closing a socket.
+            Timer::after_millis(10).await;
         }
     }
 }

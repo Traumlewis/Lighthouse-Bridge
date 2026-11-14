@@ -3,6 +3,28 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype bounded Wi-Fi buffers and UDP backpressure 0.1.4-rs-matter
+
+Owner 0.1.3 evidence has no panic, but over 24,000 allocation failures, recurring
+BLE_NO_MEMORY and heap minima around 180 bytes. Alexa reports device not found
+while the commissioning window is open. This does not establish a single
+allocator caller or successful delivery of discovery packets.
+
+Bound the public Wi-Fi init config after Arduino's hard-coded defaults: dynamic
+TX 32 -> 4, RX 32 -> 8 for this board, preserving static RX and aggregation minima
+and all unrelated config fields. Link through esp_wifi_init's public argument,
+without modifying SDK sources or private layouts. Log applied limits at startup
+and require the wrapper in the final ELF. This reduces possible buffer bursts,
+with lower peak throughput; it is not a proven Alexa fix or RAM margin.
+
+Handle temporary UDP ENOMEM/ENOBUFS/EAGAIN/EINTR with 10 ms asynchronous pauses
+for up to 1.5 seconds; timeout/permanent/short sends fail, never fake ACK or split
+a datagram. Cancellation keeps the socket usable. Log UDP TX/RX/retries/errors,
+timeouts, mDNS socket TX/RX and IPv6 address count without payloads/identifiers.
+Counters prove only local socket activity, not Echo receipt or packet parsing.
+Keep protocol/station capacity, stacks, NVS, partitions and the measured BLE
+worker unchanged. Hardware discovery, stability and OTA still need testing.
+
 ## Rust prototype allocation-safe SDK logging 0.1.3-rs-matter
 
 The owner can now discover, assign and save four stations through the dashboard.

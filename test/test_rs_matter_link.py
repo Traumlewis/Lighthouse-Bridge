@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from rs_matter_link import CACHE_OFF_SYMBOLS, validate_cache_safe_symbols, validate_diagnostics_symbols
+from rs_matter_link import CACHE_OFF_SYMBOLS, validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
 
 class CacheOffLinkTests(unittest.TestCase):
@@ -53,3 +53,13 @@ class AllocationDiagnosticLinkTests(unittest.TestCase):
             validate_diagnostics_symbols(self.listing().replace('3ffc07c0', '3f401234'))
         with self.assertRaisesRegex(ValueError, 'Duplicate allocation diagnostic symbol: format'):
             validate_diagnostics_symbols(self.listing() + '\n' + self.listing().splitlines()[1])
+
+
+class WifiWrapperLinkTests(unittest.TestCase):
+    def test_linked_wrapper(self):
+        self.assertEqual(validate_wifi_wrapper('400e1000 T __wrap_esp_wifi_init\n'), '0x400e1000')
+
+    def test_missing_weak_or_duplicate_wrapper_is_rejected(self):
+        for listing in ['', '400e1000 W __wrap_esp_wifi_init\n', '400e1000 T __wrap_esp_wifi_init\n400e1000 T __wrap_esp_wifi_init\n']:
+            with self.assertRaisesRegex(ValueError, 'linked Wi-Fi init wrapper'):
+                validate_wifi_wrapper(listing)

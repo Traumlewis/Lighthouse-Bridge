@@ -62,3 +62,10 @@ def validate_diagnostics_symbols(nm_output):
         if key not in found:
             raise ValueError(f'Missing allocation diagnostic symbol: {key}')
     return found
+
+
+def validate_wifi_wrapper(nm_output):
+    matches = re.findall(r'^([0-9a-fA-F]+)\s+([Tt])\s+__wrap_esp_wifi_init$', nm_output, re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError('Missing or duplicate linked Wi-Fi init wrapper')
+    return f'{int(matches[0][0], 16):#010x}'

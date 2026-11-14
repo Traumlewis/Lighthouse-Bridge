@@ -194,6 +194,7 @@ void matterBridgeLoop() {
       matterDataFree(),matterDataLargest(),heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
       static_cast<unsigned>(lh_rs_arena_used()),static_cast<unsigned>(lh_rs_arena_bytes()),
       static_cast<unsigned>(lh_rs_allocation_failures()));
+    lh_rs_emit_network_diagnostics();
   }
   if(matterWindowPending){
     if(!windowDispatched){

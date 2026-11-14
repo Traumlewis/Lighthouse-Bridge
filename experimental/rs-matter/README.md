@@ -1,4 +1,4 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.3-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.4-rs-matter
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -40,9 +40,9 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,835,120/1,966,080 app bytes; 66,892 static RAM bytes. Rust
-runtime objects allocate separately. Four native Rust tests, fifteen C++ test
-programs, 29 Python checks and nine simulated browser/USB programs pass. This is
+Local validation: 1,836,512/1,966,080 app bytes; 66,924 static RAM bytes. Rust
+runtime objects allocate separately. Four native Rust tests, sixteen C++ test
+programs, 31 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
 16 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
 heap, largest block and stack watermark for the next hardware test.
@@ -98,3 +98,36 @@ Native tests cover console warmup/failure and hook registration, an invalid igno
 pointer, throttling and millis wrap. Hook disassembly calls ROM/IRAM helpers.
 Underlying allocation peaks, sustained RAM headroom, actual OTA and physical
 stability remain unverified; this is not a general OOM or Alexa pairing fix.
+
+Owner 0.1.3 evidence: no abort/backtrace/panic appears in this excerpt; one
+accepted config save has its intended restart, and a later POWERON_RESET does
+not prove a software crash. The allocation-failure hook reaches >24,000 events.
+Reports include 1528/2308 bytes with INTERNAL|DEFAULT (0x1800) and 442 bytes
+with INTERNAL|DMA|8BIT (0x80c); heap minima reach 180 bytes and BLE_NO_MEMORY
+recurs. Failures start with the window closed. Later the window opens but the
+fabric remains unpaired; the owner says Alexa cannot find the device. This
+establishes pressure, not the precise allocator caller or a unique cause of
+failed discovery. No raw logs or device identities are retained.
+
+0.1.4 bounds Wi-Fi's public init config after Arduino 3.3.12's hard-coded 32/32
+dynamic defaults. This classic-board profile uses TX<=4 and RX<=8, raising the
+RX target only when required by existing static RX or Block Ack minima. Already
+stricter limits are retained. All unrelated fields, storage/callback/magic data,
+static buffer counts and aggregation remain unchanged. A linker wrapper forwards
+the copied config once to the real SDK init; no SDK fork/private casts. Startup
+logs show actual counts, and final ELF validation requires the wrapper.
+https://github.com/espressif/arduino-esp32/blob/3.3.12/libraries/WiFi/src/WiFiGeneric.cpp
+https://docs.espressif.com/projects/esp-idf/en/v5.4.2/esp32/api-guides/wifi.html
+This bounds frame-buffer growth at the cost of peak throughput; actual RAM
+headroom and discovery are not established by the build.
+
+Temporary UDP send pressure now yields in 10 ms intervals, with a 1.5 s retry
+window; permanent errors, timeout and partial writes return failure. No false
+success or partial-datagram resend. Temporary receive errors remain pending.
+The real Rust host driver test covers eventual success after two shortages,
+hard/short failure, timeout and cancellation with socket reuse. C++ tests cover
+public config copy/limits/minima and errno classification. Serial counters show
+UDP TX/RX/temporary failures/hard send errors/timeouts, mDNS socket traffic and
+reported IPv6 address count, without payloads/addresses/keys. Socket acceptance
+is not proof of Echo receipt or successful mDNS parsing. Physical Alexa pairing,
+network isolation/IPv6 routing, sustained heap margin and OTA remain open.

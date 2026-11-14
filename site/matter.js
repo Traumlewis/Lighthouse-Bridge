@@ -1,7 +1,7 @@
-import { translations } from './translations.js?v=rs-matter-0.1.3';
-import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.3';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.3';
-import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.3';
+import { translations } from './translations.js?v=rs-matter-0.1.4';
+import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.4';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.4';
+import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.4';
 
 const $ = id => document.getElementById(id);
 const isRsMatter = document.body.dataset.prototype === 'rs-matter';

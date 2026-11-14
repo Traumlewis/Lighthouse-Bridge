@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <esp_rom_sys.h>
 #include "rs_diagnostics.h"
+#include "rs_network.h"
 #include "rs_runtime.h"
 extern "C" bool lh_rs_init_diagnostics() {
   return rsDiagnostics::install([](const char* text,size_t size)->size_t {
@@ -22,6 +23,23 @@ extern "C" bool lh_rs_init_diagnostics() {
   });
 }
 extern "C" uint32_t lh_rs_allocation_failures() { return rsDiagnostics::failures.load(std::memory_order_relaxed); }
+extern "C" esp_err_t __real_esp_wifi_init(const wifi_init_config_t*);
+extern "C" esp_err_t __wrap_esp_wifi_init(const wifi_init_config_t* input) {
+  if (!input) return __real_esp_wifi_init(input);
+  const wifi_init_config_t cfg=rsNetwork::boundedWifiConfig(*input);
+  esp_rom_printf("rs-matter Wi-Fi buffers: static_rx=%d dynamic_rx=%d dynamic_tx=%d rx_ba_win=%d\n",
+    cfg.static_rx_buf_num,cfg.dynamic_rx_buf_num,cfg.dynamic_tx_buf_num,cfg.rx_ba_win);
+  return __real_esp_wifi_init(&cfg);
+}
+static std::atomic<int> mdnsFd{-1};
+static std::atomic<uint32_t> udpTx{0},udpRx{0},udpRetry{0},udpError{0},udpTimeout{0},mdnsTx{0},mdnsRx{0},netIpv6{0};
+extern "C" void lh_rs_send_timeout() { udpTimeout.fetch_add(1,std::memory_order_relaxed); }
+extern "C" void lh_rs_emit_network_diagnostics() {
+  esp_rom_printf("rs-matter UDP: tx=%u rx=%u retry=%u error=%u timeout=%u mdns_tx=%u mdns_rx=%u ipv6_addrs=%u\n",
+    static_cast<unsigned>(udpTx.load()),static_cast<unsigned>(udpRx.load()),
+    static_cast<unsigned>(udpRetry.load()),static_cast<unsigned>(udpError.load()),static_cast<unsigned>(udpTimeout.load()),
+    static_cast<unsigned>(mdnsTx.load()),static_cast<unsigned>(mdnsRx.load()),static_cast<unsigned>(netIpv6.load()));
+}
 struct NetInfo { uint8_t mac[8],ip4[4],ip6[4][16]; uint32_t ipv6_count, interface; bool connected; };
 static_assert(sizeof(NetInfo)==88,"Rust interface ABI");
 struct WireAddr { uint8_t ip[16]; uint16_t port; uint32_t scope; };
@@ -48,7 +66,7 @@ extern "C" int lh_rs_store(unsigned op,uint16_t id,uint8_t* bytes,size_t size) {
   nvs_close(handle); return result;
 }
 extern "C" bool lh_rs_net(NetInfo* out) {
-  *out={}; esp_netif_t* net=esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"); if(!net) return false;
+  *out={}; esp_netif_t* net=esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"); if(!net) { netIpv6.store(0); return false; }
   out->connected=WiFi.status()==WL_CONNECTED;
   esp_netif_get_mac(net,out->mac); out->interface=esp_netif_get_netif_impl_index(net);
   esp_netif_ip_info_t ip{};
@@ -56,6 +74,7 @@ extern "C" bool lh_rs_net(NetInfo* out) {
   esp_ip6_addr_t addresses[CONFIG_LWIP_IPV6_NUM_ADDRESSES]{};
   int count=esp_netif_get_all_ip6(net,addresses);
   out->ipv6_count=std::max(0,std::min(count,4));
+  netIpv6.store(out->ipv6_count);
   static bool wasConnected=false;static uint32_t attempted=0;
   if(out->connected && (!wasConnected || (!out->ipv6_count && millis()-attempted>=30000))){
     attempted=millis();
@@ -75,21 +94,34 @@ extern "C" int lh_rs_socket(uint16_t port,const uint8_t* ip4,uint32_t interface)
   in_addr ip{};memcpy(&ip,ip4,4);setsockopt(fd,IPPROTO_IP,IP_MULTICAST_IF,&ip,sizeof(ip));
   sockaddr_in6 addr{};addr.sin6_family=AF_INET6;addr.sin6_port=htons(port);addr.sin6_addr=in6addr_any;
   if(bind(fd,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))<0 || fcntl(fd,F_SETFL,O_NONBLOCK)<0) {close(fd);return -1;}
+  if (port==5353) mdnsFd.store(fd);
   return fd;
 }
-extern "C" void lh_rs_close(int fd) { close(fd); }
+extern "C" void lh_rs_close(int fd) {
+  int expected=fd;mdnsFd.compare_exchange_strong(expected,-1);
+  close(fd);
+}
 extern "C" int lh_rs_recv(int fd,uint8_t* data,size_t size,WireAddr* remote) {
   sockaddr_in6 address{}; socklen_t length=sizeof(address);
   int n=recvfrom(fd,data,size,MSG_DONTWAIT,reinterpret_cast<sockaddr*>(&address),&length);
-  if(n<0) return errno==EAGAIN || errno==EWOULDBLOCK ? -1 : -2;
+  if(n<0) return rsNetwork::socketResult(n,errno);
   if(address.sin6_family!=AF_INET6) return -2;
   memcpy(remote->ip,&address.sin6_addr,16);remote->port=ntohs(address.sin6_port);remote->scope=address.sin6_scope_id;
+  udpRx.fetch_add(1,std::memory_order_relaxed);
+  if (fd==mdnsFd.load()) mdnsRx.fetch_add(1,std::memory_order_relaxed);
   return n;
 }
 extern "C" int lh_rs_send(int fd,const uint8_t* data,size_t size,const WireAddr* remote) {
   sockaddr_in6 address{};address.sin6_family=AF_INET6;address.sin6_port=htons(remote->port);
   memcpy(&address.sin6_addr,remote->ip,16);address.sin6_scope_id=remote->scope;
-  return sendto(fd,data,size,MSG_DONTWAIT,reinterpret_cast<sockaddr*>(&address),sizeof(address));
+  const int n=sendto(fd,data,size,MSG_DONTWAIT,reinterpret_cast<sockaddr*>(&address),sizeof(address));
+  const int result=rsNetwork::socketResult(n,errno);
+  if (result>=0 && static_cast<size_t>(result)==size) {
+    udpTx.fetch_add(1,std::memory_order_relaxed);
+    if (fd==mdnsFd.load()) mdnsTx.fetch_add(1,std::memory_order_relaxed);
+  } else if (result==-1) udpRetry.fetch_add(1,std::memory_order_relaxed);
+  else udpError.fetch_add(1,std::memory_order_relaxed);
+  return result;
 }
 extern "C" bool lh_rs_multicast(int fd,bool join,const uint8_t* group,uint32_t interface) {
   if(group[10]==0xff && group[11]==0xff) {
