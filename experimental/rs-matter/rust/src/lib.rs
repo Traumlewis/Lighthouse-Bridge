@@ -140,8 +140,8 @@ async fn run() -> Result<(), Error> {
             vendor_name: "Lighthouse Bridge",
             serial_no: platform::text(&cfg.serial),
             unique_id: platform::text(&cfg.serial),
-            sw_ver: 0x000100,
-            sw_ver_str: "0.1.0-rs-matter",
+            sw_ver: 0x000101,
+            sw_ver_str: "0.1.1-rs-matter",
             ..TEST_DEV_DET
         })
         .map_err(|_| Error::from(rs_matter::error::ErrorCode::NoSpace))?,

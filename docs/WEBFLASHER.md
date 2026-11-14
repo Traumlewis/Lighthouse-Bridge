@@ -40,7 +40,7 @@ the reader owns USB and when its manifest or any segment is unavailable/unsafe.
 
 ## Experimental rs-matter choice
 
-`rs-matter.html` offers the separate 0.1.0-rs-matter firmware, with its own
+`rs-matter.html` offers the separate 0.1.1-rs-matter firmware, with its own
 `rs-matter-manifest.json` and `firmware/rs-matter/` images, .lhota, checksums and
 source ZIP. The shared installer code checks an explicit rs-matter
 filename prefix and version suffix; it cannot mix stable, SDK or rs-matter images.

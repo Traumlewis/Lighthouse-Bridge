@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.0-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.1-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,9 +801,9 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,829,712/1,966,080 bytes, static RAM 66,812 bytes; four
+- Local validation: app 1,834,432/1,966,080 bytes, static RAM 66,812 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
-  shims), fourteen native C++ programs, 22 Python checks and nine browser/USB
+  shims), fourteen native C++ programs, 26 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 24 KiB; BLE remains 8 KiB.
   Explicit Matter timed commands issue one expiry request, cancelled if a newer
   command generation supersedes it; they never create a startup timer or resend.
@@ -816,3 +816,13 @@ Never copy the credential-bearing raw log into the repository.
   include dependency licenses. Packaging refuses stale source fingerprints.
 - No commissioning window is advertised on startup. The personal-session renewal
   action opens it only after both rs-matter and the BLE worker are ready.
+
+- 0.1.0-rs-matter owner hardware evidence is negative: cache-error boot loop
+  before setup/HTTP. Exact published ELF maps the fault to Rust weak memmove
+  during ESP-IDF flash initialization. 0.1.1 explicitly resolves SDK libc before
+  Rust, then links Rust as a normal archive within the rescan group; never put it under whole-archive before
+  SDK archives. Keep ESP-IDF cache/PSRAM-safe libc. Packaging checks final strong
+  ROM/IRAM memcpy/memmove/memset/memcmp/strlen, including skip-compile, and refuses
+  missing/weak/flash definitions. No ROM-address overrides, partition or NVS edits.
+  Recover the boot loop with four USB parts, erasing unchecked. Physical startup
+  and Alexa pairing remain unverified; do not infer success from ELF checks.

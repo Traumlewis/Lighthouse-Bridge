@@ -1,13 +1,24 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.0-rs-matter
+## Independent rs-matter prototype 0.1.1-rs-matter
+
+Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur
+before Arduino setup or HTTP. The exact published ELF decodes the failing PC to
+Rust's weak flash-resident memmove, called by ESP-IDF read_id_core during flash
+initialization. The 0.1.1 link explicitly resolves SDK libc before Rust, retaining its cache/PSRAM
+workaround rather than replacing it with fixed ROM addresses. Packaging checks
+memcpy, memmove, memset, memcmp and strlen in the final ELF for strong ROM/IRAM
+definitions. Regression tests reject the actual failing address and missing,
+duplicate, weak and flash definitions. This is a software correction; physical
+startup, runtime memory and Alexa pairing remain unverified. Recover 0.1.0 over
+four-part USB with erasing unchecked; its HTTP OTA service never starts.
 
 The owner explicitly replaced the Tasmota experiment. Its active firmware,
 installer, runtime, packaging and tests have been removed. Historical Tasmota
 results below describe the retired implementation and are not evidence for the
 new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
 its no_std library links with the existing production C++ dashboard/API/OTA and
-single NimBLE worker. The final local build is 1,829,712/1,966,080 app bytes, with 66,812 static RAM
+single NimBLE worker. The final local build is 1,834,432/1,966,080 app bytes, with 66,812 static RAM
 bytes. Runtime Rust objects are allocated separately; these linker figures do not
 establish operational headroom. The Arduino foreground task reserves 24 KiB and
 the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.
@@ -17,7 +28,7 @@ network/NVS shims, correct verifier/manual-code agreement, renewal, expiry, 0/16
 and sparse endpoint models, invalid configuration rejection and no startup/window
 power commands. Explicit timed commands expire once and yield to superseding
 command generations. These tests do not exercise a physical network or flash.
-All fourteen native C++ programs, 22 Python checks and nine simulated browser/USB
+All fourteen native C++ programs, 26 Python checks and nine simulated browser/USB
 programs pass locally. The stable firmware also builds. Packaging checks exact
 partition equality, classic chip ID, slot bounds, identical OTA payload and
 rebuild sources; Cargo dependency licenses are included with ZIP-safe timestamps. No device is

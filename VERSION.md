@@ -3,6 +3,15 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype boot correction 0.1.1-rs-matter
+
+Fix the 0.1.0 pre-dashboard cache-error reboot loop: link the Rust archive after
+SDK libraries inside the link group, preserving ESP-IDF's cache-safe libc
+implementations. Packaging validates all five affected final ELF symbols and
+rejects weak, flash-resident or missing definitions. No partition or NVS changes.
+Recover the boot-looping build using the four-part USB installer, erase unchecked.
+Hardware startup and Alexa pairing still require an owner retest.
+
 ## Independent Rust prototype 0.1.0-rs-matter
 
 Replace the experimental Tasmota backend, builder and installer with the native

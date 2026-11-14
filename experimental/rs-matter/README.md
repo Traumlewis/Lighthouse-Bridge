@@ -1,4 +1,4 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.0-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.1-rs-matter
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -40,9 +40,20 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,829,712/1,966,080 app bytes; 66,812 static RAM bytes. Rust
+Local validation: 1,834,432/1,966,080 app bytes; 66,812 static RAM bytes. Rust
 runtime objects allocate separately. Four native Rust tests, fourteen C++ test
-programs, 22 Python checks and nine simulated browser/USB programs pass. This is
+programs, 26 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
 24 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
 heap, largest block and stack watermark for the next hardware test.
+
+Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur
+before Arduino setup or HTTP. The exact published ELF decodes the failing PC to
+Rust's weak flash-resident memmove, called by ESP-IDF read_id_core during flash
+initialization. The 0.1.1 link explicitly resolves SDK libc before Rust, retaining its cache/PSRAM
+workaround rather than replacing it with fixed ROM addresses. Packaging checks
+memcpy, memmove, memset, memcmp and strlen in the final ELF for strong ROM/IRAM
+definitions. Regression tests reject the actual failing address and missing,
+duplicate, weak and flash definitions. This is a software correction; physical
+startup, runtime memory and Alexa pairing remain unverified. Recover 0.1.0 over
+four-part USB with erasing unchecked; its HTTP OTA service never starts.

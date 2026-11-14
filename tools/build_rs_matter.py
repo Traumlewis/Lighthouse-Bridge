@@ -11,9 +11,10 @@ import struct
 import subprocess
 import zipfile
 from ota_package import package
+from rs_matter_link import validate_cache_safe_symbols
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-rs-matter'
+VERSION = '0.1.1-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
@@ -29,7 +30,7 @@ from build_matter import validate_segments, render_dashboard
 
 def source_fingerprint():
     paths=[ROOT/'src/main.cpp',ROOT/'include/web_ui.h',ROOT/'partitions.csv',
-           ROOT/'tools/build_rs_matter.py',ROOT/'tools/build_matter.py',ROOT/'tools/matter_dashboard.py']
+           ROOT/'tools/build_rs_matter.py',ROOT/'tools/build_matter.py',ROOT/'tools/matter_dashboard.py',ROOT/'tools/rs_matter_link.py']
     for directory,patterns in [('include',['*.h']),('experimental/matter/MatterBridge',['*.h']),('experimental/rs-matter',['*.h','*.cpp','*.ino']),('experimental/rs-matter/rust',['Cargo.toml','Cargo.lock']),('experimental/rs-matter/rust/src',['*.rs'])]:
         for pattern in patterns:paths.extend((ROOT/directory).glob(pattern))
     digest=hashlib.sha256()
@@ -68,12 +69,24 @@ def main():
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
             raise SystemExit(f'Install esp32:esp32@{CORE} using Arduino CLI first')
+        # Resolve SDK archives first, then Rust inside the same rescan group.
+        # Whole-archive before the group overrides cache-safe libc with weak
+        # compiler_builtins and crashes during flash initialization.
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', FQBN, '--build-property',
                         'compiler.cpp.extra_flags=-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', ROOT/'experimental/rs-matter', sketch]),
                         '--build-property', 'compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
-                        '--build-property', 'compiler.c.elf.extra_flags=-flto -Wl,--whole-archive '+str(rustlib)+' -Wl,--no-whole-archive',
+                        '--build-property', 'compiler.c.elf.extra_flags=-flto',
+                        '--build-property', 'compiler.libraries.ldflags=-Wl,--undefined=memcpy,--undefined=memmove,--undefined=memset,--undefined=memcmp,--undefined=strlen -lc '+str(rustlib),
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
+    properties = subprocess.check_output([args.arduino_cli, 'compile', '--fqbn', FQBN,
+                                          '--show-properties=expanded', str(sketch)], text=True)
+    compiler_path = next(line.split('=', 1)[1] for line in properties.splitlines()
+                         if line.startswith('compiler.path='))
+    nm = Path(compiler_path) / 'xtensa-esp-elf-nm'
+    cache_symbols = validate_cache_safe_symbols(subprocess.check_output(
+        [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True))
+    print('Verified cache-off libc definitions: ' + json.dumps(cache_symbols, sort_keys=True))
     if fingerprint!=source_fingerprint(): raise ValueError('Source changed during compilation; rebuild required')
     if not args.skip_compile: stamp.write_text(fingerprint+'\n')
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in SEGMENTS]
@@ -103,7 +116,7 @@ def main():
     }, indent=2) + '\n')
     info = {'version': VERSION, 'engine':'rs-matter','rs_matter_revision':RS_REV,'rust_toolchain':'1.97.0.0','arduino_esp32': CORE, 'nimble': '2.5.2',
             'app_bytes': len(segments[-1][1]), 'app_slot_bytes': APP_LIMIT,
-            'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
+            'cache_safe_libc': cache_symbols, 'hardware_validated': False, 'stations': 16, 'bridge_name': 'Lighthouse-Bridge Matter Test',
             'device_type': 'on_off_light', 'dashboard': True, 'local_api': True, 'ota': True}
     (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     archive = output / f'lighthouse-bridge-{VERSION}.zip'
@@ -121,7 +134,7 @@ def main():
         for path in ['experimental/rs-matter/RsMatter.ino', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter').glob('*.h')], 'experimental/rs-matter/rs_platform.cpp', 'experimental/rs-matter/rust/Cargo.toml', 'experimental/rs-matter/rust/Cargo.lock', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter/rust/src').glob('*.rs')],
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'experimental/matter/MatterBridge').glob('*.h')], 'partitions.csv',
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
-                     'src/main.cpp', 'tools/build_rs_matter.py', 'tools/build_matter.py', 'tools/matter_dashboard.py', 'tools/ota_package.py', 'tools/requirements-matter-build.txt',
+                     'src/main.cpp', 'tools/build_rs_matter.py', 'tools/build_matter.py', 'tools/matter_dashboard.py', 'tools/ota_package.py', 'tools/rs_matter_link.py', 'tools/requirements-matter-build.txt',
                      'experimental/rs-matter/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():
