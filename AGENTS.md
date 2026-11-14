@@ -759,7 +759,7 @@ Never copy the credential-bearing raw log into the repository.
   static RAM 123,284 bytes. These are not runtime memory margins or device tests.
 
 ## Independent rs-matter prototype
-- The owner replaced the Tasmota experiment with **0.1.1-rs-matter**. Its source,
+- The owner replaced the Tasmota experiment with **0.1.2-rs-matter**. Its source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with
@@ -801,10 +801,10 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,834,432/1,966,080 bytes, static RAM 66,812 bytes; four
+- Local validation: app 1,834,576/1,966,080 bytes, static RAM 66,812 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), fourteen native C++ programs, 26 Python checks and nine browser/USB
-  programs pass. The Arduino foreground stack is 24 KiB; BLE remains 8 KiB.
+  programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
   Explicit Matter timed commands issue one expiry request, cancelled if a newer
   command generation supersedes it; they never create a startup timer or resend.
 - The saved Wi-Fi configuration remains owned by Lighthouse. Seed rs-matter's
@@ -824,5 +824,18 @@ Never copy the credential-bearing raw log into the repository.
   SDK archives. Keep ESP-IDF cache/PSRAM-safe libc. Packaging checks final strong
   ROM/IRAM memcpy/memmove/memset/memcmp/strlen, including skip-compile, and refuses
   missing/weak/flash definitions. No ROM-address overrides, partition or NVS edits.
-  Recover the boot loop with four USB parts, erasing unchecked. Physical startup
-  and Alexa pairing remain unverified; do not infer success from ELF checks.
+  Recover the boot loop with four USB parts, erasing unchecked. Owner 0.1.1 reaches Matter/BLE ready, but HTTP remains unavailable; do not infer
+  HTTP or Alexa success from ELF checks.
+
+- 0.1.1 owner log: after WLAN, Matter/BLE ready; free data heap ~2412 bytes,
+  largest 2036, later free 1652/largest 916. No cache panic is shown. A later
+  POWERON_RESET does not prove an OOM reboot. No raw log or identifiers in Git.
+- 0.1.2 reserves a 16 KiB ESP32 Rust arena (24 KiB on 64-bit host) and 16 KiB
+  foreground stack instead of 24+24 KiB, releasing 16 KiB fixed RAM. The owner
+  measured foreground watermark >=18612/24576 (<=5964 bytes used) at startup/idle;
+  pairing/OTA peaks remain unknown. BLE stays 8 KiB. The sole wifi_oper_task
+  future fits its arena with alignment+1 KiB reserve via an exact concrete-type
+  compile assertion in the driver. Log arena used/capacity, retain all protocol
+  capacities and 16 stations, no heap/private-layout tricks or SDK fork.
+  Host startup/window/expiry tests exercise the same driver with host-sized arena.
+  HTTP/OTA, pairing and sustained RAM headroom remain hardware checks.

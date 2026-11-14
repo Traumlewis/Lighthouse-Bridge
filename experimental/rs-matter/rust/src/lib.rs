@@ -20,7 +20,13 @@ use rs_matter::{
 
 use rand::Rng;
 
-const BUMP: usize = 24576;
+// The 32-bit operational future is ~12 KiB. Host pointers need more space.
+// platform::Wifi::run checks the exact allocated future at compile time.
+const BUMP: usize = if core::mem::size_of::<usize>() == 4 {
+    16384
+} else {
+    24576
+};
 type Stack = MatterStack<'static, BUMP, WifiNetworks<1>>;
 static mut STACK: *const Stack = core::ptr::null();
 static mut TASK: Option<Pin<Box<dyn Future<Output = Result<(), Error>>>>> = None;
@@ -140,8 +146,8 @@ async fn run() -> Result<(), Error> {
             vendor_name: "Lighthouse Bridge",
             serial_no: platform::text(&cfg.serial),
             unique_id: platform::text(&cfg.serial),
-            sw_ver: 0x000101,
-            sw_ver_str: "0.1.1-rs-matter",
+            sw_ver: 0x000102,
+            sw_ver_str: "0.1.2-rs-matter",
             ..TEST_DEV_DET
         })
         .map_err(|_| Error::from(rs_matter::error::ErrorCode::NoSpace))?,
@@ -244,6 +250,14 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 #[no_mangle]
 pub extern "C" fn lh_rs_stack_bytes() -> usize {
     core::mem::size_of::<Stack>()
+}
+#[no_mangle]
+pub extern "C" fn lh_rs_arena_bytes() -> usize {
+    BUMP
+}
+#[no_mangle]
+pub extern "C" fn lh_rs_arena_used() -> usize {
+    platform::WIFI_ARENA_USED.load(core::sync::atomic::Ordering::Relaxed)
 }
 #[no_mangle]
 pub extern "C" fn lh_rs_task_bytes() -> usize {

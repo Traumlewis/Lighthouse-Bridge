@@ -1,6 +1,23 @@
 # Validation report — 0.3.9
 
-## Independent rs-matter prototype 0.1.1-rs-matter
+## Independent rs-matter prototype 0.1.2-rs-matter
+
+Owner 0.1.1 evidence confirms Matter/BLE ready without the prior cache panic,
+but the dashboard is unavailable after WLAN setup. Data heap drops to about
+2412 bytes (largest block 2036), later as low as 1652 (largest 916). A later
+POWERON_RESET is shown without a panic; it does not establish an OOM-triggered
+reboot. The foreground stack watermark is >=18612 of 24576 bytes: observed
+startup/idle use is <=5964 bytes. Pairing/OTA peaks were not measured.
+
+0.1.2 releases 16384 bytes of fixed reservation: the ESP32 future arena is
+16384 instead of 24576, and the foreground task is 16384 instead of 24576.
+The exact operational future (about 12 KiB on Xtensa) is checked at compile time
+against its arena, including alignment and 1 KiB reserve. 64-bit host builds use
+24576 for their larger pointer-dependent frame. The operational driver still
+uses one arena allocation; no SDK source/private layout casts are introduced.
+Arena used/capacity are logged. BLE remains 8192 bytes and every protocol/station
+capacity stays unchanged. Hardware HTTP delivery, actual OTA, pairing stack peaks
+and Alexa interoperability remain unverified for this correction.
 
 Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur
 before Arduino setup or HTTP. The exact published ELF decodes the failing PC to
@@ -9,18 +26,18 @@ initialization. The 0.1.1 link explicitly resolves SDK libc before Rust, retaini
 workaround rather than replacing it with fixed ROM addresses. Packaging checks
 memcpy, memmove, memset, memcmp and strlen in the final ELF for strong ROM/IRAM
 definitions. Regression tests reject the actual failing address and missing,
-duplicate, weak and flash definitions. This is a software correction; physical
-startup, runtime memory and Alexa pairing remain unverified. Recover 0.1.0 over
-four-part USB with erasing unchecked; its HTTP OTA service never starts.
+duplicate, weak and flash definitions. Owner 0.1.1 now confirms physical startup; HTTP and Alexa pairing remain
+unverified. Recover 0.1.0 over four-part USB with erasing unchecked; its HTTP
+OTA service never starts.
 
 The owner explicitly replaced the Tasmota experiment. Its active firmware,
 installer, runtime, packaging and tests have been removed. Historical Tasmota
 results below describe the retired implementation and are not evidence for the
 new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
 its no_std library links with the existing production C++ dashboard/API/OTA and
-single NimBLE worker. The final local build is 1,834,432/1,966,080 app bytes, with 66,812 static RAM
+single NimBLE worker. The final local build is 1,834,576/1,966,080 app bytes, with 66,812 static RAM
 bytes. Runtime Rust objects are allocated separately; these linker figures do not
-establish operational headroom. The Arduino foreground task reserves 24 KiB and
+establish operational headroom. The Arduino foreground task reserves 16 KiB and
 the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.
 
 Four real-Rust host tests pass, including actual stack startup with synthetic
@@ -32,7 +49,7 @@ All fourteen native C++ programs, 26 Python checks and nine simulated browser/US
 programs pass locally. The stable firmware also builds. Packaging checks exact
 partition equality, classic chip ID, slot bounds, identical OTA payload and
 rebuild sources; Cargo dependency licenses are included with ZIP-safe timestamps. No device is
-attached and no successful Alexa pairing, runtime heap margin or physical update
+attached and no successful Alexa pairing, runtime heap margin or actual OTA
 has been established for rs-matter.
 
 ## Tasmota pairing-control UI correction 0.1.6-tasmota

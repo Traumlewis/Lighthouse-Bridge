@@ -1,4 +1,4 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.1-rs-matter
+# Lighthouse Bridge — rs-matter prototype 0.1.2-rs-matter
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -40,11 +40,11 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,834,432/1,966,080 app bytes; 66,812 static RAM bytes. Rust
+Local validation: 1,834,576/1,966,080 app bytes; 66,812 static RAM bytes. Rust
 runtime objects allocate separately. Four native Rust tests, fourteen C++ test
 programs, 26 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
-24 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
+16 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
 heap, largest block and stack watermark for the next hardware test.
 
 Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur
@@ -54,6 +54,23 @@ initialization. The 0.1.1 link explicitly resolves SDK libc before Rust, retaini
 workaround rather than replacing it with fixed ROM addresses. Packaging checks
 memcpy, memmove, memset, memcmp and strlen in the final ELF for strong ROM/IRAM
 definitions. Regression tests reject the actual failing address and missing,
-duplicate, weak and flash definitions. This is a software correction; physical
-startup, runtime memory and Alexa pairing remain unverified. Recover 0.1.0 over
-four-part USB with erasing unchecked; its HTTP OTA service never starts.
+duplicate, weak and flash definitions. Owner 0.1.1 now confirms physical startup; HTTP and Alexa pairing remain
+unverified. Recover 0.1.0 over four-part USB with erasing unchecked; its HTTP
+OTA service never starts.
+
+Owner 0.1.1 evidence confirms Matter/BLE ready without the prior cache panic,
+but the dashboard is unavailable after WLAN setup. Data heap drops to about
+2412 bytes (largest block 2036), later as low as 1652 (largest 916). A later
+POWERON_RESET is shown without a panic; it does not establish an OOM-triggered
+reboot. The foreground stack watermark is >=18612 of 24576 bytes: observed
+startup/idle use is <=5964 bytes. Pairing/OTA peaks were not measured.
+
+0.1.2 releases 16384 bytes of fixed reservation: the ESP32 future arena is
+16384 instead of 24576, and the foreground task is 16384 instead of 24576.
+The exact operational future (about 12 KiB on Xtensa) is checked at compile time
+against its arena, including alignment and 1 KiB reserve. 64-bit host builds use
+24576 for their larger pointer-dependent frame. The operational driver still
+uses one arena allocation; no SDK source/private layout casts are introduced.
+Arena used/capacity are logged. BLE remains 8192 bytes and every protocol/station
+capacity stays unchanged. Hardware HTTP delivery, actual OTA, pairing stack peaks
+and Alexa interoperability remain unverified for this correction.

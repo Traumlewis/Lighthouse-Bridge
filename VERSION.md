@@ -3,6 +3,20 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Rust prototype HTTP memory correction 0.1.2-rs-matter
+
+The owner now reaches Matter/BLE ready on 0.1.1, but HTTP is unavailable with
+about 2.4 KiB free data heap. Reduce the ESP32 future arena from 24 to 16 KiB,
+checking the exact allocated future plus alignment and 1 KiB reserve at compile
+time. Its frame is about 12 KiB on Xtensa; 64-bit host tests retain a larger arena.
+Reduce the foreground task from 24 to 16 KiB using the owner's measured <=5964
+bytes used during startup/idle. Pairing and OTA stack peaks still need hardware
+checks. BLE stays at 8 KiB. This releases 16 KiB of fixed reservations while
+retaining all station, fabric, session, exchange and subscription capacities.
+Log arena used/capacity along with existing heap/stack diagnostics. Preserve the
+cache-safe libc guard, partition table and NVS. HTTP/OTA and Alexa retests remain
+required; software checks do not establish physical success.
+
 ## Rust prototype boot correction 0.1.1-rs-matter
 
 Fix the 0.1.0 pre-dashboard cache-error reboot loop: link the Rust archive after

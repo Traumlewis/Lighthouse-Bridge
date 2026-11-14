@@ -229,11 +229,37 @@ impl NetCtl for Net {
         }
     }
 }
+pub(crate) static WIFI_ARENA_USED: core::sync::atomic::AtomicUsize =
+    core::sync::atomic::AtomicUsize::new(0);
+
+// run_wifi_oper allocates exactly this returned future in its bump arena.
+// Check the concrete type, including all responder and mDNS branches, before
+// packaging rather than waiting for the upstream allocator's runtime panic.
+#[inline(always)]
+fn check_wifi_arena<F>(_: &F) {
+    const {
+        assert!(
+            core::mem::size_of::<F>() + core::mem::align_of::<F>() + 1024 <= crate::BUMP,
+            "Wi-Fi future exceeds the Matter arena budget"
+        );
+    }
+    WIFI_ARENA_USED.store(
+        core::mem::size_of::<F>(),
+        core::sync::atomic::Ordering::Relaxed,
+    );
+}
+
+async fn run_wifi_task<T: WifiTask>(mut task: T) -> Result<(), Error> {
+    task.run(Net, Net, Net, LocalMdns).await
+}
 pub struct Wifi;
 impl WifiDriver for Wifi {
     type NetCtl<'a> = Net;
-    async fn run<T: WifiTask>(&mut self, mut task: T) -> Result<(), Error> {
-        task.run(Net, Net, Net, LocalMdns).await
+    #[inline(always)]
+    fn run<T: WifiTask>(&mut self, task: T) -> impl core::future::Future<Output = Result<(), Error>> {
+        let future = run_wifi_task(task);
+        check_wifi_arena(&future);
+        future
     }
 }
 pub struct Socket(i32, u32);

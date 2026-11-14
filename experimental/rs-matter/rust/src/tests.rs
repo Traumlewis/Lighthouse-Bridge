@@ -111,6 +111,12 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     for _ in 0..20 {
         poll_runtime();
     }
+    assert!(lh_rs_arena_used() > 0);
+    assert!(lh_rs_arena_used() + 1024 <= lh_rs_arena_bytes());
+    // Retain protocol minima while freeing reservations, rather than limiting peers.
+    assert!(rs_matter::fabric::MAX_FABRICS >= 5);
+    assert!(rs_matter::session::MAX_SESSIONS >= 3 * rs_matter::fabric::MAX_FABRICS);
+    assert!(rs_matter::transport::session::MAX_EXCHANGES >= 5);
     let mut code = [0; 12];
     let mut paired = false;
     let mut open = false;

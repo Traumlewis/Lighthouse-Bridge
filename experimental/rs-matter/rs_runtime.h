@@ -10,6 +10,8 @@ bool lh_rs_open();
 bool lh_rs_pending();
 size_t lh_rs_stack_bytes();
 size_t lh_rs_task_bytes();
+size_t lh_rs_arena_bytes();
+size_t lh_rs_arena_used();
 bool lh_rs_info(char* code,size_t capacity,bool* paired,bool* open);
 bool lh_queue_power(uint16_t endpoint,unsigned command);
 uint32_t lh_rs_observed(uint16_t endpoint);

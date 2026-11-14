@@ -189,9 +189,10 @@ void matterBridgeLoop() {
   static uint32_t logged=0;
   if(millis()-logged>=15000){
     logged=millis();
-    Serial.printf("rs-matter diag: ready=%s paired=%s window=%s free_8bit=%u largest_8bit=%u min_8bit=%u stack_watermark=%u\n",
+    Serial.printf("rs-matter diag: ready=%s paired=%s window=%s free_8bit=%u largest_8bit=%u min_8bit=%u stack_watermark=%u arena_used=%u arena_bytes=%u\n",
       matterReady.load()?"true":"false",matterPaired.load()?"true":"false",matterWindowOpen.load()?"open":"closed",
-      matterDataFree(),matterDataLargest(),heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+      matterDataFree(),matterDataLargest(),heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
+      static_cast<unsigned>(lh_rs_arena_used()),static_cast<unsigned>(lh_rs_arena_bytes()));
   }
   if(matterWindowPending){
     if(!windowDispatched){

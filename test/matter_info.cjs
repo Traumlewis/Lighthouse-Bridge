@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
     {...info,paired:true},{...info,ready:false},{...info,reachable:'true'},{...info,version:'../../bad'}])
     assert.equal(parseMatterInfo(frame(bad)),null);
   assert.equal(parseMatterInfo('LH_INFO {}'),null);
-  assert.equal(parseMatterInfo(frame({...info,version:"0.1.1-rs-matter"})).version,"0.1.1-rs-matter");
+  assert.equal(parseMatterInfo(frame({...info,version:"0.1.2-rs-matter"})).version,"0.1.2-rs-matter");
   const stations=Array.from({length:16},(_,i)=>({id:i+1,name:'Station '+(i+1),reachable:true,observed_raw:0}));
   assert.equal(parseMatterInfo(frame({...info,bridge_name:'Lighthouse-Bridge Matter Test',stations})).stations.length,16);
   for(const bad of [[...stations,stations[0]],[stations[0],stations[0]],

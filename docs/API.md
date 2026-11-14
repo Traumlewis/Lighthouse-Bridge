@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.1-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.2-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -416,7 +416,7 @@ endpoint/fabric identities are not cleared to recover from failed startup.
 
 ### rs-matter manual pairing-code renewal
 
-In 0.1.1-rs-matter, personal-session `POST /api/matter/commissioning` with `{}`
+In 0.1.2-rs-matter, personal-session `POST /api/matter/commissioning` with `{}`
 generates a fresh code and opens a 15-minute window, replacing any active local
 window. Pending duplicate calls coalesce. It returns 202 without a code; poll the
 personal-session `GET /api/matter` until `commissioning_pending` is false and
