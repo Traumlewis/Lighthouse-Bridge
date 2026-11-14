@@ -812,6 +812,8 @@ Never copy the credential-bearing raw log into the repository.
   credentials as successful just because the current link is connected. Reapply
   IPv6 policy and modem sleep after connection/reconnection without power writes.
 - CI allows 45 minutes for all three firmware variants and native Rust tests.
+  The pinned espup installation uses GitHub's built-in job token for release API
+  requests, avoiding unauthenticated shared-runner rate limits. Never log it.
   Source archives exclude Rust target directories and private attachments and
   include dependency licenses. Packaging refuses stale source fingerprints.
 - No commissioning window is advertised on startup. The personal-session renewal
