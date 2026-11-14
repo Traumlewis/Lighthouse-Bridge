@@ -10,9 +10,9 @@ The restart and new login immediately after a successful configuration save are
 intentional. A later 0.1.2 panic is separate: its exact published ELF identifies
 failed UART mutex allocation in newlib, reached by Wi-Fi/coexistence logging.
 
-Route SDK logs through esp_rom_vprintf before Wi-Fi starts, retaining log levels
-and messages while bypassing that lazy stdio/UART allocation path. ROM formatting
-does not support float or long-long formats. Add a numeric-only, allocation-free
+Warm the shared UART write lock through public console write before Wi-Fi starts.
+Keep the standard SDK formatter, levels and messages, including float/long-long
+support. Add a numeric-only, allocation-free
 heap-failure hook (requested bytes/capabilities/count), throttled to one report per
 second, and a cumulative counter in periodic diagnostics. Keep the hook in IRAM
 and its format/counters in DRAM, checked in the final ELF; GCC LTO requires a

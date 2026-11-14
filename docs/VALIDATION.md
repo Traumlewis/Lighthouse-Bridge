@@ -13,15 +13,15 @@ shown; later 15-second samples are around 14 KiB with an 11 KiB minimum before
 the panic. They do not identify its transient allocation or establish a leak.
 No open commissioning window, paired fabric or power command is shown.
 
-0.1.3 uses the public esp_log_set_vprintf/esp_rom_vprintf APIs before Wi-Fi starts,
-avoiding the identified lazy stdio/UART mutex allocation path. It retains SDK log
-levels and messages, with ROM formatter limitations (no float/long-long).
+0.1.3 warms the shared UART/VFS write lock through public console write before
+Wi-Fi starts, while RAM is available. Keep the SDK formatter, log levels and
+messages unchanged, including float/long-long formatting.
 An allocation-failure hook logs only numeric size/caps/count through ROM, once
 per second at most, without reading the SDK function-name string. The periodic
 counter includes throttled events. Its non-inlined callback and format/counters
 are verified in IRAM/DRAM in the final ELF, including skip-compile packaging;
 GCC LTO otherwise lost the inline callback's IRAM section in a local probe.
-Native tests cover ROM routing, failure registration, an invalid ignored string
+Native tests cover console warmup/failure and hook registration, an invalid ignored string
 pointer, throttling and millis wrap. Hook disassembly calls ROM/IRAM helpers.
 Underlying allocation peaks, sustained RAM headroom, actual OTA and physical
 stability remain unverified; this is not a general OOM or Alexa pairing fix.
@@ -59,7 +59,7 @@ installer, runtime, packaging and tests have been removed. Historical Tasmota
 results below describe the retired implementation and are not evidence for the
 new Rust stack. rs-matter is pinned to 43f61585a439f1a1e90924b696a6280850ef0145;
 its no_std library links with the existing production C++ dashboard/API/OTA and
-single NimBLE worker. The final local build is 1,836,624/1,966,080 app bytes, with 66,960 static RAM
+single NimBLE worker. The final local build is 1,835,120/1,966,080 app bytes, with 66,892 static RAM
 bytes. Runtime Rust objects are allocated separately; these linker figures do not
 establish operational headroom. The Arduino foreground task reserves 16 KiB and
 the BLE worker retains 8 KiB. Runtime diagnostics report heap and stack watermark.

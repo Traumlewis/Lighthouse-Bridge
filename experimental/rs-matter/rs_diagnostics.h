@@ -18,10 +18,13 @@ static void IRAM_ATTR __attribute__((noinline)) allocationFailed(size_t size,uin
       lastReportMs.compare_exchange_strong(previous,now,std::memory_order_relaxed))
     esp_rom_printf(failureFormat,static_cast<unsigned>(size),static_cast<unsigned>(caps),static_cast<unsigned>(count));
 }
-inline bool install() {
-  // Preserve SDK messages/levels, bypass newlib FILE/UART lazy mutex allocation.
-  // The ESP32 ROM formatter has no float/long-long formatting support.
-  esp_log_set_vprintf(esp_rom_vprintf);
-  return heap_caps_register_failed_alloc_callback(allocationFailed)==ESP_OK;
+template<class ConsoleWrite> inline bool install(ConsoleWrite writeConsole) {
+  // Warm the shared UART/VFS write lock while RAM is still available. Use the
+  // public console write path, not HardwareSerial (which bypasses this lock).
+  // Keep the SDK's standard formatter, including float/long-long support.
+  static const char ready[] = "rs-matter UART logging prepared.\n";
+  const bool consoleReady=writeConsole(ready,sizeof(ready)-1)==sizeof(ready)-1;
+  const bool hookReady=heap_caps_register_failed_alloc_callback(allocationFailed)==ESP_OK;
+  return consoleReady && hookReady;
 }
 }

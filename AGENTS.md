@@ -801,7 +801,7 @@ Never copy the credential-bearing raw log into the repository.
   ESP32/Echo is attached: runtime RAM, successful Alexa pairing, actual OTA and
   prolonged 16-station coexistence remain unverified. The former Tasmota owner's
   GS014 report does not establish rs-matter compatibility or a verified fix.
-- Local validation: app 1,836,624/1,966,080 bytes, static RAM 66,960 bytes; four
+- Local validation: app 1,835,120/1,966,080 bytes, static RAM 66,892 bytes; four
   real-Rust host tests (startup/persistence/window/expiry/sparse model with host
   shims), fifteen native C++ programs, 29 Python checks and nine browser/USB
   programs pass. The Arduino foreground stack is 16 KiB; BLE remains 8 KiB.
@@ -848,14 +848,16 @@ Never copy the credential-bearing raw log into the repository.
   Heap minimum 92 bytes and BLE_NO_MEMORY show pressure; stable later samples
   do not establish a leak or identify the transient request. Other POWERON_RESET
   entries are not proof of software crashes. Do not retain raw logs/identifiers.
-- 0.1.3 installs ROM-based SDK vprintf before Wi-Fi (preserve levels/messages;
-  ROM does not support float/long-long). No lazy newlib FILE/UART allocation in
-  that log callback. An allocation-free IRAM heap-failure hook prints numeric
+- 0.1.3 warms the shared UART/VFS write mutex via public console write before
+  Wi-Fi, while RAM is available. HardwareSerial bypasses that lock. Keep the SDK
+  formatter, levels and messages unchanged, including float/long-long support.
+  An allocation-free IRAM heap-failure hook prints numeric
   bytes/caps/count through ROM with DRAM format/counters and 1-second throttling;
   ignore the SDK function-name pointer. Include all events in periodic count.
   Keep the hook non-inlined: GCC LTO otherwise discarded its IRAM placement.
   Packaging validates final IRAM/DRAM symbols, including skip-compile. Native
-  tests cover routing, ignored invalid pointer, throttle/wrap and hook errors.
+  tests cover console warmup/failure, ignored invalid pointer, throttle/wrap
+  and hook errors.
   Preserve 16 KiB foreground/arena and 8 KiB BLE stacks, all capacities, NVS and
   partitions. Underlying pressure, sustained stability, OTA and pairing remain
   hardware checks; this logging-path correction is not a general OOM fix.

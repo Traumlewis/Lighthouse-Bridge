@@ -11,11 +11,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <nvs.h>
-#include <esp_log.h>
+#include <unistd.h>
 #include <esp_rom_sys.h>
 #include "rs_diagnostics.h"
 #include "rs_runtime.h"
-extern "C" bool lh_rs_init_diagnostics() { return rsDiagnostics::install(); }
+extern "C" bool lh_rs_init_diagnostics() {
+  return rsDiagnostics::install([](const char* text,size_t size)->size_t {
+    const ssize_t sent=::write(STDOUT_FILENO,text,size);
+    return sent>0 ? static_cast<size_t>(sent) : 0;
+  });
+}
 extern "C" uint32_t lh_rs_allocation_failures() { return rsDiagnostics::failures.load(std::memory_order_relaxed); }
 struct NetInfo { uint8_t mac[8],ip4[4],ip6[4][16]; uint32_t ipv6_count, interface; bool connected; };
 static_assert(sizeof(NetInfo)==88,"Rust interface ABI");

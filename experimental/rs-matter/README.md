@@ -40,7 +40,7 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,836,624/1,966,080 app bytes; 66,960 static RAM bytes. Rust
+Local validation: 1,835,120/1,966,080 app bytes; 66,892 static RAM bytes. Rust
 runtime objects allocate separately. Four native Rust tests, fifteen C++ test
 programs, 29 Python checks and nine simulated browser/USB programs pass. This is
 not measured runtime memory or an Alexa hardware result. The foreground task has
@@ -86,15 +86,15 @@ shown; later 15-second samples are around 14 KiB with an 11 KiB minimum before
 the panic. They do not identify its transient allocation or establish a leak.
 No open commissioning window, paired fabric or power command is shown.
 
-0.1.3 uses the public esp_log_set_vprintf/esp_rom_vprintf APIs before Wi-Fi starts,
-avoiding the identified lazy stdio/UART mutex allocation path. It retains SDK log
-levels and messages, with ROM formatter limitations (no float/long-long).
+0.1.3 warms the shared UART/VFS write lock through public console write before
+Wi-Fi starts, while RAM is available. Keep the SDK formatter, log levels and
+messages unchanged, including float/long-long formatting.
 An allocation-failure hook logs only numeric size/caps/count through ROM, once
 per second at most, without reading the SDK function-name string. The periodic
 counter includes throttled events. Its non-inlined callback and format/counters
 are verified in IRAM/DRAM in the final ELF, including skip-compile packaging;
 GCC LTO otherwise lost the inline callback's IRAM section in a local probe.
-Native tests cover ROM routing, failure registration, an invalid ignored string
+Native tests cover console warmup/failure and hook registration, an invalid ignored string
 pointer, throttling and millis wrap. Hook disassembly calls ROM/IRAM helpers.
 Underlying allocation peaks, sustained RAM headroom, actual OTA and physical
 stability remain unverified; this is not a general OOM or Alexa pairing fix.
