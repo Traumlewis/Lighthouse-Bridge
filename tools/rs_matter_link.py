@@ -4,7 +4,7 @@ import re
 CACHE_OFF_SYMBOLS = ('memcpy', 'memmove', 'memset', 'memcmp', 'strlen')
 
 
-def validate_cache_safe_symbols(nm_output):
+def validate_cache_safe_symbols(nm_output, family='ESP32'):
     """Check final definitions, not input archives or estimated linker sizes.
 
     ESP-IDF's strong ROM/IRAM implementations must win over Rust's weak
@@ -25,12 +25,15 @@ def validate_cache_safe_symbols(nm_output):
         # Classic ESP32 executable mask ROM or internal instruction RAM only.
         safe_address = (0x40000000 <= address < 0x40070000 or
                         0x40080000 <= address < 0x400A0000)
+        if family=='ESP32-C3': safe_address=0x40000000<=address<0x40080000 or 0x4037C000<=address<0x403E0000
+        elif family=='ESP32-S3': safe_address=0x40000000<=address<0x40060000 or 0x40370000<=address<0x403E0000
+        elif family!='ESP32': raise ValueError('Unknown chip family')
         if kind not in ('T', 'A') or not safe_address:
             raise ValueError(f'Unsafe cache-off symbol: {name} at {address:#x} ({kind})')
     return {name: f'{symbols[name][0]:#010x}' for name in CACHE_OFF_SYMBOLS}
 
 
-def validate_diagnostics_symbols(nm_output):
+def validate_diagnostics_symbols(nm_output, family='ESP32'):
     """Keep the heap failure hook and its data usable with the flash cache off.
 
     GCC LTO can discard an inline function's IRAM section attribute. Check
@@ -55,6 +58,9 @@ def validate_diagnostics_symbols(nm_output):
                 safe = (0x40080000 <= address < 0x400A0000 and kind in ('t', 'T')
                         if key == 'allocation_failed_hook' else
                         0x3FF80000 <= address < 0x40000000 and kind in ('b', 'B', 'd', 'D', 'r', 'R'))
+                if family in ('ESP32-C3','ESP32-S3'):
+                    safe=(0x40370000<=address<0x403E0000 and kind in ('t','T') if key=='allocation_failed_hook' else 0x3FC80000<=address<0x3FD00000 and kind in ('b','B','d','D','r','R'))
+                elif family!='ESP32': raise ValueError('Unknown chip family')
                 if not safe:
                     raise ValueError(f'Unsafe allocation diagnostic symbol: {key} at {address:#x}')
                 found[key] = f'{address:#010x}'

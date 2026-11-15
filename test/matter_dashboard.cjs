@@ -3,6 +3,7 @@ const {chromium}=require('playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),zlib=require('node:zlib');
 const root=path.resolve(__dirname,'..');
 const prototypeName=process.env.LH_PROTOTYPE==='rs-matter'?'rs-matter':'matter';
+const bridgeName=prototypeName==='rs-matter'?'Lighthouse-Bridge':'Lighthouse-Bridge Matter Test';
 const version=JSON.parse(fs.readFileSync(path.join(root,'_site/'+prototypeName+'-manifest.json'),'utf8')).version;
 const generatedPath=prototypeName==='rs-matter'?'.pio/rs-matter-sketch/RsMatter/web_ui_gzip.h':'.pio/matter-sketch/MatterBridge/web_ui_gzip.h';
 const generated=fs.readFileSync(path.join(root,generatedPath),'utf8');
@@ -63,13 +64,14 @@ assert.ok(html.includes('Bridge '+version));
     if(signedIn&&uri==='/api/matter'&&infoGate)await infoGate;
     let result={},status=200;
     if(signedIn&&uri==='/api/matter'&&rejectInfo)return route.fulfill({status:503,json:{error:'NETWORK_ERROR'}});
+    if(uri==='/api/login'&&req.method()==='GET')return route.fulfill({json:{username_enabled:false}});
     if(uri==='/api/login'){signedIn=true;result={password_required:false};}
     else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
     else if(uri==='/api/account')result={password_required:false,api_key:key,setup_ssid:'Lighthouse-Setup-EXAMPLE',hostname:data.hostname,alexa_protocol:'matter',matter_ready:true};
     else if(uri==='/api/status'){if(statusFails){status=503;result={error:'OUT_OF_MEMORY'};}else result=data;}
     else if(uri==='/api/refresh'){status=202;result={accepted:true};}
-    else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});if(rejectWindow){status=503;result={error:'MATTER_WINDOW_FAILED'};}else{windowOpen=true;if(prototypeName==='rs-matter'){rotations++;code=['34970112332','34970112349','34970112363'][rotations-1];windowPending=1;}status=202;result={accepted:true};}}
-    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?(data.ble_startup_error||'BLE_WORKER_FAILED'):'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge Matter Test',pairing_code:prototypeName==='rs-matter'&&(!windowOpen||windowPending)?null:code,commissioning_open:windowOpen&&!windowPending,commissioning_pending:!!windowPending,error:''};
+    else if(uri==='/api/matter/commissioning'){assert.equal(req.method(),'POST');assert.deepEqual(req.postDataJSON(),{});if(rejectWindow){status=503;result={error:'MATTER_WINDOW_FAILED'};}else{windowOpen=true;if(prototypeName==='rs-matter'){rotations++;code=['34970112332','34970112349','34970112363','34970112332'][rotations-1];windowPending=1;}status=202;result={accepted:true};}}
+    else if(uri==='/api/matter')result=bridgeFails||data.ble_worker_available===false?{protocol:1,version,bridge_name:bridgeName,ready:false,paired:false,pairing_code:null,error:data.ble_worker_available===false?(data.ble_startup_error||'BLE_WORKER_FAILED'):'MATTER_BRIDGE_FAILED',commissioning_open:false,commissioning_pending:false}:{ready:true,paired:true,bridge_name:bridgeName,pairing_code:prototypeName==='rs-matter'&&(!windowOpen||windowPending)?null:code,commissioning_open:windowOpen&&!windowPending,commissioning_pending:!!windowPending,error:''};
     else if(uri==='/api/scan'){status=202;result={accepted:true};data.discovered=[{name:'LHB-test',mac:'AA:BB:CC:DD:EE:02',address_type:1,rssi:-60}];data.scan_finished_ms=90001;}
     else if(uri==='/api/config'){
      assert.equal(req.method(),'POST');
@@ -80,6 +82,16 @@ assert.ok(html.includes('Bridge '+version));
     if(uri==='/api/matter'&&windowPending)windowPending--;
     await route.fulfill({status,json:result});
    });
+   const readMatter=async()=>{
+    if(prototypeName!=='rs-matter'){await page.locator('#matter-show').click();return;}
+    await page.locator('#matter-settings').evaluate(node=>new Promise(resolve=>{
+     if(!node.open){resolve();return;}
+     node.addEventListener('toggle',resolve,{once:true});node.open=false;
+    }));
+    await page.locator('#matter-settings').evaluate(node=>new Promise(resolve=>{
+     node.addEventListener('toggle',resolve,{once:true});node.open=true;
+    }));
+   };
    await page.goto('http://bridge.test/?lang='+lang);
    assert.equal(await page.locator('#matter-settings').isHidden(),true);
    assert.equal(await page.locator('#matter-code').textContent(),'');
@@ -89,7 +101,13 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(calls.filter(c=>c.uri==='/api/matter').length,0,'code retrieved only by explicit action');
    await page.locator('#matter-settings summary').click();
    // A real owner response must show its startup error, not only the bridge name.
-   await page.locator('#matter-show').click();
+   if(prototypeName!=='rs-matter')await readMatter();
+   else {
+    assert.equal(await page.locator('#matter-show').count(),0);
+    assert.equal(await page.locator('#matter-settings button:not(#matter-code)').count(),1);
+    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,0,
+     'opening Matter Setup must never open or renew the pairing window');
+   }
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('could not be created')||document.getElementById('matter-status').textContent.includes('nicht erstellt'));
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    assert.equal(await page.locator('#matter-open').isDisabled(),true);
@@ -97,14 +115,15 @@ assert.ok(html.includes('Bridge '+version));
    // Browser translation may replace a button's descendants. Rendering and copy
    // must not depend on the old nested <code> element or translated DOM text.
    await page.locator('#matter-code').evaluate(node=>node.replaceChildren());
-   await page.locator('#matter-show').click();
+   await readMatter();
    if(prototypeName==='rs-matter'){
+    await page.waitForFunction(()=>!matterBusy&&matterInfo?.ready);
     assert.equal(await page.locator('#matter-code').isHidden(),true,'closed window must not show a usable code');
     assert.match(await page.locator('#matter-status').textContent(),/No active setup code|Kein aktiver Einrichtungscode/);
     await page.locator('#matter-open').click();
    }
    await page.waitForFunction(code=>document.getElementById('matter-code').textContent===code,code);
-   assert.equal(await page.locator('#matter-name').textContent(),'Lighthouse-Bridge Matter Test');
+   assert.equal(await page.locator('#matter-name').textContent(),bridgeName);
    assert.equal(await page.locator('.compat-label').isHidden(),true);
    if(prototypeName==='rs-matter'){
     let releaseInfo;
@@ -112,28 +131,44 @@ assert.ok(html.includes('Bridge '+version));
     await page.evaluate(()=>{
      window.disabledMutations=[];
      window.buttonObserver=new MutationObserver(records=>window.disabledMutations.push(...records.map(r=>r.target.id)));
-     for(const id of ['matter-show','matter-open'])window.buttonObserver.observe(document.getElementById(id),{attributes:true,attributeFilter:['disabled']});
+     for(const id of ['matter-open'])window.buttonObserver.observe(document.getElementById(id),{attributes:true,attributeFilter:['disabled']});
      for(const id of ['matter-code','matter-status','matter-name'])window.buttonObserver.observe(document.getElementById(id),{childList:true});
      window.lastTwoSecondTimer();
     });
     await page.waitForFunction(()=>matterBusy&&loadMatter.background);
-    assert.equal(await page.locator('#matter-show').isDisabled(),false,'background status must not disable the show button');
     assert.equal(await page.locator('#matter-open').isDisabled(),false,'background status must not disable the renew button');
     infoGate=null;releaseInfo();
     await page.waitForFunction(()=>!matterBusy);
-    assert.deepEqual(await page.evaluate(()=>window.disabledMutations),[],'automatic polling must not flicker either button');
+    assert.deepEqual(await page.evaluate(()=>window.disabledMutations),[],'automatic polling must not flicker the pairing control');
     await page.evaluate(()=>window.buttonObserver.disconnect());
     const beforeRead=calls.filter(c=>c.uri==='/api/matter').length;
     const beforeMutations=calls.filter(c=>c.uri==='/api/matter/commissioning').length;
     infoGate=new Promise(resolve=>releaseInfo=resolve);
     await page.evaluate(()=>window.lastTwoSecondTimer());
     await page.waitForFunction(()=>matterBusy&&loadMatter.background);
-    await page.locator('#matter-show').click();
-    assert.equal(await page.evaluate(()=>loadMatter.queued),false,'manual show queues behind a background fetch');
+    await readMatter();
+    assert.equal(await page.evaluate(()=>loadMatter.queued),false,'reopening the panel queues a fresh read behind a background fetch');
     infoGate=null;releaseInfo();
     await page.waitForFunction(()=>!matterBusy&&loadMatter.queued===undefined);
     assert.equal(calls.filter(c=>c.uri==='/api/matter').length,beforeRead+2);
-    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,beforeMutations,'queued show cannot rotate credentials');
+    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,beforeMutations,'reopening the panel cannot rotate credentials');
+    infoGate=new Promise(resolve=>releaseInfo=resolve);
+    await page.evaluate(()=>window.lastTwoSecondTimer());
+    await page.waitForFunction(()=>matterBusy&&loadMatter.background);
+    await page.locator('#matter-settings').evaluate(node=>new Promise(resolve=>{
+     node.addEventListener('toggle',resolve,{once:true});node.open=false;
+    }));
+    assert.equal(await page.locator('#matter-code').textContent(),'','closing clears private code');
+    infoGate=null;releaseInfo();await page.waitForFunction(()=>!matterBusy);
+    assert.equal(await page.locator('#matter-code').textContent(),'','late response cannot restore a code in the closed panel');
+    const closedReads=calls.filter(c=>c.uri==='/api/matter').length;
+    await page.evaluate(()=>window.lastTwoSecondTimer());
+    assert.equal(calls.filter(c=>c.uri==='/api/matter').length,closedReads,
+     'a stale polling callback must not fetch private status after closing');
+    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,beforeMutations);
+    await readMatter();
+    await page.waitForFunction(code=>document.getElementById('matter-code').textContent===code,code);
+
    }
    await page.locator('#matter-code').evaluate(node=>node.textContent='translated text');await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),code);
    await page.locator('#language').selectOption(lang==='en'?'de':'en');assert.equal(await page.locator('#matter-code').textContent(),code);
@@ -170,6 +205,23 @@ assert.ok(html.includes('Bridge '+version));
     windowOpen=false;await page.evaluate(()=>loadMatter());
     assert.equal(await page.locator('#matter-code').isHidden(),true,'expired/closed window clears code');
     assert.equal(await page.evaluate(code=>JSON.stringify(localStorage).includes(code),code),false);
+    const renewalsBeforeClose=calls.filter(c=>c.uri==='/api/matter/commissioning').length;
+    let releaseClosedRenewal;
+    infoGate=new Promise(resolve=>releaseClosedRenewal=resolve);
+    await page.evaluate(()=>{loadMatter(false,true);});
+    await page.waitForFunction(()=>matterBusy&&loadMatter.background);
+    await page.locator('#matter-open').click();
+    assert.equal(await page.evaluate(()=>loadMatter.queued),true);
+    await page.locator('#matter-settings').evaluate(node=>new Promise(resolve=>{
+     node.addEventListener('toggle',resolve,{once:true});node.open=false;
+    }));
+    infoGate=null;releaseClosedRenewal();
+    await page.waitForFunction(()=>!matterBusy&&loadMatter.queued===undefined);
+    assert.equal(calls.filter(c=>c.uri==='/api/matter/commissioning').length,renewalsBeforeClose+1,
+     'closing must not silently cancel an explicitly queued renewal');
+    assert.equal(await page.locator('#matter-code').textContent(),'');
+    await readMatter();
+    await page.waitForFunction(code=>document.getElementById('matter-code').textContent===code,code);
    }
    statusFails=false;await page.evaluate(()=>refresh());
    await page.waitForFunction(()=>document.getElementById('card-1'));
@@ -182,11 +234,11 @@ assert.ok(html.includes('Bridge '+version));
    assert.equal(await page.locator('#scan').isDisabled(),true);
    assert.equal(await page.locator('#refresh').isDisabled(),true);
    assert.equal(await page.locator('#ota-update').isDisabled(),false,'BLE failure must not disable firmware recovery');
-   await page.locator('#matter-show').click();
+   await readMatter();
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('worker could not start')||document.getElementById('matter-status').textContent.includes('Worker konnte nicht starten'));
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    data.ble_startup_error='MATTER_START_FAILED';
-   await page.evaluate(()=>refresh());await page.locator('#matter-show').click();
+   await page.evaluate(()=>refresh());await readMatter();
    await page.waitForFunction(()=>document.getElementById('matter-status').textContent.includes('could not start')||document.getElementById('matter-status').textContent.includes('konnte nicht gestartet'));
    assert.equal(await page.locator('#scan').isDisabled(),true);
    assert.equal(await page.locator('#ota-update').isDisabled(),false);
@@ -210,6 +262,17 @@ assert.ok(html.includes('Bridge '+version));
    await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);
    assert.equal(await page.locator('#matter-code').textContent(),'');
    assert.equal(await page.locator('#matter-code').isHidden(),true);
+   if(prototypeName==='rs-matter'){
+    assert.equal(await page.locator('#matter-settings').evaluate(node=>node.open),false,
+     'logout closes the section so the next login cannot implicitly reveal a code');
+    const reads=calls.filter(c=>c.uri==='/api/matter').length;
+    await page.locator('#login-password').fill('personal password');
+    await page.locator('#login-form button').click();
+    await page.waitForFunction(()=>!document.getElementById('dashboard').hidden);
+    assert.equal(calls.filter(c=>c.uri==='/api/matter').length,reads);
+    assert.equal(await page.locator('#matter-code').textContent(),'');
+    await page.locator('#logout').click();
+   }
    assert.deepEqual(errors,[]);await page.close();
   }
   console.log(prototypeName+' gzip dashboard: real localhost gzip/login rendering; private code, pairing window, copy, language and logout passed (mock API).');

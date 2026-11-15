@@ -16,8 +16,15 @@ inline bool parseOtaHeader(const uint8_t* header, uint32_t capacity, uint32_t& l
   std::memcpy(digest, header + 28, 32);
   return true;
 }
+#if defined(LH_RS_MATTER_BUILD) && defined(CONFIG_IDF_TARGET_ESP32C3)
+constexpr uint16_t kOtaChipId = 5;
+#elif defined(LH_RS_MATTER_BUILD) && defined(CONFIG_IDF_TARGET_ESP32S3)
+constexpr uint16_t kOtaChipId = 9;
+#else
+constexpr uint16_t kOtaChipId = 0;
+#endif
 inline bool classicEsp32Image(const uint8_t* image) {
-  return image[0] == 0xe9 && image[12] == 0 && image[13] == 0 &&
+  return image[0] == 0xe9 && image[12] == (kOtaChipId & 255) && image[13] == (kOtaChipId >> 8) &&
          image[32] == 0x32 && image[33] == 0x54 && image[34] == 0xcd && image[35] == 0xab;
 }
 } // namespace bridge

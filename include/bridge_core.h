@@ -26,7 +26,7 @@ inline bool validDeviceName(const char* value) {
 }
 constexpr char kService[] = "00001523-1212-efde-1523-785feabcd124";
 constexpr char kPower[] = "00001525-1212-efde-1523-785feabcd124";
-enum class Target : uint8_t { Sleep = 0x00, On = 0x01 };
+enum class Target : uint8_t { Sleep = 0x00, On = 0x01, Standby = 0x02 };
 
 inline bool isConnectableLegacyAdvertisement(uint8_t eventType) {
   // Legacy HCI reports use enum values, not extended-advertising bit flags:
@@ -34,16 +34,17 @@ inline bool isConnectableLegacyAdvertisement(uint8_t eventType) {
   return eventType == 0 || eventType == 1;
 }
 
-inline bool parseTarget(const char* text, Target& out) {
+inline bool parseTarget(const char* text, Target& out, bool allowStandby = false) {
   if (text && std::strcmp(text, "on") == 0) { out = Target::On; return true; }
   if (text && std::strcmp(text, "sleep") == 0) { out = Target::Sleep; return true; }
+  if (allowStandby && text && std::strcmp(text, "standby") == 0) { out = Target::Standby; return true; }
   return false;
 }
-inline const char* targetName(Target target) { return target == Target::On ? "on" : "sleep"; }
+inline const char* targetName(Target target) { return target == Target::On ? "on" : target == Target::Standby ? "standby" : "sleep"; }
 inline const char* observedName(int value) {
   switch (value) {
     case 0x00: return "sleep";
-    case 0x02: return "standby"; // Read-only: never a command.
+    case 0x02: return "standby";
     case 0x0b: return "on";
     case 0x01: case 0x08: case 0x09: return "booting";
     default: return "unknown";
@@ -78,7 +79,17 @@ struct StationConfig {
   char mac[18] = {};
   uint8_t addressType = 1;
   bool alexaCompat = false;
+#ifdef LH_RS_MATTER_BUILD
+  Target offState = Target::Sleep;
+#endif
 };
+inline Target offTarget(const StationConfig& config) {
+#ifdef LH_RS_MATTER_BUILD
+  return config.offState;
+#else
+  (void)config; return Target::Sleep;
+#endif
+}
 struct StationState {
   Target requested = Target::Sleep;
   bool hasRequest = false;
@@ -117,7 +128,7 @@ inline bool hueOn(const StationState& state, uint32_t now) {
 }
 constexpr uint32_t kCommandConfirmationWindowMs = 30000;
 inline bool matchesTarget(Target target, int observed) {
-  return observed == (target == Target::On ? 0x0b : 0x00);
+  return observed == (target == Target::On ? 0x0b : static_cast<int>(target));
 }
 inline bool awaitingConfirmation(const StationState& state, uint32_t now) {
   return state.hasRequest && state.sent && !state.commandConfirmed &&

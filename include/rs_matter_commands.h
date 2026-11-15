@@ -20,7 +20,7 @@ inline MatterCommandAcceptance acceptRsMatterCommand(const StationConfig* config
     if (binding < 0 || registry.entries[binding].endpoint != endpoint) continue;
     if (command == 2 && !freshMeasurement(states[i],now)) return result;
     result.on = command == 2 ? !measuredOn(states[i]) : command == 1;
-    request(states[i],result.on ? Target::On : Target::Sleep,now);
+    request(states[i],result.on ? Target::On : offTarget(configs[i]),now);
     result.station = configs[i].id;
     break;
   }

@@ -24,6 +24,7 @@ const version=JSON.parse(fs.readFileSync(path.join(site,prototypeName+'-manifest
    },close:async()=>{}};
    window.fakePort=port;
    window.sendPaired=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,paired:true,pairing_code:null})+'\n'));
+   window.sendLocal=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,network_mode:'local',wifi_connected:false,ready:false,paired:false,pairing_code:null,error:'LOCAL_MODE'})+'\n'));
    window.sendSleep=()=>window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify({...info,
     stations:[info.stations[0],{...info.stations[1],observed_raw:0}]})+'\n'));
    Object.defineProperty(navigator,'serial',{configurable:true,value:{requestPort:async()=>{window.serialRequests++;return port;},getPorts:async()=>[],addEventListener:()=>{},removeEventListener:()=>{}}});
@@ -62,8 +63,10 @@ const version=JSON.parse(fs.readFileSync(path.join(site,prototypeName+'-manifest
   assert.match(await page.locator('#matter-stations').textContent(),/1 · Owner name.*SLEEP/);
   assert.match(await page.locator('#matter-stations').textContent(),/4 · Another station.*AN/);
   await page.locator('#matter-code').click();assert.equal(await page.evaluate(()=>window.copied),'34970112332');
+  await page.evaluate(()=>window.sendLocal());await page.waitForFunction(()=>document.querySelector('#matter-pair-state').textContent.includes('Lokaler WLAN-Modus'));assert.equal(await page.locator('#matter-code').textContent(),'—');
   await page.locator('#language').selectOption('en');
-  assert.equal(await page.locator('#matter-code').textContent(),'34970112332');
+  assert.equal(await page.locator('#matter-code').textContent(),'—');
+  assert.match(await page.locator('#matter-pair-state').textContent(),/Local Wi-Fi mode/);
   assert.equal(await page.evaluate(()=>window.serialRequests),1,'language change keeps the connection');
   assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('34970112332')),false);
   assert.equal(requests.some(url=>url.includes('34970112332')),false);

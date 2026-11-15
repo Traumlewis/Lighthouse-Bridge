@@ -158,7 +158,7 @@ struct Queue {
     head: usize,
     count: usize,
     dropped: u32,
-    endpoints: [u16; 18],
+    endpoints: [u16; 19],
     endpoint_count: usize,
     endpoints_pending: bool,
 }
@@ -173,7 +173,7 @@ static QUEUE: Mutex<RefCell<Queue>> = Mutex::new(RefCell::new(Queue {
     head: 0,
     count: 0,
     dropped: 0,
-    endpoints: [0; 18],
+    endpoints: [0; 19],
     endpoint_count: 0,
     endpoints_pending: false,
 }));
@@ -320,12 +320,21 @@ impl Log for Logger {
     fn flush(&self) {}
 }
 pub fn install() {
+    #[cfg(target_has_atomic = "ptr")]
     if log::set_logger(&LOGGER).is_ok() {
         log::set_max_level(LevelFilter::Info);
     }
+    #[cfg(not(target_has_atomic = "ptr"))]
+    // Rust initialization, logging and polling run only on the foreground task.
+    // No worker or interrupt calls the Rust logger or changes its registration.
+    unsafe {
+        if log::set_logger_racy(&LOGGER).is_ok() {
+            log::set_max_level_racy(LevelFilter::Info);
+        }
+    }
 }
 pub fn record_endpoints(endpoints: &[rs_matter::dm::Endpoint<'_>]) {
-    assert!(endpoints.len() <= 18);
+    assert!(endpoints.len() <= 19);
     critical_section::with(|cs| {
         let mut q = QUEUE.borrow(cs).borrow_mut();
         for (i, endpoint) in endpoints.iter().enumerate() {

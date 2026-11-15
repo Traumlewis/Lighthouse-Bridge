@@ -23,8 +23,8 @@ SEGMENTS = [('bootloader', 0x1000, 'MatterBridge.ino.bootloader.bin'),
             ('app', 0x10000, 'MatterBridge.ino.bin')]
 
 
-def validate_segments(segments):
-    expected = [0x1000, 0x8000, 0xe000, 0x10000]
+def validate_segments(segments, chip_id=0, boot_offset=0x1000):
+    expected = [boot_offset, 0x8000, 0xe000, 0x10000]
     if [offset for offset, _ in segments] != expected:
         raise ValueError('Exactly four classic ESP32 segments required')
     for index, (offset, data) in enumerate(segments):
@@ -34,7 +34,7 @@ def validate_segments(segments):
             raise ValueError('Segment exceeds its slot or erases NVS')
     for index in (0, 3):
         data = segments[index][1]
-        if len(data) < 24 or data[0] != 0xe9 or struct.unpack_from('<H', data, 12)[0] != 0:
+        if len(data) < 24 or data[0] != 0xe9 or struct.unpack_from('<H', data, 12)[0] != chip_id:
             raise ValueError('Only classic ESP32 images are allowed')
     table = segments[1][1]
     entries = {}

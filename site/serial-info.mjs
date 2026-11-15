@@ -14,7 +14,10 @@ export function parseDeviceInfo(line) {
           url.pathname !== '/' || url.search || url.hash ||
           !(ip.length === 4 && ip.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255))) return null;
     }
-    if (value.wifi_connected !== Boolean(value.url)) return null;
+    if (value.network_mode !== undefined && !['home','local'].includes(value.network_mode)) return null;
+    if (value.network_mode === 'local') {
+      if (value.wifi_connected) return null;
+    } else if (value.wifi_connected !== Boolean(value.url)) return null;
     return value;
   } catch (_) { return null; }
 }

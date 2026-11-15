@@ -108,6 +108,9 @@ inline void writeStatusStation(JsonObject item, const StationConfig& config,
                                const StationState& state, bool queued, uint32_t now, bool matter) {
   item["id"] = config.id; item["name"] = config.name; item["mac"] = config.mac;
   item["address_type"] = config.addressType; item["alexa_compat"] = config.alexaCompat;
+#ifdef LH_RS_MATTER_BUILD
+  item["off_state"] = targetName(config.offState);
+#endif
   item["configured"] = config.mac[0] != '\0';
   if (state.hasRequest) item["requested"] = targetName(state.requested);
   else item["requested"] = nullptr;
@@ -130,7 +133,7 @@ template<class Writer> bool streamStatus(const JsonDocument& header,
   if (!writer.dropLast('}')) return false;
   if (header.size()) writer.text(",");
   writer.text("\"stations\":[");
-  StaticJsonDocument<JSON_OBJECT_SIZE(32)+128> item;
+  StaticJsonDocument<JSON_OBJECT_SIZE(33)+128> item;
   bool first = true;
   for (unsigned i = 0; i < kStations; ++i) {
     if (!view.stations[i]) continue;

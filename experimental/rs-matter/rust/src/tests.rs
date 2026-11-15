@@ -1,4 +1,6 @@
 extern crate std;
+#[path = "case_read_test.rs"]
+mod case_read_test;
 use super::*;
 use core::sync::atomic::{AtomicU32, Ordering};
 use rs_matter::dm::{
@@ -171,7 +173,7 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
                 .iter()
                 .map(|e| e.id)
                 .collect::<std::vec::Vec<_>>(),
-            [0, 2, 7, 8, 9, 10]
+            [0, 1, 2, 7, 8, 9, 10]
         )
     });
     sdk_descriptor_read_paths(&sparse);
@@ -189,7 +191,7 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
             .count = 0;
     }
     let empty = model::Model::new(&mut platform::Random);
-    empty.access(|node| assert_eq!(node.endpoints.len(), 2));
+    empty.access(|node| assert_eq!(node.endpoints.len(), 3));
     sdk_descriptor_read_paths(&empty);
     assert_eq!(WRITES.load(Ordering::SeqCst), 0);
     drop((model, sparse, shuffled, empty));
@@ -303,6 +305,7 @@ fn actual_rs_model_preserves_sparse_ids_and_never_writes_on_startup() {
     diagnostics::drain();
     assert_eq!(*PATHS.lock().unwrap(), [[1,7,29,0],[3,0,48,6]]);
     assert!(!TRACE.lock().unwrap().iter().any(|text| text.contains("feed123456789abc") || text.contains("183693")));
+    case_read_test::check();
 }
 #[test]
 fn invalid_registry_or_commissioning_input_is_rejected() {
@@ -402,23 +405,29 @@ static SOCKET_CLOSES: AtomicU32 = AtomicU32::new(0);
 #[no_mangle]
 extern "C" fn lh_rs_close(_: i32) { SOCKET_CLOSES.fetch_add(1, Ordering::SeqCst); }
 static MDNS_INBOX: std::sync::Mutex<std::collections::VecDeque<std::vec::Vec<u8>>> = std::sync::Mutex::new(std::collections::VecDeque::new());
+static MATTER_INBOX: std::sync::Mutex<std::collections::VecDeque<std::vec::Vec<u8>>> = std::sync::Mutex::new(std::collections::VecDeque::new());
+static CLIENT_INBOX: std::sync::Mutex<std::collections::VecDeque<std::vec::Vec<u8>>> = std::sync::Mutex::new(std::collections::VecDeque::new());
 static MDNS_RECEIVED: AtomicU32 = AtomicU32::new(0);
 static UDP_OUTPUT: std::sync::Mutex<std::vec::Vec<(i32, std::vec::Vec<u8>)>> = std::sync::Mutex::new(std::vec::Vec::new());
 #[no_mangle]
 extern "C" fn lh_rs_peek(fd: i32) -> i32 {
-    if fd == 2 && !MDNS_INBOX.lock().unwrap().is_empty() { 1 } else { 0 }
+    if (fd == 2 && !MDNS_INBOX.lock().unwrap().is_empty()) || (fd == 1 && !MATTER_INBOX.lock().unwrap().is_empty()) { 1 } else { 0 }
 }
 #[repr(C)]
 struct HostWireAddr { ip: [u8; 16], port: u16, scope: u32 }
 #[no_mangle]
 unsafe extern "C" fn lh_rs_recv(fd: i32, out: *mut u8, size: usize, addr: *mut u8) -> i32 {
-    if fd != 2 { return -1; }
-    let Some(packet) = MDNS_INBOX.lock().unwrap().pop_front() else { return -1; };
+    let packet = match fd {
+        1 => MATTER_INBOX.lock().unwrap().pop_front(),
+        2 => MDNS_INBOX.lock().unwrap().pop_front(),
+        _ => None,
+    };
+    let Some(packet) = packet else { return -1; };
     assert!(packet.len() <= size);
     core::ptr::copy_nonoverlapping(packet.as_ptr(), out, packet.len());
     let mut ip = [0; 16]; ip[15] = 1;
-    core::ptr::write(addr.cast::<HostWireAddr>(), HostWireAddr { ip, port: 5353, scope: 1 });
-    MDNS_RECEIVED.fetch_add(1, Ordering::SeqCst);
+    core::ptr::write(addr.cast::<HostWireAddr>(), HostWireAddr { ip, port: if fd == 2 {5353} else {4242}, scope: 1 });
+    if fd == 2 { MDNS_RECEIVED.fetch_add(1, Ordering::SeqCst); }
     packet.len() as i32
 }
 struct SendPlan {
@@ -442,7 +451,12 @@ extern "C" fn lh_rs_send(fd: i32, data: *const u8, size: usize, _: *const u8) ->
     let result = if plan.pos < plan.len {
         let result = plan.values[plan.pos]; plan.pos += 1; result
     } else { plan.fallback };
-    if result == i32::MAX { size as i32 } else { result }
+    let result = if result == i32::MAX { size as i32 } else { result };
+    drop(plan);
+    if fd == 1 && result == size as i32 {
+        CLIENT_INBOX.lock().unwrap().push_back(unsafe { core::slice::from_raw_parts(data,size) }.to_vec());
+    }
+    result
 }
 #[no_mangle]
 extern "C" fn lh_rs_multicast(_: i32, _: bool, _: *const u8, _: u32) -> bool {
@@ -523,4 +537,52 @@ fn mdns_receive_checks() {
     let output = UDP_OUTPUT.lock().unwrap();
     assert!(output[before..].iter().any(|(_,p)| p.len()>12 && p[2]&0x80!=0 && p.windows(8).any(|s| s==b"_matterc") && p.windows(4).any(|s| s==b"CM=1")),
             "PTR query did not receive a Basic Commissioning DNS response");
+}
+
+// The production runtime owns singleton globals. A separate test process lets
+// this exact seven-endpoint topology coexist with the maximum-capacity test.
+#[test]
+fn five_station_runtime_serves_encrypted_descriptor_reads() {
+    const CHILD: &str = "LIGHTHOUSE_RS_FIVE_STATION_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let result = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "tests::five_station_runtime_serves_encrypted_descriptor_reads", "--nocapture"])
+            .env(CHILD, "1")
+            .output().unwrap();
+        assert!(result.status.success(), "isolated topology test failed:\n{}\n{}",
+            std::string::String::from_utf8_lossy(&result.stdout),
+            std::string::String::from_utf8_lossy(&result.stderr));
+        return;
+    }
+    let mut cfg = configuration();
+    cfg.count = 5; // Root 0, retained first light 1, aggregator 2, lights 3..6.
+    assert!(unsafe { lh_rs_begin(&cfg) });
+    for _ in 0..20 { poll_runtime(); }
+    assert_eq!(*ENDPOINTS.lock().unwrap(), [0, 1, 2, 3, 4, 5, 6]);
+    case_read_test::check();
+}
+
+// This is the directly observed deployed topology before the compatibility fix:
+// root 0, aggregator 2, station endpoints 3..6, and no endpoint 1.
+#[test]
+fn missing_one_runtime_serves_alexa_aggregator_without_renumbering() {
+    const CHILD: &str = "LIGHTHOUSE_RS_MISSING_ONE_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        for count in ["4", "16"] {
+            let result = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "tests::missing_one_runtime_serves_alexa_aggregator_without_renumbering", "--nocapture"])
+                .env(CHILD, count).output().unwrap();
+            assert!(result.status.success(), "isolated missing-one test failed:\n{}\n{}",
+                std::string::String::from_utf8_lossy(&result.stdout),
+                std::string::String::from_utf8_lossy(&result.stderr));
+        }
+        return;
+    }
+    let count: u16 = std::env::var(CHILD).unwrap().parse().unwrap();
+    let mut cfg = configuration(); cfg.count = count;
+    for (station, endpoint) in cfg.stations.iter_mut().zip(3..19) { station.endpoint = endpoint; }
+    assert!(unsafe { lh_rs_begin(&cfg) });
+    for _ in 0..20 { poll_runtime(); }
+    assert_eq!(*ENDPOINTS.lock().unwrap(), (0..u32::from(count) + 3).collect::<std::vec::Vec<_>>());
+    case_read_test::check();
 }

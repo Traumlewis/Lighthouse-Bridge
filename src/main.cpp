@@ -38,6 +38,18 @@
 #include <atomic>
 #endif
 #include "password_hash.h"
+#ifdef LH_RS_MATTER_BUILD
+#include "web_account.h"
+#include "local_wifi_page.h"
+#include "rs_wifi_portal.h"
+#include "network_mode.h"
+#include "gpio_buttons.h"
+bool localWifiMode = false, localApReady = false, wifiSetupBoot = false;
+std::atomic<uint32_t> wifiApEvent{0}, wifiApJoins{0}, wifiApLeaves{0}, wifiApReason{0};
+String portalModeToken;
+bool webUsernameEnabled = false;
+String webUsername;
+#endif
 
 #ifndef LH_FIRMWARE_VERSION
 #define LH_FIRMWARE_VERSION "0.3.9"
@@ -52,6 +64,11 @@
 #define LH_SHA_FINISH mbedtls_sha256_finish_ret
 #endif
 
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#define LH_BOOT_PIN 9
+#else
+#define LH_BOOT_PIN 0
+#endif
 using namespace bridge;
 #ifdef LH_MATTER_BUILD
 MatterWebServer server(80);
@@ -72,6 +89,32 @@ StationState states[kStations];
 std::atomic<bool> bleWorkerAvailable{false};
 std::atomic<const char*> bleStartupError{"BLE_STARTING"};
 #endif
+#ifdef LH_RS_MATTER_BUILD
+ButtonBinding gpioButtons[2];
+ButtonDebouncer gpioDebounce[2];
+void applyButtonPins() {
+  for (unsigned i=0;i<2;++i) {
+    gpioDebounce[i] = ButtonDebouncer{};
+    if (gpioButtons[i].pin >= 0) pinMode(gpioButtons[i].pin, INPUT_PULLUP);
+  }
+}
+bool parseButtons(JsonVariantConst value, ButtonBinding (&out)[2]) {
+  if (!value.is<JsonArrayConst>() || value.size()!=2) return false;
+  for (unsigned i=0;i<2;++i) {
+    const auto item=value[i];
+    if (!item["pin"].is<int>() || !item["action"].is<const char*>()) return false;
+    const int pin=item["pin"].as<int>();
+    if (pin < -1 || pin > 48) return false;
+    out[i].pin=pin;
+    const char* action=item["action"];
+    if (!strcmp(action,"disabled")) out[i].action=ButtonAction::Disabled;
+    else if (!strcmp(action,"all_on")) out[i].action=ButtonAction::AllOn;
+    else if (!strcmp(action,"all_off")) out[i].action=ButtonAction::AllOff;
+    else return false;
+  }
+  return validButtonBindings(out);
+}
+#endif
 uint32_t nextHueId = 1;
 String customDeviceName;
 bool otaPrepared = false, otaUploading = false, otaSucceeded = false, otaCandidateReady = false, otaRequestAuthorized = false;
@@ -81,12 +124,24 @@ uint32_t otaPreparedAt = 0, restartAt = 0;
 bool restartPending = false;
 String accessKey, apName, hostname;
 String webSalt, webHash;
+bool usingLocalWifi() {
+#ifdef LH_RS_MATTER_BUILD
+  return localWifiMode;
+#else
+  return false;
+#endif
+}
+IPAddress bridgeAddress() { return usingLocalWifi() ? WiFi.softAPIP() : WiFi.localIP(); }
 struct WebSession { String token; uint32_t seen = 0; bool bootstrap = false; };
 WebSession sessions[4];
 unsigned loginFailures = 0;
 uint32_t loginBlockedAt = 0;
 bool loginBlocked = false;
+#ifdef LH_RS_MATTER_BUILD
+PortalWifiManager wifiManager;
+#else
 WiFiManager wifiManager;
+#endif
 bool servicesStarted = false, manualPortal = false;
 bool blePaused = false;
 bool bleActive = false;
@@ -215,7 +270,7 @@ bool occupied(bool includeRead = true) { // Caller holds stateMutex.
   for (auto& state : states) if (state.busy || state.pending || (includeRead && state.reading)) return true;
   return false;
 }
-bool queueTarget(int slot, Target target) {
+bool queueTarget(int slot, Target target, bool configuredOff = false) {
 #ifdef LH_MATTER_BUILD
   if (!bleWorkerAvailable.load()) return false;
 #endif
@@ -224,7 +279,7 @@ bool queueTarget(int slot, Target target) {
   if (blePaused || portalRequested || otaPrepared || restartPending) return false;
   for (unsigned i = 0; i < kStations; ++i) {
     if ((slot < 0 || slot == static_cast<int>(configs[i].id)) && configs[i].mac[0]) {
-      request(states[i], target, millis());
+      request(states[i], configuredOff ? offTarget(configs[i]) : target, millis());
       accepted = true;
     }
   }
@@ -344,7 +399,7 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
     } else {
       ok = !target;
       if (target) {
-        const uint8_t command = static_cast<uint8_t>(*target); // Only 0x00 / 0x01.
+        const uint8_t command = static_cast<uint8_t>(*target); // ON/SLEEP; rs-matter also supports explicit STANDBY.
         ok = power->writeValue(&command, 1, !power->canWriteNoResponse());
         if (!ok) strcpy(error, "BLE_WRITE_FAILED");
       }
@@ -756,6 +811,9 @@ void configureMaintenanceRoutes() {
   server.on("/api/device", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
     if (otaPrepared || blePaused) { fail(409, "BLE_BUSY"); return; }
+#ifdef LH_RS_MATTER_BUILD
+    if (localWifiMode) { Lock lock; if (occupied(false) || restartPending) { fail(409,"BLE_BUSY"); return; } }
+#endif
     StaticJsonDocument<256> doc;
     if (!readBody(doc)) return;
     if (!doc["name"].is<const char*>() || !validDeviceName(doc["name"])) { fail(400, "DEVICE_NAME_INVALID"); return; }
@@ -769,7 +827,15 @@ void configureMaintenanceRoutes() {
     MDNS.end(); MDNS.begin(hostname.c_str()); MDNS.addService("http", "tcp", 80);
 #endif
     doc.clear(); doc["saved"] = true; doc["hostname"] = hostname; doc["setup_ssid"] = apName;
-    doc["url"] = "http://" + hostname + ".local/"; sendJson(200, doc); emitDeviceInfo();
+    doc["url"] = "http://" + hostname + ".local/";
+#ifdef LH_RS_MATTER_BUILD
+    if (localWifiMode) { { Lock lock; blePaused = true; } doc["restarting"] = true; restartPending = true; restartAt = millis(); }
+#endif
+    sendJson(200, doc);
+#ifdef LH_RS_MATTER_BUILD
+    if (localWifiMode) restartAt = millis();
+#endif
+    emitDeviceInfo();
   });
   server.on("/api/ota/prepare", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
@@ -833,6 +899,64 @@ void configureRoutes() {
     server.send_P(200, "text/html; charset=utf-8", WEB_UI);
 #endif
   });
+#ifdef LH_RS_MATTER_BUILD
+  // Public capability only: no account name, key, hash or salt is returned.
+  server.on("/api/login", HTTP_GET, [] {
+    StaticJsonDocument<64> doc; doc["username_enabled"] = webHash.length() && webUsernameEnabled;
+    sendJson(200,doc);
+  });
+  server.on("/api/network", HTTP_POST, [] {
+    if (!authenticated(true) || !sameOriginJson()) return;
+    StaticJsonDocument<128> doc;
+    if (!readBody(doc)) return;
+    if (!doc["mode"].is<const char*>() || strcmp(doc["mode"],"home")) { fail(400,"NETWORK_MODE_INVALID"); return; }
+    if (!localWifiMode) { doc.clear(); doc["saved"] = true; doc["restarting"] = false; sendJson(200,doc); return; }
+    {
+      Lock lock;
+      if (occupied(false) || otaPrepared || blePaused || restartPending) { fail(409,"BLE_BUSY"); return; }
+      if (!saveNetworkMode(prefs,NetworkMode::Home)) { fail(500,"SAVE_FAILED"); return; }
+      blePaused = true; restartPending = true; restartAt = millis();
+    }
+    doc.clear(); doc["saved"] = true; doc["restarting"] = true; sendJson(200,doc);
+    restartAt = millis();
+  });
+  server.on("/api/username", HTTP_POST, [] {
+    if (!authenticated(true) || !sameOriginJson()) return;
+    StaticJsonDocument<512> doc;
+    if (!readBody(doc)) return;
+    bool enabled; const char* name;
+    if (!parseWebUsername(doc.as<JsonVariantConst>(),enabled,name)) { fail(400,"USERNAME_INVALID"); return; }
+    const String nextName = name;
+    doc.clear(); doc["salt"] = webSalt; doc["hash"] = webHash;
+    doc["username_enabled"] = enabled; doc["username"] = nextName;
+    String record; serializeJson(doc,record);
+    if (doc.overflowed() || prefs.putString("web_auth",record) != record.length()) { fail(500,"SAVE_FAILED"); return; }
+    webUsernameEnabled = enabled; webUsername = nextName;
+    for (auto& session : sessions) session.token = "";
+    issueSession(false);
+    doc.clear(); doc["saved"] = true; sendJson(200,doc);
+  });
+  server.on("/api/key", HTTP_POST, [] {
+    if (!authenticated(true) || !sameOriginJson()) return;
+    StaticJsonDocument<128> doc;
+    if (!readBody(doc)) return;
+    if (!doc["confirm"].is<bool>() || !doc["confirm"].as<bool>()) { fail(400,"KEY_CONFIRM_REQUIRED"); return; }
+    if (localWifiMode) {
+      Lock lock;
+      if (occupied(false) || otaPrepared || blePaused || restartPending) { fail(409,"BLE_BUSY"); return; }
+    }
+    const String next = randomHex(12);
+    if (next.length() != 24 || prefs.putString("access_key",next) != next.length()) { fail(500,"SAVE_FAILED"); return; }
+    accessKey = next;
+    doc.clear(); doc["api_key"] = accessKey;
+    if (localWifiMode) {
+      { Lock lock; blePaused = true; }
+      doc["restarting"] = true; restartPending = true; restartAt = millis();
+    }
+    sendJson(200,doc);
+    if (localWifiMode) restartAt = millis();
+  });
+#endif
   server.on("/api/login", HTTP_POST, [] {
     if (!sameOriginJson()) return;
     StaticJsonDocument<512> doc;
@@ -841,7 +965,13 @@ void configureRoutes() {
     if (loginBlocked) { loginBlocked = false; loginFailures = 0; }
     const String password = doc["password"].as<String>();
     const bool bootstrap = !webHash.length();
-    const bool valid = doc["password"].is<const char*>() && password.length() <= 128 &&
+#ifdef LH_RS_MATTER_BUILD
+    const bool usernameValid = bootstrap || !webUsernameEnabled ||
+      (doc["username"].is<const char*>() && equalSecret(doc["username"].as<String>(),webUsername));
+#else
+    const bool usernameValid = true;
+#endif
+    const bool valid = usernameValid && doc["password"].is<const char*>() && password.length() <= 128 &&
       (bootstrap ? equalSecret(password, accessKey) : equalSecret(passwordHash(password, webSalt), webHash));
     if (!valid) {
       if (++loginFailures >= 5) { loginBlocked = true; loginBlockedAt = millis(); }
@@ -851,6 +981,40 @@ void configureRoutes() {
     issueSession(bootstrap);
     doc.clear(); doc["password_required"] = bootstrap; sendJson(200, doc);
   });
+#ifdef LH_RS_MATTER_BUILD
+  server.on("/api/buttons", HTTP_GET, [] {
+    if (!authenticated(true)) return;
+    StaticJsonDocument<1024> doc;
+    auto pins=doc.createNestedArray("pins");
+    for (int pin=0;pin<=48;++pin) if (buttonPinAllowed(pin)) pins.add(pin);
+    auto buttons=doc.createNestedArray("buttons");
+    for (const auto& binding:gpioButtons) {
+      auto item=buttons.createNestedObject();item["pin"]=binding.pin;
+      item["action"]=binding.action==ButtonAction::AllOn?"all_on":binding.action==ButtonAction::AllOff?"all_off":"disabled";
+    }
+    sendJson(200,doc);
+  });
+  server.on("/api/buttons", HTTP_POST, [] {
+    if (!authenticated(true) || !sameOriginJson()) return;
+    StaticJsonDocument<512> doc;
+    if (!readBody(doc)) return;
+    ButtonBinding proposed[2];
+    if (!parseButtons(doc["buttons"],proposed)) { fail(400,"BUTTON_CONFIG_INVALID");return; }
+    if (otaPrepared || restartPending || portalRequested) { fail(409,"BLE_BUSY");return; }
+    // Persist only canonical fields so accepted extra JSON cannot outgrow the
+    // bounded boot parser or alter the saved format.
+    doc.clear();auto records=doc.to<JsonArray>();
+    for (const auto& binding:proposed) {
+      auto item=records.createNestedObject();item["pin"]=binding.pin;
+      item["action"]=binding.action==ButtonAction::AllOn?"all_on":binding.action==ButtonAction::AllOff?"all_off":"disabled";
+    }
+    String record;serializeJson(records,record);
+    if (prefs.putString("gpio_buttons",record)!=record.length()) { fail(500,"SAVE_FAILED");return; }
+    for (auto& old:gpioButtons) if(old.pin>=0) pinMode(old.pin,INPUT);
+    for(unsigned i=0;i<2;++i) gpioButtons[i]=proposed[i];
+    applyButtonPins();doc.clear();doc["saved"]=true;sendJson(200,doc);
+  });
+#endif
   server.on("/api/account", HTTP_GET, [] {
     if (!authenticated(true, true)) return;
     StaticJsonDocument<512> doc;
@@ -860,6 +1024,11 @@ void configureRoutes() {
     doc["password_required"] = !webHash.length();
     doc["setup_ssid"] = apName; doc["hostname"] = hostname;
     doc["device_name"] = customDeviceName;
+#ifdef LH_RS_MATTER_BUILD
+    doc["username_enabled"] = webUsernameEnabled;
+    doc["username"] = webUsername;
+    doc["network_mode"] = usingLocalWifi() ? "local" : "home";
+#endif
     if (webHash.length()) doc["api_key"] = accessKey;
     sendJson(200, doc);
   });
@@ -874,6 +1043,9 @@ void configureRoutes() {
     const String salt = randomHex(16), hash = passwordHash(password, salt);
     if (hash.length() != 64) { fail(500, "PASSWORD_HASH_FAILED"); return; }
     doc.clear(); doc["salt"] = salt; doc["hash"] = hash;
+#ifdef LH_RS_MATTER_BUILD
+    doc["username_enabled"] = webUsernameEnabled; doc["username"] = webUsername;
+#endif
     String record; serializeJson(doc, record);
     if (prefs.putString("web_auth", record) != record.length()) { fail(500, "SAVE_FAILED"); return; }
     webSalt = salt; webHash = hash;
@@ -904,16 +1076,22 @@ void configureRoutes() {
     StaticJsonDocument<256> doc;
     if (!readBody(doc)) return;
     Target target;
-    if (!doc["state"].is<const char*>() || !parseTarget(doc["state"], target)) {
-      fail(400, "STATE_INVALID"); return;
-    }
+#ifdef LH_RS_MATTER_BUILD
+    const bool configuredOff = doc["state"].is<const char*>() && !strcmp(doc["state"],"off");
+    const bool targetValid = configuredOff ? (target = Target::Sleep,true) :
+      (doc["state"].is<const char*>() && parseTarget(doc["state"],target,true));
+#else
+    const bool configuredOff = false;
+    const bool targetValid = doc["state"].is<const char*>() && parseTarget(doc["state"],target);
+#endif
+    if (!targetValid) { fail(400, "STATE_INVALID"); return; }
     int slot = -1;
     if (doc["station"].is<int>() && doc["station"].as<int>() >= 1 && doc["station"].as<int>() <= static_cast<int>(kStations))
       slot = doc["station"].as<int>();
     else if (!doc["station"].is<const char*>() || strcmp(doc["station"], "all") != 0) {
       fail(400, "STATION_INVALID"); return;
     }
-    if (!queueTarget(slot, target)) { fail(409, "NO_STATION"); return; }
+    if (!queueTarget(slot, target, configuredOff)) { fail(409, "NO_STATION"); return; }
     doc.clear(); doc["accepted"] = true;
     sendJson(202, doc);
   });
@@ -991,7 +1169,13 @@ void configureRoutes() {
   });
   server.on("/api/wifi", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-    { Lock lock; if (occupied(false) || otaPrepared) { fail(409, "BLE_BUSY"); return; } blePaused = true; portalRequested = true; }
+    { Lock lock; if (occupied(false) || otaPrepared) { fail(409, "BLE_BUSY"); return; }
+#ifdef LH_RS_MATTER_BUILD
+      if (restartPending || portalRequested) { fail(409,"BLE_BUSY"); return; }
+      if (!requestWifiSetup(prefs)) { fail(500,"SAVE_FAILED"); return; }
+#endif
+      blePaused = true; portalRequested = true;
+    }
     StaticJsonDocument<96> doc; doc["setup_ssid"] = apName; doc["accepted"] = true;
     sendJson(202, doc);
   });
@@ -1016,7 +1200,7 @@ void configureRoutes() {
     const String uri = server.uri();
     if (uri == "/api/status" || uri == "/api/power" || uri == "/api/config" ||
         uri == "/api/scan" || uri == "/api/wifi" || uri == "/api/refresh" ||
-        uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account" ||
+        uri == "/api/buttons" || uri == "/api/network" || uri == "/api/key" || uri == "/api/username" || uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account" ||
         uri == "/api/device" || uri == "/api/ota" || uri == "/api/ota/prepare" || uri == "/api/ota/cancel" ||
         uri == "/api/matter" || uri == "/api/matter/commissioning") {
       if (authenticated()) fail(404, "NOT_FOUND");
@@ -1054,11 +1238,42 @@ void emitDeviceInfo() {
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
-  if (WiFi.status() == WL_CONNECTED) doc["url"] = "http://" + WiFi.localIP().toString() + "/";
+#ifdef LH_RS_MATTER_BUILD
+  doc["network_mode"] = localWifiMode ? "local" : "home";
+  const bool networkAvailable = localWifiMode ? localApReady : WiFi.status() == WL_CONNECTED;
+#else
+  const bool networkAvailable = WiFi.status() == WL_CONNECTED;
+#endif
+  if (networkAvailable) doc["url"] = "http://" + bridgeAddress().toString() + "/";
   else doc["url"] = nullptr;
   Serial.print("LH_INFO "); serializeJson(doc, Serial); Serial.println();
 }
 
+#ifdef LH_RS_MATTER_BUILD
+void emitWifiInfo() {
+  wifi_config_t config{};
+  const esp_err_t code = esp_wifi_get_config(WIFI_IF_AP,&config);
+  const bool keyMatches = code == ESP_OK && accessKey.length() == 24 &&
+    memcmp(config.ap.password,accessKey.c_str(),24) == 0 && config.ap.password[24] == 0;
+  const bool nameMatches = code == ESP_OK && config.ap.ssid_len == apName.length() &&
+    memcmp(config.ap.ssid,apName.c_str(),apName.length()) == 0;
+  StaticJsonDocument<768> doc;
+  doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
+  doc["mode"] = static_cast<unsigned>(WiFi.getMode()); doc["setup_boot"] = wifiSetupBoot;
+  doc["ap_config_error"] = static_cast<int>(code);
+  doc["key_matches"] = keyMatches; doc["name_matches"] = nameMatches;
+  doc["auth"] = code == ESP_OK ? static_cast<int>(config.ap.authmode) : -1;
+  doc["cipher"] = code == ESP_OK ? static_cast<int>(config.ap.pairwise_cipher) : -1;
+  doc["channel"] = code == ESP_OK ? config.ap.channel : 0;
+  doc["pmf_required"] = code == ESP_OK && config.ap.pmf_cfg.required;
+  doc["clients"] = WiFi.softAPgetStationNum();
+  doc["joins"] = wifiApJoins.load(); doc["leaves"] = wifiApLeaves.load();
+  doc["last_reason"] = wifiApReason.load();
+  doc["free_data_heap"] = matterDataFree(); doc["largest_data_block"] = matterDataLargest();
+  memset(&config,0,sizeof(config));
+  Serial.print("LH_WIFI_INFO "); serializeJson(doc,Serial); Serial.println();
+}
+#endif
 void processSerial() {
   static char line[80]; static unsigned length = 0; static bool overflow = false;
   while (Serial.available()) {
@@ -1067,11 +1282,17 @@ void processSerial() {
     if (c == '\n') {
       line[length] = 0;
       if (!overflow && strcmp(line, "LH_INFO") == 0) emitDeviceInfo();
+#ifdef LH_RS_MATTER_BUILD
+      if (!overflow && strcmp(line, "LH_WIFI_INFO") == 0) emitWifiInfo();
+#endif
 #ifdef LH_MATTER_BUILD
       if (!overflow && strcmp(line, "LH_MATTER_INFO") == 0) emitMatterInfo();
 #endif
       if (!overflow && strcmp(line, "LH_RESET_WEB_PASSWORD") == 0) {
         prefs.remove("web_auth"); webSalt = ""; webHash = "";
+#ifdef LH_RS_MATTER_BUILD
+        webUsernameEnabled = false; webUsername = "";
+#endif
         for (auto& session : sessions) session.token = "";
         Serial.println("LH_PASSWORD_RESET");
       }
@@ -1082,7 +1303,7 @@ void processSerial() {
 }
 
 void startServices() {
-  WiFi.setAutoReconnect(true);
+  WiFi.setAutoReconnect(!usingLocalWifi());
   persistWifiCredentials();
   // Arduino ESP32 2.0.17 / IDF 4.4 requires modem sleep for Wi-Fi/BLE
   // coexistence. WIFI_PS_NONE aborts in coex_enable() when NimBLE starts.
@@ -1095,7 +1316,7 @@ void startServices() {
     while (true) delay(1000);
 #endif
   }
-  if (powerSaveResult == ESP_OK) Serial.println("Wi-Fi connected; modem sleep enabled for Wi-Fi/BLE coexistence.");
+  if (powerSaveResult == ESP_OK) Serial.println("Wi-Fi ready; modem sleep policy enabled for Wi-Fi/BLE coexistence.");
   stateMutex = xSemaphoreCreateMutex();
   if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
   String saved = prefs.getString("stations", "");
@@ -1137,6 +1358,9 @@ void startServices() {
     void startWeb() { configureRoutes(); server.begin(); matterServicesReady = true; }
     bool startMatter() {
       if (!validConfig) { matterError = "SAVED_CONFIG_INVALID"; return false; }
+#ifdef LH_RS_MATTER_BUILD
+      if (localWifiMode) return matterLocalBegin();
+#endif
       if (!matterBeginResources()) return false;
       if (!matterBridgeBegin()) { matterEndResources(); return false; }
       const uint32_t started = millis();
@@ -1179,7 +1403,7 @@ void startServices() {
   if (!alexaReady) { Serial.println("SSDP startup failed; the web interface remains available."); server.begin(); }
   if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
 #endif
-  Serial.printf("Web interface: http://%s/ or http://%s.local/\n", WiFi.localIP().toString().c_str(), hostname.c_str());
+  Serial.printf("Web interface: http://%s/ or http://%s.local/\n", bridgeAddress().toString().c_str(), hostname.c_str());
   servicesStarted = true;
 #ifdef LH_MATTER_BUILD
   Serial.println(bleWorkerAvailable.load() ? "Lighthouse Bridge ready." : "HTTP recovery ready; Bluetooth unavailable.");
@@ -1197,14 +1421,47 @@ void setup() {
 #ifdef LH_RS_MATTER_BUILD
   if (!lh_rs_init_diagnostics()) Serial.println("RS_DIAGNOSTICS_INIT_FAILED");
 #endif
-  pinMode(0, INPUT_PULLUP);
+  pinMode(LH_BOOT_PIN, INPUT_PULLUP);
   delay(500);
   prefs.begin("lhbridge", false);
+#ifdef LH_RS_MATTER_BUILD
+  {
+    const String savedButtons=prefs.getString("gpio_buttons","");
+    if (savedButtons.length()) {
+      StaticJsonDocument<384> doc;ButtonBinding restored[2];
+      if (!deserializeJson(doc,savedButtons) && parseButtons(doc.as<JsonVariantConst>(),restored))
+        for(unsigned i=0;i<2;++i) gpioButtons[i]=restored[i];
+      else Serial.println("GPIO_BUTTON_CONFIG_INVALID: buttons disabled.");
+    }
+    applyButtonPins();
+  }
+#endif
   WiFi.setSleep(WIFI_PS_MIN_MODEM);
   WiFi.persistent(true);
+#ifdef LH_RS_MATTER_BUILD
+  localWifiMode = storedNetworkMode(prefs.getString("wifi_mode","home").c_str()) == NetworkMode::Local;
+  if (!consumeWifiSetup(prefs,wifiSetupBoot)) Serial.println("WIFI_SETUP_FLAG_SAVE_FAILED");
+  WiFi.onEvent([](arduino_event_id_t event,arduino_event_info_t info) {
+    // Event context stores numbers only. All logging stays on the main loop.
+    unsigned kind = 0;
+    if (event == ARDUINO_EVENT_WIFI_AP_START) kind = 1;
+    if (event == ARDUINO_EVENT_WIFI_AP_STOP) kind = 2;
+    if (event == ARDUINO_EVENT_WIFI_AP_STACONNECTED) { kind = 3; wifiApJoins.fetch_add(1); }
+    if (event == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED) {
+      kind = 4; wifiApLeaves.fetch_add(1); wifiApReason = info.wifi_ap_stadisconnected.reason;
+    }
+    if (kind) wifiApEvent.store(kind);
+  });
+  WiFi.mode(localWifiMode || wifiSetupBoot ? WIFI_AP : WIFI_STA);
+#else
   WiFi.mode(WIFI_STA);
+#endif
 #ifdef LH_MATTER_BUILD
+#ifdef LH_RS_MATTER_BUILD
+  if (!localWifiMode && !wifiSetupBoot) WiFi.enableIPv6();
+#else
   WiFi.enableIPv6();
+#endif
 #endif
   accessKey = prefs.getString("access_key", "");
   if (accessKey.length() != 24) {
@@ -1215,9 +1472,17 @@ void setup() {
   }
   const String authentication = prefs.getString("web_auth", "");
   if (authentication.length()) {
+#ifdef LH_RS_MATTER_BUILD
+    StaticJsonDocument<512> doc;
+#else
     StaticJsonDocument<256> doc;
+#endif
     if (!deserializeJson(doc, authentication)) {
       webSalt = doc["salt"].as<String>(); webHash = doc["hash"].as<String>();
+#ifdef LH_RS_MATTER_BUILD
+      webUsernameEnabled = doc["username_enabled"].as<bool>();
+      webUsername = storedWebUsername(doc.as<JsonVariantConst>());
+#endif
       if (webSalt.length() != 32 || webHash.length() != 64) { webSalt = ""; webHash = ""; }
     }
   }
@@ -1244,7 +1509,11 @@ void setup() {
   WiFi.setHostname(hostname.c_str());
   Serial.printf("\nLighthouse Bridge %s\n", LH_FIRMWARE_VERSION);
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
+#ifdef LH_RS_MATTER_BUILD
+  Serial.println("Web login: first use the key, then your own password; username is optional.");
+#else
   Serial.println("Web user: admin; first login uses the key, then choose your own password.");
+#endif
   emitDeviceInfo();
   wifiManager.setDebugOutput(false);
   wifiManager.setTitle("Lighthouse Bridge");
@@ -1255,7 +1524,48 @@ void setup() {
     auto denied = [] { wifiManager.server->send(403, "text/plain", "Use the signed-in Bridge firmware update page."); };
     wifiManager.server->on("/update", HTTP_ANY, denied, [] {});
     wifiManager.server->on("/u", HTTP_ANY, denied, [] {});
+#ifdef LH_RS_MATTER_BUILD
+    wifiManager.server->on("/",HTTP_GET,[] {
+      if (!wifiManager.beginCustomRoot()) return;
+      String page = kRsWifiPortalPage;
+      page.replace("%PORTAL_HEAD%",kRsWifiPortalHead);
+      String name = apName; name.replace("&","&amp;"); name.replace("<","&lt;"); name.replace(">","&gt;");
+      page.replace("%SSID%",name);
+      wifiManager.server->sendHeader("Cache-Control","no-store");
+      wifiManager.server->sendHeader("X-Frame-Options","DENY");
+      wifiManager.server->sendHeader("X-Content-Type-Options","nosniff");
+      wifiManager.server->send(200,"text/html; charset=utf-8",page);
+    });
+    portalModeToken = randomHex(16);
+    const char* portalHeaders[] = {"Origin"};
+    wifiManager.server->collectHeaders(portalHeaders,1);
+    wifiManager.server->on("/local", HTTP_GET, [] {
+      String page = kLocalWifiPage; page.replace("%PORTAL_HEAD%",kRsWifiPortalHead); page.replace("%TOKEN%",portalModeToken);
+      wifiManager.server->sendHeader("Cache-Control","no-store");
+      wifiManager.server->sendHeader("X-Frame-Options","DENY");
+      wifiManager.server->send(200,"text/html; charset=utf-8",page);
+    });
+    wifiManager.server->on("/local", HTTP_POST, [] {
+      auto& portal = *wifiManager.server;
+      const String origin = portal.header("Origin");
+      if (!portalModeToken.length() || !equalSecret(portal.arg("token"),portalModeToken) ||
+          (origin.length() && origin != "http://" + portal.hostHeader())) {
+        portal.send(403,"text/plain","Request denied"); return;
+      }
+      if (!saveNetworkMode(prefs,NetworkMode::Local)) { portal.send(500,"text/plain","Save failed"); return; }
+      portalModeToken = ""; // Consume the choice once; restart happens outside the handler.
+      portal.sendHeader("Cache-Control","no-store");
+      String page = kLocalWifiSaved; page.replace("%PORTAL_HEAD%",kRsWifiPortalHead);
+      portal.send(200,"text/html; charset=utf-8",page);
+      restartAt = millis(); restartPending = true;
+    });
+#endif
   });
+#ifdef LH_RS_MATTER_BUILD
+  const char* portalMenu[] = {"wifi","custom","info","exit"};
+  wifiManager.setMenu(portalMenu,4);
+  wifiManager.setCustomMenuHTML(kLocalWifiMenu);
+#endif
   wifiManager.setHostname(hostname);
   wifiManager.setCustomHeadElement("<meta name='color-scheme' content='dark'><style>"
     "body{margin:0;background:#101817;color:#edf5ef;font:16px/1.5 system-ui,sans-serif}"
@@ -1264,16 +1574,56 @@ void setup() {
     "button{background:#c2f78c;color:#15210f;border:1px solid #c2f78c;font-weight:600}"
     "input,select{background:#101817;color:#edf5ef;border:1px solid #33433f}.msg{background:#1b2624;border-radius:10px}"
     "input:focus,button:focus{outline:2px solid #c2f78c;outline-offset:2px}</style>");
+#ifdef LH_RS_MATTER_BUILD
+  wifiManager.setCustomHeadElement(kRsWifiPortalHead);
+#endif
   wifiManager.setConfigPortalBlocking(false);
   wifiManager.setConnectTimeout(20);
   wifiManager.setConfigPortalTimeout(0);
-  wifiManager.setSaveConfigCallback(persistWifiCredentials);
+#ifdef LH_RS_MATTER_BUILD
+  wifiManager.setAPCallback([](WiFiManager*) { emitWifiInfo(); });
+#endif
+  wifiManager.setSaveConfigCallback([] {
+    persistWifiCredentials();
+#ifdef LH_RS_MATTER_BUILD
+    if (WiFi.status() == WL_CONNECTED && !saveNetworkMode(prefs,NetworkMode::Home))
+      Serial.println("WIFI_MODE_SAVE_FAILED");
+#endif
+  });
+#ifdef LH_RS_MATTER_BUILD
+  if (wifiSetupBoot) {
+    // No Matter/BLE services have been initialized on this fresh boot.
+    WiFi.setAutoReconnect(false); manualPortal = true;
+    wifiManager.setConfigPortalTimeout(180);
+    Serial.println("Clean Wi-Fi setup: AP-only startup before Matter/BLE.");
+    wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
+    return;
+  }
+  if (localWifiMode) {
+    WiFi.setAutoReconnect(false);
+    localApReady = WiFi.softAPConfig(IPAddress(192,168,4,1),IPAddress(192,168,4,1),IPAddress(255,255,255,0)) &&
+      WiFi.softAP(apName.c_str(),accessKey.c_str(),1,false,4);
+    if (localApReady) { Serial.println("Local Wi-Fi ready: http://192.168.4.1/"); emitWifiInfo(); return; }
+    Serial.println("LOCAL_WIFI_START_FAILED; opening setup recovery.");
+    localWifiMode = false; // Saved choice stays intact; the setup portal remains recovery.
+    manualPortal = true; // Saving/closing recovery must reboot out of the original AP-only mode.
+    wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
+    return;
+  }
+#endif
   wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
   // The main loop services USB info while the setup portal waits for Wi-Fi.
 }
 
 void loop() {
   processSerial();
+#ifdef LH_RS_MATTER_BUILD
+  const unsigned apEvent = wifiApEvent.exchange(0);
+  if (apEvent) {
+    Serial.printf("Wi-Fi AP event: kind=%u, joins=%u, leaves=%u, last_reason=%u\n",
+      apEvent,wifiApJoins.load(),wifiApLeaves.load(),wifiApReason.load());
+  }
+#endif
   wifiManager.process();
   if (restartPending && millis() - restartAt >= 1500) restartBridge();
   if (otaPrepared && !otaUploading && !otaSucceeded && millis() - otaPreparedAt >= 60000) cancelOta("OTA_ABORTED");
@@ -1285,7 +1635,7 @@ void loop() {
     delay(2); return;
   }
   if (!servicesStarted) {
-    if (WiFi.status() == WL_CONNECTED) {
+    if (usingLocalWifi() || WiFi.status() == WL_CONNECTED) {
       if (wifiManager.getConfigPortalActive()) wifiManager.stopConfigPortal();
       startServices();
     }
@@ -1298,23 +1648,48 @@ void loop() {
 #else
   alexa.loop();
 #endif
+#ifdef LH_RS_MATTER_BUILD
+  for (unsigned i=0;i<2;++i) {
+    const auto& binding=gpioButtons[i];
+    if (binding.pin>=0 && gpioDebounce[i].poll(digitalRead(binding.pin)!=LOW,millis())) {
+      const bool accepted=queueTarget(-1,binding.action==ButtonAction::AllOn?Target::On:Target::Sleep,
+                                     binding.action==ButtonAction::AllOff);
+      Serial.printf("GPIO button: index=%u, accepted=%s\n",i+1,accepted?"true":"false");
+    }
+  }
+#endif
   static uint32_t pressedAt = 0;
-  if (digitalRead(0) == LOW) {
+  if (digitalRead(LH_BOOT_PIN) == LOW) {
     if (!pressedAt) pressedAt = millis();
     if (millis() - pressedAt >= 5000) {
       Lock lock;
-      if (!otaPrepared && !occupied()) { blePaused = true; portalRequested = true; }
+      if (!otaPrepared && !occupied()) {
+#ifdef LH_RS_MATTER_BUILD
+        if (!portalRequested && !restartPending && requestWifiSetup(prefs)) { blePaused = true; portalRequested = true; }
+        else if (!portalRequested && !restartPending) Serial.println("WIFI_SETUP_FLAG_SAVE_FAILED");
+#else
+        blePaused = true; portalRequested = true;
+#endif
+      }
     }
   } else pressedAt = 0;
   if (portalRequested && !bleActive) {
     portalRequested = false;
+#ifdef LH_RS_MATTER_BUILD
+    // Reboot frees the initialized radio/protocol heaps before opening setup.
+    restartAt = millis(); restartPending = true;
+#else
     server.stop();
 #ifndef LH_MATTER_BUILD
     MDNS.end();
 #endif
+#ifdef LH_RS_MATTER_BUILD
+    if (localWifiMode) MDNS.end(); // No Matter responder is running in local mode.
+#endif
     manualPortal = true;
     wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());
+#endif
   }
   delay(2);
 }

@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.8-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.18-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -15,6 +15,65 @@ the [rs-matter guide](../experimental/rs-matter/README.md).
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
 by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
+
+## rs-matter 0.1.16 setup reboot and physical diagnostics
+
+`POST /api/wifi` and BOOT setup requests consume a one-shot setup flag
+on a fresh boot before Matter/BLE initialization. Existing authentication/Origin
+checks apply. Request persistence failure returns `500 SAVE_FAILED` without
+pausing the running bridge. The saved home/local choice is unchanged; timeout or
+close reboots into it. The browser preserves the key for the setup connection.
+
+Physical USB command `LH_WIFI_INFO\n` returns `LH_WIFI_INFO {protocol:1,...}`
+with AP mode/config error, auth/cipher/channel/PMF, `key_matches`, `name_matches`,
+client/join/leave counts, last disconnect reason and byte-heap diagnostics. Match
+fields compare driver configuration to the stored expected values. No raw keys,
+SSIDs, device MACs or protocol credentials are returned. This command is read-only;
+existing USB readers do not automatically add it to their queries.
+
+## rs-matter 0.1.15 Local Wi-Fi Mode
+
+Local Mode runs the same authenticated dashboard/API at
+`http://192.168.4.1/` on the bridge's own protected Wi-Fi. Station control,
+discovery, config saves and personal-session OTA remain available without a
+router. Matter is paused: `matter_ready:false`, `matter_paired:false` and
+`matter_error:"LOCAL_MODE"` describe the inactive runtime, not erased fabrics.
+The actual pairings are retained for resuming home mode.
+
+Status/account/private Matter/USB information adds `network_mode:"home"|"local"`.
+Status IP and the USB URL use the AP address in local mode; `wifi_connected`
+continues to indicate an actual home/STA connection and remains false on AP-only.
+General status never contains API keys, Wi-Fi passwords or Matter setup codes.
+
+`POST /api/network`, body `{"mode":"home"}`, requires a personal web session and
+Origin/JSON checks, never API key/bootstrap authorization. It atomically selects
+home mode and returns `{"saved":true,"restarting":true}` if a restart is needed.
+An already-home request returns `restarting:false`; invalid mode returns
+`400 NETWORK_MODE_INVALID`. Pending power/scan/OTA work returns `409 BLE_BUSY`.
+Saved router credentials are reused, or the setup portal opens if unavailable.
+Local mode is selected through WiFi Setup -> Local Mode and its confirmation POST;
+GET requests only display the form. The mode persists until explicitly changed.
+
+AP-local key regeneration and device naming additionally return `restarting:true`
+to apply the new Wi-Fi credentials. Copy the new key before reconnecting; it is
+not put in a URL or storage. The web password and Matter pairings stay unchanged.
+
+## rs-matter 0.1.18 GPIO buttons
+
+Personal-password-session `GET /api/buttons` returns `pins` (the compiled board's
+supported GPIO list) and exactly two `buttons` records, each with integer `pin`
+and action `disabled`, `all_on` or `all_off`. Disabled uses pin -1. POST on the
+same route accepts `{ "buttons": [{"pin":25,"action":"all_on"},
+{"pin":26,"action":"all_off"}] }` (example pins for classic ESP32 only).
+
+Both methods reject API-key/bootstrap authentication. POST requires same-Origin
+JSON, supported distinct GPIOs and a valid complete pair. Invalid data returns
+400 `BUTTON_CONFIG_INVALID`; failed atomic persistence returns `SAVE_FAILED`.
+Saving changes input configuration only, never power state. Inputs use pull-ups
+and momentary contacts to GND, 40-ms debounce, release-to-arm and no hold repeat.
+All off uses each station's configured OFF state. Presses during maintenance are
+rejected by the existing command gate and never replayed later. Both buttons are
+disabled by default; malformed saved configuration disables both.
 
 ## Web authentication (not integration endpoints)
 
@@ -41,6 +100,45 @@ and queued/sending power commands remain visible. Debug text scrolls within a
 reserved card area; toggling does not change the layout. Triple-click its firmware version within 1.2 s
 to toggle debug details. This only changes browser presentation; all API fields
 and serial diagnostics remain available and BLE behavior is unchanged.
+
+### rs-matter 0.1.12 account and OFF preferences
+
+These additions apply only to rs-matter; stable/SDK behavior remains as above.
+
+- Public `GET /api/login` returns only `{"username_enabled":false|true}`. First
+  setup and migrated accounts default to false. It never returns the account name.
+- If enabled after personal-password setup, `POST /api/login` additionally needs
+  `"username":"…"`. Incorrect names/passwords share the existing failure/throttle
+  behavior. Bootstrap login needs no name.
+- Personal-session `GET /api/account` additionally returns `username_enabled` and
+  `username` (empty when disabled). It still never returns the password/hash/salt.
+- Personal-session `POST /api/username`, body
+  `{"username_enabled":true,"username":"owner"}`, enables or changes the login
+  name. Allowed names have 1–32 ASCII letters, digits, dots, hyphens or underscores.
+  Use `{"username_enabled":false}` to disable and clear it. Returns `{"saved":true}`;
+  invalid input returns `400 USERNAME_INVALID`. The salt/hash/name/settings are
+  persisted as one record before live state changes. Other sessions are invalidated;
+  the caller gets a replacement cookie. Password updates preserve these settings.
+- Personal-session `POST /api/key`, body `{"confirm":true}`, generates and returns
+  a new 24-hex `api_key`. Missing/false confirmation returns `400 KEY_CONFIRM_REQUIRED`.
+  Old integration keys immediately stop authenticating. The new key is also the
+  password for future setup access points; saved router Wi-Fi and the personal
+  web password stay unchanged. No reboot, power or pairing action is triggered.
+- Both new POST routes reject API-key and bootstrap authentication and enforce
+  existing Origin/JSON checks. Keep returned credentials in memory, never URLs/logs.
+- Station configuration/status adds `off_state:"sleep"|"standby"`. Missing NVS
+  values default to sleep; an omitted edit field preserves an existing selection.
+  Invalid values/types return `400 CONFIG_OFF_STATE`. The normal config-save
+  restart still applies, preserving endpoint identities and sending no power.
+- `POST /api/power` accepts `state:"off"` to use each selected station's saved
+  choice (also for `station:"all"`). Explicit on/sleep/standby remain exact commands.
+  Alexa OFF/toggle-off uses each station's saved choice. Measured state remains
+  independent; raw 2 confirms STANDBY, 0 confirms SLEEP, 11 confirms ON.
+- The rs dashboard hides station IDs/MACs and history until debug is enabled;
+  unlike the earlier fixed-height UI, cards expand/shrink with debug visibility.
+  All API measurement fields remain available independently of debug.
+  Version 0.1.13 additionally hides the manual refresh button outside debug;
+  the refresh endpoint and automatic read scheduling stay available.
 
 Experimental 0.3.7 station-save success additionally returns `restarting:true`
 and the assigned public station list. The live config/status keeps the previous

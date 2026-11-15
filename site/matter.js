@@ -1,10 +1,13 @@
-import { translations } from './translations.js?v=rs-matter-0.1.8';
-import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.8';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.8';
+import { translations } from './translations.js?v=rs-matter-0.1.18';
+import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.18';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
 import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.8';
 
 const $ = id => document.getElementById(id);
 const isRsMatter = document.body.dataset.prototype === 'rs-matter';
+const boardFamilies={'esp32':'ESP32','weact-c3':'ESP32-C3','c3-supermini':'ESP32-C3','s3-supermini':'ESP32-S3'};
+let selectedBoard='esp32',checkEpoch=0;
+const boardManifest=()=>selectedBoard==='esp32'?'rs-matter-manifest.json':`rs-matter-${selectedBoard}-manifest.json`;
 const prototypeName = isRsMatter ? 'rs-matter' : 'matter';
 const validPrototypeParts = isRsMatter ? validRsMatterParts : validMatterParts;
 const supported = value => value === 'en' || value === 'de';
@@ -17,6 +20,7 @@ function render() {
   $('matter-load').textContent = text(loadState) + (version ? ' · v' + version : '');
   $('matter-load').classList.toggle('error', loadState === 'unavailable');
   $('matter-install').disabled = !ready || !$('matter-confirm').checked || Boolean(connection) || starting;
+  if(isRsMatter)$('rs-board').disabled=Boolean(connection)||starting;
   $('matter-read').disabled = Boolean(connection) || starting;
   $('matter-stop').hidden = !connection;
   const usbText = {usb_idle:'matter_usb_idle',usb_wait:'matter_usb_wait',usb_timeout:'matter_usb_timeout'};
@@ -41,7 +45,7 @@ function render() {
   }
   $('matter-code').textContent = info.pairing_code || '—';
   $('matter-code').disabled = !info.pairing_code;
-  const errors = {CONFIGURE_STABLE_FIRST:'matter_need_config',WAITING_WIFI:'matter_wait_wifi'};
+  const errors = {CONFIGURE_STABLE_FIRST:'matter_need_config',WAITING_WIFI:'matter_wait_wifi',LOCAL_MODE:'matter_local_mode'};
   $('matter-pair-state').textContent = info.error ? text(errors[info.error] || 'matter_device_error') + ' (' + info.error + ')' :
     text(info.paired ? 'matter_paired' : 'matter_enter_code');
   $('matter-measurement').textContent = stations.length ? '' : text('matter_no_station');
@@ -70,27 +74,32 @@ $('language').addEventListener('change',() => setLanguage($('language').value,tr
 $('matter-confirm').addEventListener('change',render);
 
 async function check() {
+  const epoch=++checkEpoch,board=selectedBoard;ready=false;version='';loadState='checking';$('matter-download').hidden=true;$('matter-ota').hidden=true;render();
   try {
-    const response = await fetch(`${prototypeName}-manifest.json`,{cache:'no-store'});
+    const response = await fetch(isRsMatter?boardManifest():`${prototypeName}-manifest.json`,{cache:'no-store'});
     if (!response.ok) throw new Error();
     const manifest = await response.json(), parts = manifest.builds?.[0]?.parts;
-    if (manifest.builds?.length !== 1 || manifest.builds[0].chipFamily !== 'ESP32' ||
-        !new RegExp('^\\d+\\.\\d+\\.\\d+-' + prototypeName + '$').test(manifest.version) || !validPrototypeParts(parts)) throw new Error();
+    if (manifest.builds?.length !== 1 || manifest.builds[0].chipFamily !== (isRsMatter?boardFamilies[board]:'ESP32') ||
+        !new RegExp('^\\d+\\.\\d+\\.\\d+-' + prototypeName + '$').test(manifest.version) || !validPrototypeParts(parts,board)) throw new Error();
     await Promise.all(parts.map(async part => {
       const result = await fetch(new URL(part.path,response.url),{method:'HEAD',cache:'no-store'});
       if (!result.ok) throw new Error();
     }));
+    if(epoch!==checkEpoch)return;
+    $('matter-installer').setAttribute('manifest',isRsMatter?boardManifest():`${prototypeName}-manifest.json`);
+    const directory=isRsMatter&&board!=='esp32'?board+'/':'';
     version = manifest.version; ready = true; loadState = 'ready';
-    $('matter-download').href = `firmware/${prototypeName}/lighthouse-bridge-${version}.zip`;
+    $('matter-download').href = `firmware/${prototypeName}/${directory}lighthouse-bridge-${version}.zip`;
     $('matter-download').hidden = false;
-    $('matter-ota').href = `firmware/${prototypeName}/lighthouse-bridge-${version}.lhota`;
+    $('matter-ota').href = `firmware/${prototypeName}/${directory}lighthouse-bridge-${version}.lhota`;
     $('matter-ota').hidden = false;
-  } catch (_) { loadState = 'unavailable'; }
+  } catch (_) { if(epoch!==checkEpoch)return;loadState = 'unavailable'; }
   render();
 }
 import('./vendor/install-button.js').then(() => customElements.whenDefined('esp-web-install-button')).then(() => {
   $('matter-installer').hidden = false;
 }).catch(() => { $('matter-module-error').hidden = false; });
+if(isRsMatter)$('rs-board').addEventListener('change',()=>{selectedBoard=$('rs-board').value;$('matter-confirm').checked=false;check();});
 check();
 
 async function readInfo(knownPort) {

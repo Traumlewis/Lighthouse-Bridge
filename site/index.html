@@ -7,7 +7,7 @@
   <meta name="description" data-i18n-content="description" content="Install Lighthouse Bridge on an ESP32. Control up to 16 Valve Lighthouse V2 base stations using Alexa, a web interface and a local API.">
   <title>Lighthouse Bridge · WebFlasher</title>
   <link rel="stylesheet" href="style.css?v=0.3.0-copy1">
-  <script type="module" src="app.js?v=rs-matter-0.1.8"></script>
+  <script type="module" src="app.js?v=rs-matter-0.1.18"></script>
 </head>
 <body>
   <main>
@@ -18,7 +18,7 @@
     </section>
     <section class="install-panel" aria-labelledby="install-title">
       <div class="install-heading"><div><p class="eyebrow" data-i18n="install_eyebrow">Install firmware</p><h2 id="install-title" data-i18n="install_title">Plug in your ESP32. Get started.</h2></div><span id="version" class="version" data-i18n="loading_version">Loading firmware …</span></div>
-      <p data-i18n="board_description">For the original <strong>ESP-WROOM-32 / ESP-32S</strong> with at least <strong>4 MB flash</strong>, including CH340 boards with USB-C. Not for S2, S3 or C3.</p>
+      <p data-i18n="board_description">This stable Hue firmware supports the original <strong>ESP-WROOM-32 / ESP-32S</strong> with at least <strong>4 MB flash</strong>, including CH340 boards with USB-C. For WeAct ESP32-C3FH4, C3 SuperMini or S3 SuperMini, use the <a href="rs-matter.html">rs-matter WebFlasher with board selection</a>. ESP32-S2 is not supported.</p>
       <label class="check"><input id="board-confirm" type="checkbox"><span data-i18n="board_confirmation">I have connected the supported board using a USB data cable.</span></label>
       <div class="install-actions">
         <esp-web-install-button id="installer" manifest="manifest.json" hidden>

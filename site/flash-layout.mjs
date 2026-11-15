@@ -5,11 +5,13 @@ export function validUpdateParts(parts) {
 export function validMatterParts(parts) {
   return validParts(parts, 'firmware/matter/lighthouse-matter-');
 }
-export function validRsMatterParts(parts) {
-  return validParts(parts, 'firmware/rs-matter/lighthouse-rs-matter-');
+export function validRsMatterParts(parts, board='esp32') {
+  if(!['esp32','weact-c3','c3-supermini','s3-supermini'].includes(board))return false;
+  const directory=board==='esp32'?'':board+'/';
+  return validParts(parts, 'firmware/rs-matter/'+directory+'lighthouse-rs-matter-',board==='esp32'?0x1000:0);
 }
-function validParts(parts, prefix) {
-  const offsets = [0x1000, 0x8000, 0xe000, 0x10000];
+function validParts(parts, prefix, bootOffset=0x1000) {
+  const offsets = [bootOffset, 0x8000, 0xe000, 0x10000];
   const names = ['bootloader', 'partitions', 'boot-app0', 'app'];
   return Array.isArray(parts) && parts.length === 4 && parts.every((part, i) =>
     part.offset === offsets[i] && typeof part.path === 'string' &&

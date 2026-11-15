@@ -4,7 +4,7 @@
 #include "rs_matter_commands.h"
 #include <mdns.h>
 void processSerial();
-constexpr char kMatterTestName[] = "Lighthouse-Bridge Matter Test";
+constexpr char kMatterBridgeName[] = "Lighthouse-Bridge";
 std::atomic<bool> matterInitializing{false}, matterReady{false}, matterPaired{false};
 std::atomic<bool> matterServicesReady{false}, matterWindowOpen{false}, matterWindowPending{false};
 std::atomic<const char*> matterError{"WAITING_WIFI"}, matterStartupPhase{"waiting_wifi"}, matterWindowError{""};
@@ -57,6 +57,18 @@ bool matterRefreshInfo() {
   if(!lh_rs_info(code,sizeof(code),&paired,&open)) return false;
   manualCode=code; matterPaired=paired; matterWindowOpen=open;
   return !manualCode.length() || manualCode.length()==11;
+}
+bool matterLocalBegin() {
+  matterStartupPhase = "local_registry";
+  matterRegistry.reset(new(std::nothrow) MatterRegistry);
+  if (!matterRegistry) { matterError = "OUT_OF_MEMORY"; return false; }
+  Preferences own;
+  if (!own.begin("lhmatter",false)) { matterError = "MATTER_STORAGE_FAILED"; return false; }
+  const bool valid = loadRegistry(own); own.end();
+  if (!valid) return false;
+  matterReady = false; matterError = "LOCAL_MODE"; matterStartupPhase = "local_mode";
+  Serial.println("Local BLE control ready; Matter is paused; no startup power commands sent.");
+  return true;
 }
 bool matterBridgeBegin() {
   matterStartupPhase="rs_storage";
@@ -124,8 +136,8 @@ void matterConfigurationChanged() {
 }
 void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
-  doc["engine"] = "rs-matter";
-  doc["bridge_name"] = kMatterTestName;
+  doc["engine"] = "rs-matter"; doc["network_mode"] = usingLocalWifi() ? "local" : "home";
+  doc["bridge_name"] = kMatterBridgeName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["ready"] = matterReady.load() && bleWorkerAvailable.load(); doc["paired"] = matterPaired.load();
   doc["commissioning_open"] = matterWindowOpen.load();
@@ -169,6 +181,10 @@ bool matterOpenCommissioning() {
 }
 void matterSetHostname(const String& value) {
   // rs-matter owns its DNS-SD responder. Never stop it through Arduino mDNS.
+  if (usingLocalWifi() && !rsStarted) {
+    MDNS.end(); if (MDNS.begin(value.c_str())) MDNS.addService("http","tcp",80);
+    return;
+  }
   (void)value; // The responder reloads the saved hostname on its next check.
 }
 extern "C" uint32_t lh_rs_observed(uint16_t endpoint) {

@@ -12,6 +12,7 @@ from package_release import ROOT, VERSION
 from ota_package import unpack
 from build_matter import validate_segments, SEGMENTS, VERSION as MATTER_VERSION
 from build_rs_matter import VERSION as RS_MATTER_VERSION
+from rs_boards import BOARDS
 
 
 def build():
@@ -114,6 +115,23 @@ def build():
     for file in rs_matter.iterdir():
         if file.is_file() and file.suffix!='.tmp' and file.name!='manifest.json': shutil.copy2(file,rs_output/file.name)
     shutil.copy2(rs_matter/'manifest.json',output/'rs-matter-manifest.json')
+    for board_id,board in BOARDS.items():
+        if board_id=='esp32': continue
+        source=rs_matter/board_id
+        manifest=json.loads((source/'manifest.json').read_text())
+        if manifest['version']!=RS_MATTER_VERSION or len(manifest['builds'])!=1 or manifest['builds'][0]['chipFamily']!=board['family']:
+            raise ValueError('Invalid board manifest: '+board_id)
+        segments=[(board['boot'] if name=='bootloader' else offset,(source/f'lighthouse-rs-matter-{name}.bin').read_bytes()) for name,offset,_ in SEGMENTS]
+        validate_segments(segments,board['chip'],board['boot'])
+        if segments[1][1]!=rs_segments[1][1]: raise ValueError('Board partition table differs')
+        if unpack((source/f'lighthouse-bridge-{RS_MATTER_VERSION}.lhota').read_bytes(),board['chip'])!=segments[-1][1]: raise ValueError('Board OTA differs')
+        expected=[{'offset':offset,'path':f'firmware/rs-matter/{board_id}/lighthouse-rs-matter-{name}.bin?sha='+hashlib.sha256(data).hexdigest()} for (name,_,_),(offset,data) in zip(SEGMENTS,segments)]
+        if manifest['builds'][0]['parts']!=expected: raise ValueError('Board manifest parts differ')
+        for line in (source/'SHA256SUMS').read_text().splitlines():
+            digest,name=line.split()
+            if Path(name).name!=name or hashlib.sha256((source/name).read_bytes()).hexdigest()!=digest: raise ValueError('Board checksum differs')
+        shutil.copytree(source,rs_output/board_id,dirs_exist_ok=True)
+        shutil.copy2(source/'manifest.json',output/f'rs-matter-{board_id}-manifest.json')
     # Retired experiment artifacts must also disappear on incremental builds.
     for name in ['tasmota.html','tasmota-manifest.json']:
         (output/name).unlink(missing_ok=True)

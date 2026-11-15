@@ -3,6 +3,171 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## GPIO buttons and board profiles — 0.1.18-rs-matter (public release; installed on classic ESP32)
+
+- Add two configurable GPIO-to-GND buttons, disabled by default, for All on/All
+  off. Debounce and release-to-arm prevent startup/held-button commands. Reuse
+  the existing queue and per-station OFF preference.
+- Add private session-protected GPIO settings in EN/DE, conservative pin lists,
+  duplicate/invalid-pin rejection and atomic persistence.
+- Add separate ESP32, WeAct ESP32-C3FH4, C3 SuperMini and S3 SuperMini (4 MB flash,
+  2 MB PSRAM) builds and WebFlasher selection. Validate chip-specific USB/OTA
+  images while retaining both app slots and the complete partition table.
+- Four builds, stable/SDK regression builds, 34 Python checks, 15 browser/USB
+  programs, eight release Rust tests and twenty native programs (including
+  GPIO/OTA chip variants) pass. All apps fit the unchanged slot. New GPIO wiring
+  and C3/S3 runtime operation remain unverified.
+- Owner-approved classic OTA from 0.1.17 succeeds; four assignments, OFF choices,
+  credentials and Matter pairing remain intact. Live EN/DE checks confirm ready
+  Matter/BLE, responsive home dashboard and default-disabled GPIO bindings.
+  No power/config/commissioning action or publication was performed.
+
+## Clearer Wi-Fi setup portal — 0.1.17-rs-matter (local, not published)
+
+- Present home Wi-Fi and Local Mode as separated choice cards with explanations.
+  Move Info/Leave setup into a secondary row and use compact branding/SSID copy.
+- Replace the expected home-disconnected status on the landing page with clear
+  setup instructions. Keep real configuration failures visible on vendor pages.
+- Match confirmation/restart styling and carry EN/DE language selection through
+  the local flow. Use local assets only; retain all existing routes and protections.
+- All thirteen browser/USB programs and 31 Python checks pass, with synthetic
+  EN/DE desktop/mobile previews. The app fits the unchanged OTA slot.
+- Owner-approved OTA from 0.1.16 succeeds in home mode, retaining assignments,
+  OFF choices, credentials and Matter pairing. Real EN/DE home-dashboard checks
+  pass; the agent did not activate the new setup portal. Android setup access
+  was owner-confirmed on 0.1.16; the owner also confirms the new 0.1.17 portal works.
+
+## Clean setup reboot and AP diagnostics — 0.1.16-rs-matter (local, not published)
+
+- Open Wi-Fi setup on a fresh AP-only boot before initializing Matter/BLE, using
+  a consumed-once setup flag. Retain the saved home/local choice and all settings.
+- Preserve protected setup, confirmation and timeout/return behavior. Keep the
+  API key copyable during the browser handoff and explain the restart in EN/DE.
+- Add non-secret physical-USB AP configuration/connection diagnostics, including
+  whether the driver key matches the API key and numeric disconnect reasons.
+- The owner's API key was verified correct after an Android setup rejection.
+  The owner subsequently confirms setup access on 0.1.16; the original cause
+  remains unproven and permanent Local Mode/BLE is not established by that test.
+  All 18 native programs, eight Rust tests in debug/release, 31 Python checks
+  and thirteen browser/USB programs pass. App fits the unchanged OTA slot.
+  Owner-approved OTA from 0.1.15 succeeds, preserving home mode, assignments,
+  credentials and Matter pairing. Real home-dashboard checks pass; clean setup
+  was not activated by the agent. The owner subsequently confirms successful
+  Android setup access; permanent Local Mode/BLE still needs testing.
+
+## Permanent Local Wi-Fi Mode — 0.1.15-rs-matter (local, not published)
+
+- Add WiFi Setup -> Local Mode -> Webinterface at 192.168.4.1, using the bridge's
+  protected Wi-Fi without a router. Persist the choice across reboots.
+- Keep measured station control/discovery/configuration, sessions, local API and
+  OTA available. Pause Matter/Alexa until returning to home Wi-Fi; retain pairings,
+  Wi-Fi credentials, station identities, passwords and OFF preferences.
+- Add confirmed return to saved home Wi-Fi. Apply AP key/name changes by restart,
+  keeping the new password copyable until reconnect/reload.
+- Expose local-mode address through USB and distinguish paused Matter in EN/DE.
+- All 18 native programs, eight Rust tests in debug/release, 31 Python checks
+  and twelve browser/USB programs pass. Both existing slots are retained.
+  Owner-approved OTA from 0.1.14 succeeds in home mode, preserving assignments,
+  settings and Matter pairing. Real EN/DE desktop/mobile dashboard checks pass.
+  AP activation and actual AP hardware operation remain untested.
+
+## Restore language selector theme — 0.1.14-rs-matter (local, not published)
+
+- Revert the black-on-light language selector override, restoring the preceding
+  theme appearance. Keep Sign out sizing and debug-only manual state reads.
+- Two targeted browser programs and 31 Python checks pass; app fits unchanged
+  slots with unchanged static RAM. Owner-approved OTA from 0.1.13 succeeds,
+  preserving assignments, OFF preferences, credentials and Matter pairing.
+  Real EN/DE desktop/mobile browser checks confirm the restored appearance.
+
+## Language contrast and debug controls — 0.1.13-rs-matter (local, not published)
+
+- Use black text on a light background for the language selector and its options.
+  Preserve its existing size and keyboard behavior.
+- Show Read current states only in debug mode. Automatic BLE reads are unchanged;
+  toggling debug does not queue work. Logout hides the control again.
+- Targeted browser tests and 31 Python checks pass; app fits the unchanged OTA
+  slot with unchanged static RAM. Owner-approved OTA from 0.1.12 succeeds,
+  preserving four assignments, OFF settings, credentials and Matter pairing.
+  Real EN/DE desktop/mobile browser checks confirm both requested changes.
+
+## Account settings, OFF preferences and mobile discovery — 0.1.12-rs-matter (local)
+
+- Put connection status right of the bridge name and match language-select sizing
+  to Sign out. Use Base station in English; preserve saved Alexa names.
+- Show Alexa name first in station cards. Reveal station ID, Bluetooth address
+  and technical history in debug only; cards expand/shrink with debug mode.
+- Use a native discovered-device select on mobile while retaining manual MAC entry.
+- Persist SLEEP/STANDBY OFF preference per station, used by Alexa and dashboard.
+  Existing stations default to SLEEP; exact measured target confirms commands.
+- Add optional username enable/disable/change under password and username settings.
+  First setup and existing accounts default to password-only. Keep password hash
+  and username settings in one atomic record; changing one preserves the other.
+- Allow confirmed API-key regeneration for personal sessions. Old integration keys
+  stop working; setup-AP password changes, router Wi-Fi and web password stay.
+- Owner-approved OTA succeeded. Four assignments, access settings and the Alexa
+  pairing are retained; real desktop/mobile UI and external-OTA automatic reload
+  checks pass. Credentials and OFF choices were preserved during verification.
+  Optional username/key changes and standby commands are covered in software.
+
+## Dashboard colors, naming and OTA reload — 0.1.11-rs-matter (local, not published)
+
+- Use Lighthouse-Bridge as the rs-matter display/product/commissioning name.
+  Keep saved station names, IDs, fabrics and custom hostname intact. This changes
+  a name, not test attestation or certification status.
+- Move connection status left of the top branding. Keep ON green; use gray for
+  Unknown, blue for SLEEP and orange for measured STANDBY, with readable text.
+  Pending targets never override measured badge colors.
+- After successful browser OTA, wait for the rebooted login endpoint and reload
+  once, without repeating the upload. Detect external firmware changes too;
+  ordinary session expiry only returns to login. Reconnect waiting is bounded
+  with a manual-reload fallback. The new HTML must be loaded once to enable this.
+- Owner-approved OTA from 0.1.10 succeeded, retaining four assignments, access
+  settings and the existing Matter pairing. Real EN/DE browser checks pass at
+  desktop/mobile widths; no pairing window or power command was issued. The new
+  OTA reload flow is software-tested and needs the new HTML loaded once.
+  No general cleanup, power-policy or partition/stack changes.
+
+## Simpler Matter Setup — 0.1.10-rs-matter (local, not published)
+
+- Opening Matter Setup now reads the private pairing status and any active code
+  directly. Remove the separate Show active code / pairing status control.
+  Keep New code & open pairing window as the sole pairing mutation action.
+- Closing the section stops polling and clears the code. Ignore late responses
+  while closed; reopen with a fresh read. Logout closes the section so the next
+  login cannot reveal a cached or newly fetched code implicitly. Preserve copy,
+  EN/DE translations, renewal queueing and non-flickering background updates.
+- No change to Matter endpoints, fabrics, BLE commands, stacks, packet capacities
+  or flash layout. The build adds 64 app bytes; static RAM is unchanged.
+- Owner-approved real OTA from 0.1.9 to 0.1.10 succeeds, retaining four station
+  assignments, credentials, naming and Matter/worker readiness. Actual EN/DE
+  dashboard inspection confirms automatic status reads and no separate show
+  control. No new pairing window or power command was sent during verification.
+  Ask for approval before every further device change.
+
+## Rust prototype Alexa endpoint 1 — 0.1.9-rs-matter (local, not published)
+
+- Direct encrypted LAN reads reproduce the deployed missing endpoint 1:
+  root PartsList [2,3,4,5,6] and UnsupportedEndpoint for 1/29/0. Alexa's documented
+  endpoint-1 compatibility requirement was absent from earlier test fixtures.
+- Add a Descriptor-only aggregator at 1 when no active light owns that endpoint.
+  Retain aggregator 2 as empty and preserve all active light endpoints/UniqueIDs.
+  Legacy light 1 keeps its existing role and aggregator 2. Each station belongs
+  to one aggregator. Keep the registry, fabrics, credentials and exact slots.
+- Randomize Descriptor DataVersions once per boot so old controller filters
+  cannot hide a changed PartsList after restart.
+- Cover missing-1 runtimes with four/sixteen stations, real encrypted reports,
+  topology/type payloads and chunk acknowledgements. No automatic power commands.
+- The owner approved the endpoint-1 role exception and real OTA from 0.1.8 to
+  0.1.9 succeeded, preserving four assignments, credentials, naming and readiness
+  with no power commands. A separately approved pairing window and real encrypted
+  PASE inspection confirm working aggregator 1, unchanged stations 3..6 and
+  retained empty aggregator 2 without endpoint errors. Ask before every later
+  device change. The owner confirms successful Alexa pairing. A separately
+  authorized real dashboard All to SLEEP test transitions four measured ON
+  stations to measured, reachable, confirmed SLEEP; the Alexa app state update
+  for that transition still awaits the owner's observation.
+
 ## Rust prototype rejection-path diagnostics 0.1.8-rs-matter
 
 - Log the actual sorted endpoint IDs at startup and bounded numeric paths for

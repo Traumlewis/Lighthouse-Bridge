@@ -824,12 +824,13 @@ checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "lighthouse-rs-matter"
-version = "0.1.8"
+version = "0.1.18"
 dependencies = [
  "critical-section",
  "embassy-time",
  "embassy-time-driver",
  "log",
+ "portable-atomic",
  "rand",
  "rs-matter",
 ]
@@ -1186,6 +1187,9 @@ name = "portable-atomic"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
+dependencies = [
+ "critical-section",
+]
 
 [[package]]
 name = "portable-atomic-util"

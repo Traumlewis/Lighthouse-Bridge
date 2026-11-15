@@ -12,3 +12,7 @@ header{gap:16px;flex-wrap:wrap}.header-actions{display:flex;align-items:center;g
 button.plain-key{background:transparent;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;overflow-wrap:anywhere}
 button.plain-key:disabled{opacity:1;cursor:default}
 .matter-stations{padding-left:1.2em;overflow-wrap:anywhere}
+/* Board selection applies only to the rs-matter installer. */
+body[data-prototype="rs-matter"] label[for="rs-board"]{display:block;margin:20px 0 8px;font-weight:600}
+#rs-board{display:block;width:100%;max-width:100%;min-width:0;min-height:48px;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+#rs-board:focus-visible{outline:2px solid var(--accent);outline-offset:4px}

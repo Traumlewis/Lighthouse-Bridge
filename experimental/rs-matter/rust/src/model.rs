@@ -34,14 +34,29 @@ struct Timed {
 }
 pub struct Model {
     endpoints: Vec<Endpoint<'static>>,
+    primary_aggregator: u16,
+    descriptor_version: u32,
     timers: [Cell<Timed>; 16],
     versions: [Cell<u32>; 16],
     previous: [Cell<u32>; 16],
 }
 impl Model {
     pub fn new(random: &mut impl rand::Rng) -> Self {
-        let mut endpoints = Vec::with_capacity(18);
+        // Alexa requires endpoint 1 even when all retained station IDs start at
+        // 3. Preserve a legacy light at 1; otherwise add a Descriptor-only
+        // aggregator there. Keep the former aggregator 2 as an empty endpoint.
+        let legacy_one = super::config().stations[..super::config().count as usize]
+            .iter().any(|station| station.endpoint == 1);
+        let primary_aggregator = if legacy_one { 2 } else { 1 };
+        let mut endpoints = Vec::with_capacity(super::config().count as usize + if legacy_one { 2 } else { 3 });
         endpoints.push(ROOT);
+        if !legacy_one {
+            endpoints.push(Endpoint::new(
+                1,
+                devices!(DEV_TYPE_AGGREGATOR),
+                clusters!(desc::DescHandler::CLUSTER),
+            ));
+        }
         endpoints.push(Endpoint::new(
             2,
             devices!(DEV_TYPE_AGGREGATOR),
@@ -65,6 +80,11 @@ impl Model {
         super::diagnostics::record_endpoints(&endpoints);
         Self {
             endpoints,
+            primary_aggregator,
+            // PartsList can change across config saves/firmware restarts. A
+            // fixed value of 1 could let an existing fabric filter out the new
+            // topology using its cached Descriptor DataVersion.
+            descriptor_version: random.next_u32(),
             timers: core::array::from_fn(|_| Cell::new(Timed::default())),
             versions: core::array::from_fn(|_| Cell::new(random.next_u32())),
             previous: core::array::from_fn(|_| Cell::new(0)),
@@ -249,15 +269,29 @@ impl bridged::ClusterHandler for Bridged<'_> {
     }
 }
 struct Dispatch<'a>(&'a Model);
+struct BridgeParts<'a>(&'a Model);
+impl core::fmt::Debug for BridgeParts<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("BridgeParts")
+    }
+}
+impl desc::PartsMatcher for BridgeParts<'_> {
+    fn matches(&self, our_endpoint: u16, endpoint: u16) -> bool {
+        // Every station belongs to exactly one aggregator. Never include the
+        // retained empty aggregator itself or nest duplicate station trees.
+        our_endpoint == self.0.primary_aggregator && self.0.index(endpoint).is_ok()
+    }
+}
 impl Handler for Dispatch<'_> {
     fn read(&self, ctx: impl ReadContext, reply: impl ReadReply) -> Result<(), Error> {
         let ep = ctx.attr().endpoint_id;
         let cluster = ctx.attr().cluster_id;
         if cluster == 0x1d {
-            let h = if ep == 2 {
-                desc::DescHandler::new_aggregator(Dataver::new(1))
+            let parts = BridgeParts(self.0);
+            let h = if ep == 2 || ep == self.0.primary_aggregator {
+                desc::DescHandler::new_matching(Dataver::new(self.0.descriptor_version), &parts)
             } else {
-                desc::DescHandler::new(Dataver::new(1))
+                desc::DescHandler::new(Dataver::new(self.0.descriptor_version))
             };
             return h.adapt().read(ctx, reply);
         }

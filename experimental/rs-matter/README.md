@@ -1,41 +1,274 @@
-# Lighthouse Bridge — rs-matter prototype 0.1.8-rs-matter
+# Lighthouse Bridge — rs-matter 0.1.18
 
-This version adds numeric rejection-path diagnostics. The owner still reports
-Alexa GS014 with 0.1.7 even though CASE and CommissioningComplete persistence
-succeed. The remaining UnsupportedEndpoint label has no request path, so it
-cannot yet be classified as causal or a harmless controller probe.
+Adds two optional GPIO buttons and separate WebFlasher profiles for the classic
+ESP32, WeAct ESP32-C3FH4, ESP32 C3 SuperMini and ESP32 S3 SuperMini (4 MB flash,
+2 MB QSPI PSRAM). C3 uses a RISC-V Rust target; S3 uses its own Xtensa target.
+Both app slots and the complete partition table stay unchanged. USB bootloader
+offsets and OTA chip checks are specific to each chip. Never flash another chip's
+image. New boards have not been tested on hardware. Owner-approved classic OTA
+from 0.1.17 to 0.1.18 succeeded, retaining four assignments, OFF preferences,
+credentials, naming and Matter pairing. Live EN/DE home-dashboard checks at
+1280/390/320 pass; both GPIO bindings are disabled. Physical button operation
+remains unverified. The owner authorizes this public release through the existing
+Pages workflow. Ask before any further device change.
 
-Startup now prints the actual sorted metadata endpoint IDs. SDK rejection
-records gain a numeric `rs-matter path` line: operation 1=attribute read,
-2=attribute write, 3=command; endpoint, cluster, and leaf (attribute/command ID).
-The value 4294967295 means a missing/wildcard field. Only validated typed numeric
-fields cross the filter; node/fabric IDs, names, credentials, certificates,
-bodies and original SDK text remain excluded. Keep the log running from boot
-through the Alexa error and for two minutes after it.
+Software verification passes: all four full builds, stable/SDK regression
+builds, 34 Python checks, 15 browser/USB programs, eight release Rust tests and
+twenty native programs with GPIO/OTA chip variants. Final apps use 1,954,768
+bytes (classic), 1,945,024 (both C3 profiles), 1,880,016 (S3), each below the
+1,966,080-byte slot. Static RAM is 67,596 / 55,048 / 64,036 respectively;
+these figures do not establish runtime memory margins or hardware operation.
 
-The formatter is still 256 bytes; the queue retains 32 events with bounded
-numeric storage. All output drains outside SDK locks after polling. This is a
-diagnostic release and does not claim a GS014 fix. Settings, endpoint identities,
-protocol capacities and the exact dual-slot flash layout are preserved.
+Under **GPIO buttons**, assign two momentary contacts connected from GPIO to
+GND. No external voltage is needed: firmware enables internal pull-ups. Choose
+**All on**, **All off**, or **Disabled**, and separate supported GPIOs. Defaults
+are disabled. Excluded GPIOs cover boot straps, flash/PSRAM, USB, serial and board
+LED conflicts; consult the board's exposed pin labels before wiring. The BOOT
+setup function remains separate (GPIO9 on C3, GPIO0 on ESP32/S3).
 
-Endpoint metadata is sorted by the existing IDs for the SDK resumable path
-expander. Every saved endpoint ID, station binding and station-indexed state
-stays unchanged.
+A press must remain stable for 40 ms. The input must be released after boot or
+settings changes before it can fire; holding does not repeat. Buttons feed the
+same sequential BLE queue as web/Matter commands, and All off respects each
+station's SLEEP/STANDBY preference. Setup/OTA/restart gates reject presses without
+replaying them afterwards. Configuration is stored atomically; invalid saved
+bindings disable both buttons. No power command is sent automatically on boot.
+Private GET/POST `/api/buttons` require an own-password session; POST also checks
+Origin and JSON. API keys and bootstrap sessions cannot change GPIO assignments.
 
-Real SDK Descriptor-read regressions cover individual and wildcard paths with
-full, sparse, shuffled and empty configurations in debug and release profiles.
-The legacy order fails the SDK assertion in debug and produces
-a missing endpoint 1 in release-mode wildcard reads. Earlier direct-lookup tests bypassed that path.
+Build each profile with `python tools/build_rs_matter.py --board <profile>`:
+`esp32`, `weact-c3`, `c3-supermini`, `s3-supermini`. Install the pinned ESP Rust
+toolchain for all three chip targets. Packages are separated below `dist/rs-matter`
+and Pages refuses mismatching chip/layout/hash/OTA data. C3's portable atomics use
+the existing ESP-IDF critical-section implementation; pinned dependencies remain
+locked. General source cleanup remains deferred.
 
-The latest owner trace leaves only 692 bytes on the 16 KiB foreground task
-stack, with zero allocation failures. The task now receives 18 KiB while the
-ESP32 future arena receives 14 KiB; their combined 32 KiB reservation is
-unchanged. The exact future must fit with alignment + 1 KiB reserve at compile
-time. This is not a claim of sufficient measured runtime stack/RAM margins.
+# Lighthouse Bridge — rs-matter prototype 0.1.17
 
-The existing bounded `rs-matter protocol` and `rs-matter state` diagnostics remain.
-Only fixed event/error labels and non-secret counts are printed. No automatic
-power writes, identity resets, NVS changes or flash-layout changes are introduced.
+Version 0.1.17 refreshes the setup portal: two clear home/local choice cards,
+short descriptions, compact network/branding details and a secondary Info/Leave
+setup row. Local Mode confirmation/restart screens share the dark theme and
+selected EN/DE language. Existing actions, authentication, mode selection and
+clean setup behavior are retained; all assets are local.
+
+The owner confirms Android setup access on 0.1.16. Owner-approved OTA to 0.1.17
+is installed in home mode, retaining four assignments, OFF choices, credentials
+and Matter pairing. Real EN/DE home-dashboard checks pass; the new portal was
+not activated by the agent. The owner subsequently confirms the 0.1.17 portal
+works on the device. Ask before future updates or setup/mode activation.
+All thirteen browser/USB programs and 31 Python
+checks pass, with EN/DE 1280/390/320 layout/navigation coverage. Final app:
+1,950,896/1,966,080 bytes; static RAM 67,580. Slots and existing arena/task limits
+remain intact. Preview screenshots use an example SSID; saved network names and
+credentials are unchanged by this presentation update.
+
+Version 0.1.16 opens a requested Wi-Fi setup through a clean AP-only reboot,
+before Matter/BLE initialization. The request is consumed once; the saved home/
+local mode, router credentials, own password, API key, stations and pairings stay
+intact. Setup timeout/close returns to the saved mode. The browser explains the
+restart and keeps the API key copyable until the owner reconnects.
+
+This targets an owner-reported Android setup-password rejection despite a verified
+API key; the cause is not established. Espressif documents unstable SoftAP/BLE
+coexistence on classic ESP32. Isolating setup removes competing initialized stacks,
+and the owner now confirms Android setup access. The original failure cause
+and permanent Local Mode/BLE behavior remain unproven.
+
+For diagnosis send LH_WIFI_INFO over physical USB. Its response contains only
+numeric mode/auth/cipher/channel/PMF/config status, key/name match booleans,
+client/event counts, last disconnect reason and byte-heap values. It includes no
+actual keys, SSIDs or MACs. AP startup and numeric connection events also log
+non-secret diagnostics. Existing USB recovery commands are unchanged.
+
+All 18 native programs, eight Rust tests in debug/release, 31 Python checks and
+thirteen browser/USB programs pass, including exactly-once setup persistence and
+EN/DE key-copy/restart handoff. Stable/SDK builds also pass. Final app:
+1,942,832/1,966,080 bytes, static RAM 67,588; slots and arena/task limits stay.
+These results do not prove Android connectivity or AP/BLE runtime behavior.
+
+Owner-approved OTA from 0.1.15 to 0.1.16 is installed in home mode, retaining
+four assignments, OFF choices, credentials and Matter pairing. Real EN/DE home-
+dashboard checks pass, including the new setup confirmation (cancelled). Setup
+was not activated by the agent; the owner subsequently confirms Android setup
+access. Permanent Local Mode/BLE remains a hardware check. Ask before
+subsequent updates or device actions. No password reset or key rotation occurred.
+
+Local Mode in version 0.1.15 provides a permanent private Wi-Fi network without
+an external router. Open WiFi Setup (dashboard button or hold BOOT for five
+seconds), connect to the protected setup network, choose Local Mode and confirm.
+After restart, reconnect to the same bridge Wi-Fi and open http://192.168.4.1/.
+Its Wi-Fi password is the existing API key; normal web login still uses the own
+password. Keep the Wi-Fi connection even if your phone reports no internet.
+
+The selection persists across restarts. BLE station controls, discovery/editor,
+read-only updates, local API and personal-session OTA remain available. Matter
+is paused in this mode; Alexa on a separate home network cannot reach the bridge.
+Pairings, endpoints, station settings and router credentials stay stored. Use
+Return to home Wi-Fi in the dashboard to restart into the saved home network, or
+WiFi Setup to select/configure one. Without a reachable saved network, setup opens.
+No power command is sent automatically during mode switches or restarts.
+
+Changing the AP name or regenerating its key restarts the AP to apply the new
+settings. Copy the new key from the still-open page before reconnecting; the web
+password is unchanged. Credential/mode changes require your personal session.
+Initial Local Mode selection requires the protected setup portal and confirmation.
+
+All 18 native programs, eight Rust tests in debug/release, 31 Python checks and
+12 browser/USB programs pass, including EN/DE mobile-emulated local workflows,
+persistence failure, handoff/privacy and paused Matter controls. Stable/SDK builds
+also pass. App 1,940,736/1,966,080 bytes, static RAM 67,572; both slots and existing
+arena/task limits are retained. Owner-approved OTA to 0.1.15 is installed in home
+mode. Four assignments, OFF preferences, credentials and Matter pairing are
+retained; real EN/DE desktop/mobile dashboard checks pass. No network-mode switch
+was performed. Ask before subsequent updates or changing the actual mode.
+Standalone AP/
+BLE coexistence, AP OTA and a home/AP round-trip still need hardware validation.
+
+Version 0.1.14 reverts the language selector's black-on-light override to its
+preceding theme appearance, preserving size and debug-only manual refresh.
+Owner-approved OTA to 0.1.14 succeeded; four assignments, OFF preferences,
+credentials and Matter pairing are retained. Real EN/DE desktop/mobile checks
+confirm the restored appearance and debug-only refresh. Both targeted
+browser programs and all 31 Python checks pass; app 1,930,352/1,966,080 bytes,
+static RAM 67,540 unchanged.
+
+Version 0.1.13 uses black text on a light language selector and shows Read
+current states only in debug mode. Background reads stay active; changing debug
+visibility sends no read or power request. Owner-approved OTA to 0.1.13
+succeeded, preserving four assignments, OFF choices, credentials and Matter
+pairing. Real EN/DE desktop/mobile browser checks confirm both changes. Ask
+before subsequent device updates. Three targeted browser programs
+and all 31 Python checks pass. App 1,930,368/1,966,080 bytes; static RAM 67,540
+and existing partition/arena/task limits are unchanged.
+
+Version 0.1.12 adds optional username settings and confirmed API-key regeneration
+under the authenticated account/network sections. First setup needs no username;
+existing accounts stay password-only until enabled. Username settings preserve
+the password and invalidate other sessions. Regenerating the key invalidates old
+API integrations and changes the setup-AP password, preserving router Wi-Fi.
+
+Per-station OFF preference defaults to SLEEP and optionally uses STANDBY (motor
+keeps running). Alexa and dashboard OFF use the saved choice; local API state off
+also follows it, while explicit sleep/standby/on states remain exact. No power
+command is sent automatically on boot, reconnect, scan or configuration change.
+
+Connection status moves right of branding; language and Sign out controls match.
+Cards show Alexa names first, with ID/address/history only in debug and adaptive
+card height. Mobile discovery uses a native select plus manual address input.
+Owner-approved OTA is installed: four assignments, credentials and Matter pairing
+are retained, OFF defaults stay SLEEP and username is disabled. Real EN/DE browser
+checks pass desktop/mobile widths, adaptive debug cards and matching header controls.
+An existing 0.1.11 browser tab automatically reloaded 0.1.12 after external OTA.
+Actual standby writes and key/username changes were not performed during these
+checks; they are covered by native/browser software tests. Ask before subsequent
+device changes. General cleanup and public publication remain separate.
+
+All 17 native programs, eight Rust tests in debug/release, 31 Python tests and
+11 browser/USB programs pass. Stable PlatformIO also builds. The app occupies
+1,930,336/1,966,080 bytes, static RAM 67,540; arena/task/partition limits are
+unchanged. These checks do not establish long-term or sixteen-station margins.
+
+The local 0.1.11 version uses Lighthouse-Bridge as its display/product and
+commissioning name. Existing assignments, station names, endpoint/UniqueIDs,
+fabrics, credentials and hostname are retained. The old test-name suffix is
+removed; test attestation remains test attestation.
+
+Version 0.1.11 originally placed connection status left of the top branding;
+0.1.12 moves it right. Measured ON retains green,
+Unknown uses gray, SLEEP blue and STANDBY orange; requested targets do not alter
+the measured color. Text/contrast and existing fixed status dimensions remain.
+
+An acknowledged browser OTA waits for the reachable rebooted login gate, then
+reloads once. Old authenticated responses do not count as reboot completion,
+failed uploads do not reload, and reconnect attempts never re-upload. A 90-second
+deadline provides a manual-reload fallback. A firmware change initiated outside
+the tab is detected through status version/public page version after session
+loss; normal session expiry does not reload unchanged firmware. Load the new
+HTML once to enable this behavior; an existing old tab needs an initial refresh.
+
+The owner-approved OTA from 0.1.10 to 0.1.11 succeeded, retaining four assignments,
+credentials and Matter pairing. Real EN/DE browser checks pass at 1280/390/320 px:
+status position, no horizontal overflow, blue measured SLEEP badges and the
+Lighthouse-Bridge setup name. No new pairing window or power command was sent.
+Ask before future device changes; public publication is not included.
+No general cleanup or BLE/power/identity/partition/stack change is included.
+The app is 1,925,824/1,966,080 bytes (+480 over 0.1.10); static RAM
+remains 67,524 bytes. Eight Rust tests pass in debug/release, 31 Python checks
+and all ten browser/USB programs pass. EN/DE layout/color/contrast and simulated
+OTA reconnect/reload checks pass at desktop and 390/320-pixel mobile widths.
+The new OTA reload flow and colors other than the four actual SLEEP readings
+are software-tested. An old tab needs one initial refresh; long-term and
+sixteen-station runtime margins remain unverified.
+
+Version 0.1.10 simplifies Matter Setup. Explicitly opening the
+section reads its private status and displays an active code directly. The
+separate Show active code/status button is removed; New code & open pairing
+window remains the only pairing mutation action. Closing clears the code and
+stops polling, including late responses. Logout closes the section, requiring
+another explicit opening after login. The copy button and EN/DE behavior remain.
+The owner-approved OTA from 0.1.9 to 0.1.10 succeeded, retaining four assignments,
+credentials, naming and Matter/worker readiness. Real Chromium checks on the
+board confirm EN/DE automatic reads on explicit opening, correct paired/closed
+status, clearing on collapse/reopening, and no separate show control. No new
+pairing window or power command was sent; active-code behavior is covered by
+software tests. Ask before every subsequent device change. General code cleanup
+and protocol/BLE/identity changes are not included in this UI update.
+The app uses 1,925,344/1,966,080 bytes (+64 over 0.1.9) with unchanged
+67,524 static RAM bytes. Eight Rust tests in debug/release, 31 Python checks and
+all nine browser/USB programs pass. These results do not establish long-term or
+sixteen-station runtime margins.
+
+The deployed 0.1.8 bridge was queried directly over its LAN using an actual PASE
+handshake and encrypted Descriptor reads. Root PartsList was `[2,3,4,5,6]`,
+aggregator 2 listed `[3,4,5,6]`, and endpoint 1 returned UnsupportedEndpoint.
+The four station endpoints correctly reported On/Off Light + Bridged Node.
+The probe closed its diagnostic session; firmware, fabrics and assignments were
+retained, with no reboot or power command.
+
+[matter.js ecosystem documentation](https://github.com/matter-js/matter.js/blob/main/docs/ECOSYSTEMS.md)
+records Alexa's non-standard requirement for endpoint 1 as the main device or
+an aggregator. The earlier host fixture included a legacy light at 1 and missed
+this actual deployed topology. A new encrypted runtime regression fails with
+exactly the deployed `1/29/0 UnsupportedEndpoint` before the correction.
+
+The candidate adds a Descriptor-only aggregator at 1 when no active station owns
+that endpoint. Existing lights retain their endpoint IDs and UniqueIDs. The old
+aggregator 2 remains present but empty in that case; aggregator 1 lists only the
+station endpoints. If a legacy light already owns 1, it remains a light and
+aggregator 2 keeps its original role. Each station has exactly one aggregator.
+Descriptor DataVersions are randomized once per boot so retained controllers
+cannot filter a changed PartsList using the former fixed version 1.
+Zero to sixteen stations remain supported. Metadata is sorted and allocated once
+for the actual count, up to 19 endpoints, without reallocating during construction.
+
+The owner approved the narrow exception that assigns currently unbound endpoint
+1 an aggregator role. The old registry does not distinguish never-used from
+retired 1. No saved station binding, allocator counter, Wi-Fi, password, fabric or
+partition is reset. This does not authorize further endpoint reuse. Ask before
+every subsequent device change, firmware write, reset or new pairing action.
+
+Host coverage checks encrypted individual, reversed, repeated and batched reads,
+actual serialized device types/PartsList/ServerList, and multi-packet ReportData
+acknowledgements. Isolated production runtimes cover a legacy light at 1, the
+reported five-station topology, and missing-1 configurations with four and sixteen
+stations. These fixtures seed established CASE sessions; they do not exercise
+CASE establishment or Alexa. The deployed 0.1.8 PASE probe is real hardware
+read-only evidence. Owner-approved OTA to 0.1.9 succeeded on the real board;
+Matter/worker readiness, the four assignments, API key, web password and device
+naming were retained after reboot, with command histories still none. The owner
+then approved a new pairing window and direct inspection. Real encrypted PASE
+reads on 0.1.9 confirm aggregator 1 with station children 3..6, retained empty
+aggregator 2, root PartsList [1,2,3,4,5,6], and unchanged station types. There are
+no UnsupportedEndpoint errors, reboot or power commands during that probe.
+The owner confirms complete Alexa pairing with 0.1.9. A separately requested
+real-browser All to SLEEP test transitions all four stations from measured ON
+to measured SLEEP, reachable and command-confirmed. Alexa app synchronization
+for that transition still awaits the owner's observation; sixteen-station and
+long-term operation are not established by these four-station results.
+
+Keep the numeric startup inventory and bounded rejection-path diagnostics.
+Task stacks remain 18 KiB foreground / 8 KiB BLE, with a 14 KiB future arena and
+its exact-type size/alignment + 1 KiB compile guard. No automatic power commands
+or wider flash slots are introduced.
 
 This replaces the Tasmota experiment with the independent Rust implementation
 `project-chip/rs-matter`, pinned to 43f61585a439f1a1e90924b696a6280850ef0145.
@@ -48,8 +281,9 @@ partition table and both 1.875 MiB app slots are mandatory. No merged USB image.
 Do not flash firmware for S2/S3/C3 to this board.
 
 Commissioning uses the existing saved Wi-Fi connection, then Matter over IP.
-Bluetooth remains dedicated to Lighthouse V2. Commands queue ON (0x01) or SLEEP
-(0x00); boot, reconnect, scans and periodic reads never send automatic power.
+Bluetooth remains dedicated to Lighthouse V2. Commands queue ON (0x01), SLEEP
+(0x00) or explicitly selected STANDBY (0x02); boot, reconnect, scans and periodic
+reads never send automatic power.
 The Matter state and Reachable attributes use actual measurements. Up to 16
 configured stations have distinct bridged On/Off Light endpoints. Their existing
 registry under lhmatter/endpoints and custom names are retained.
@@ -59,7 +293,7 @@ namespace. Existing Tasmota and CHIP fabric formats are not imported. Switching
 protocol implementations requires pairing this prototype with Alexa again; it
 must not erase Wi-Fi, the API key, the web password or station assignments. Old
 protocol storage is left intact. The test bridge name remains exactly
-Lighthouse-Bridge Matter Test. Test attestation is not product certification.
+Lighthouse-Bridge in version 0.1.11. Test attestation is not product certification.
 
 The authenticated dashboard shows the active manual code only on explicit access.
 New code & open pairing window generates a new local 15-minute pairing window.
@@ -77,12 +311,13 @@ Build and hardware validation status is recorded in docs/VALIDATION.md. A build
 or simulated test does not establish successful Alexa pairing, runtime RAM margins,
 actual OTA or prolonged multi-station Bluetooth/Wi-Fi coexistence.
 
-Local validation: 1,836,704/1,966,080 app bytes; 66,924 static RAM bytes. Rust
-runtime objects allocate separately. Four native Rust tests, sixteen C++ test
-programs, 31 Python checks and nine simulated browser/USB programs pass. This is
-not measured runtime memory or an Alexa hardware result. The foreground task has
-18 KiB stack and the original BLE task has 8 KiB. Runtime diagnostics show free
-heap, largest block and stack watermark for the next hardware test.
+The 0.1.9 baseline validation: 1,925,280/1,966,080 app bytes; 67,524 static RAM
+bytes. Eight Rust host tests pass in debug and release, sixteen C++ programs,
+31 Python package checks and all nine browser/USB simulations pass. The exact
+future-arena guard and ELF checks retain 14 KiB arena / 52,528-byte Stack object /
+18 KiB CPU task stack. These are software/build results, not candidate hardware
+RAM margins or a successful Alexa pairing. The separate real OTA result above
+is limited to one update on the owner's board.
 
 Owner hardware evidence for 0.1.0 is negative: repeated cache-error resets occur
 before Arduino setup or HTTP. The exact published ELF decodes the failing PC to

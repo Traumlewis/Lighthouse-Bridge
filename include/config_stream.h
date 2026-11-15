@@ -5,7 +5,7 @@
 
 namespace bridge {
 constexpr size_t kConfigRequestCapacity = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(kStations) +
-                                         kStations * JSON_OBJECT_SIZE(6);
+                                         kStations * JSON_OBJECT_SIZE(7);
 struct CountSink {
   size_t size = 0;
   size_t write(const uint8_t*,size_t count) { size += count; return count; }
@@ -18,7 +18,7 @@ template<class Writer> bool streamConfiguration(Writer& writer, const StationCon
   serializeJson(header,writer);
   if (!writer.dropLast('}')) return false;
   writer.text(",\"stations\":["); bool first = true;
-  StaticJsonDocument<JSON_OBJECT_SIZE(5)> item;
+  StaticJsonDocument<JSON_OBJECT_SIZE(6)> item;
   for (unsigned i = 0; i < kStations; ++i) {
     if (!configs[i].id) continue;
     item.clear(); writeStationConfig(item.to<JsonObject>(),configs[i],!response);

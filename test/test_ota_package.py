@@ -19,6 +19,15 @@ class OtaTests(unittest.TestCase):
   image=self.image()
   for bad in [image[:12]+b'\x05'+image[13:],image.replace(PRODUCT,b'X'*len(PRODUCT)),b'\xff'*0x10000+image,image+bytes(CAPACITY)]:
    with self.assertRaises(ValueError):package(bad)
+ def test_chip_specific_roundtrip_and_cross_chip_rejection(self):
+  for chip in (0,5,9):
+   image=bytearray(self.image());image[12:14]=chip.to_bytes(2,'little');image=bytes(image)
+   encoded=package(image,chip)
+   self.assertEqual(unpack(encoded,chip),image)
+   for other in (0,5,9):
+    if other!=chip:
+     with self.assertRaises(ValueError):unpack(encoded,other)
+     with self.assertRaises(ValueError):package(image,other)
  def test_published_payload_when_available(self):
   root=Path(__file__).resolve().parents[1];path=root/f'_site/firmware/lighthouse-bridge-v{VERSION}.lhota'
   if not path.exists():self.skipTest('Generated Pages not built yet')

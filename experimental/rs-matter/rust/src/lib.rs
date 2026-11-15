@@ -148,13 +148,13 @@ async fn run() -> Result<(), Error> {
     let cfg = config();
     let details = Box::leak(
         Box::try_new(rs_matter::basic_info::BasicInfoConfig {
-            product_name: "Lighthouse-Bridge Matter Test",
-            device_name: "Lighthouse-Bridge Matter Test",
+            product_name: "Lighthouse-Bridge",
+            device_name: "Lighthouse-Bridge",
             vendor_name: "Lighthouse Bridge",
             serial_no: platform::text(&cfg.serial),
             unique_id: platform::text(&cfg.serial),
-            sw_ver: 0x000108,
-            sw_ver_str: "0.1.8-rs-matter",
+            sw_ver: 0x000112,
+            sw_ver_str: "0.1.18-rs-matter",
             ..TEST_DEV_DET
         })
         .map_err(|_| Error::from(rs_matter::error::ErrorCode::NoSpace))?,

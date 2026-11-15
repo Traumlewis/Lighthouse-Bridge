@@ -32,6 +32,13 @@ Repeat to turn Debug off. Cards keep their size; long diagnostics scroll inside.
 See [VERSION.md](VERSION.md) for the version history and [validation](docs/VALIDATION.md)
 for software checks and hardware evidence.
 
+The local rs-matter 0.1.18 build adds two configurable GPIO-to-GND buttons
+(All on/All off), plus separate WebFlasher profiles for ESP32, WeAct ESP32-C3FH4,
+ESP32 C3 SuperMini and ESP32 S3 SuperMini (4 MB flash / 2 MB PSRAM). New boards
+are software-build targets pending hardware validation. The classic ESP32 remains
+the owner-tested device; new firmware is not installed or published automatically.
+See the [GPIO wiring and board guide](docs/GPIO-BOARDS.md).
+
 A separate [rs-matter prototype](experimental/rs-matter/README.md) is available
 through its [own WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/rs-matter.html).
 It combines the independent Rust rs-matter implementation with the complete Lighthouse dashboard,
