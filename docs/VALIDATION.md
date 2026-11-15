@@ -60,6 +60,17 @@ comparisons; read-only browser checks resolved this diagnostic error. There was
 no second upload. Sanitized evidence is .pio/rs-0118-live-{ota,browser}.log;
 credentials and device identifiers are not copied into documentation.
 
+Public release verification: [GitHub Actions run 43707555895](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/43707555895)
+completed build and deployment successfully for commit 38860c3. Actual public
+main-page notice, four-board manifests/download links and consent reset pass in
+Chromium at EN/DE 1280/390/320, with no page errors or upload requests. All four
+packages were downloaded and checked for chip IDs, USB offsets, complete
+partition equality, manifest hashes, every image/OTA checksum, OTA payload,
+ZIP integrity/payloads and source matching the release commit. Public CI app
+sizes are 1,954,544 classic, 1,944,800 both C3 profiles and 1,879,792 S3; the local
+build figures above differ with build paths. Sanitized public checks are retained
+in .pio/rs-0118-public-{files,browser}.log. No additional device action occurred.
+
 That is classic OTA/home-UI evidence only. Physical GPIO contacts, C3/S3 startup/RAM,
 USB diagnostics, BLE/coexistence, home/local mode, OTA and Alexa pairing still
 need hardware validation. See the

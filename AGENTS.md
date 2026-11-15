@@ -63,7 +63,15 @@ status change. Keep current facts, not a conversation log. User instructions win
   Physical button operation and new-board hardware behavior remain unverified.
   The stable installer board notice explicitly scopes classic-only support to
   Hue firmware and links C3/S3 owners to the separate rs-matter board selector.
-  Publication is explicitly authorized; no separate device change is authorized.
+  Public publication is verified: commit 38860c3, GitHub Actions run
+  43707555895 completed build+deploy successfully. Live main-page notice and
+  all four board selectors/downloads pass EN/DE 1280/390/320 browser checks,
+  with no page errors or upload requests. Downloaded manifests, chip IDs,
+  offsets, complete partitions, image/OTA checksums and ZIP payload/source
+  match the released code. Public CI app sizes are 1,954,544 classic,
+  1,944,800 both C3 profiles and 1,879,792 S3; local installed build sizes above
+  differ with build paths. This is publication/software evidence, not new-board
+  hardware testing. No separate device change is authorized.
   Ask before any later hardware update or separate device change.
 - Up to **16 Valve Lighthouse V2**, controlled by **Alexa**. The owner currently
   has four physical stations; this is test evidence, not a capacity/model restriction.
