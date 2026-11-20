@@ -2,7 +2,7 @@
 
 ## rs-matter 0.1.19: room label and confirmed maintenance
 
-Candidate only; 0.1.18 remains installed. No live firmware upload, restart, reset,
+Published candidate; 0.1.18 remains installed. No live firmware upload, restart, reset,
 station command or commissioning action was performed for this change.
 
 The rs-only dashboard hides its introduction once an actual station is configured,
@@ -40,6 +40,20 @@ pass; all eight Rust tests pass in debug and release.
 
 Hardware reset/restart behavior, power interruption and the new candidate’s
 runtime memory margin remain unverified. All app slots/partitions are retained.
+
+Public release verification: source commit `f788690`, GitHub Actions
+[run 44771254454](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/44771254454)
+completed build and Pages deployment successfully. Live EN/DE WebFlasher checks
+at 1280/390/320 confirm all four exact manifests/download paths and version,
+consent gates, no overflow/page errors and no mutation/upload requests.
+
+All four public packages were downloaded and verified: manifest path SHA256,
+chip IDs, USB offsets, exact complete partition table, every SHA256SUMS entry,
+OTA payload equality, ZIP CRC/payload and packaged source equality with the
+released implementation. Public app bytes: classic **1,959,216**, both C3
+profiles **1,949,072**, S3 **1,884,752**. Local values above differ with build
+paths. No device install, room save, restart, reset or commissioning was run;
+hardware approval is still required separately.
 
 ## rs-matter 0.1.18: GPIO buttons and separate board builds
 

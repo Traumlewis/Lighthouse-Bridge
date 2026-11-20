@@ -116,6 +116,18 @@ status change. Keep current facts, not a conversation log. User instructions win
   maintenance program) and eight Rust tests in both debug/release pass.
   These are software checks, not device reset or runtime memory evidence.
 
+- Public 0.1.19 candidate publication is verified: source commit f788690,
+  Actions run 44771254454 completed build/deploy successfully. Live EN/DE
+  WebFlasher checks at 1280/390/320 verify all four board selectors/downloads,
+  correct version, consent gating and no overflow/page errors or upload requests.
+  Downloaded manifests, chip IDs, offsets, exact full partitions, image/OTA
+  SHA256 and ZIP payload/source match the release. Public app sizes are
+  1,959,216 classic, 1,949,072 both C3, 1,884,752 S3 bytes; local sizes above
+  differ with build paths. 0.1.18 remains installed; no 0.1.19 update, restart,
+  reset, room save or commissioning on hardware is authorized/performed.
+  Ask before a later device mutation. Real reset/power-loss behavior remains
+  unverified. Publication and browser/software evidence do not establish it.
+
 ## Status and BLE
 
 - `src/main.cpp` owns a single BLE worker: scans, connects, reads, writes and
