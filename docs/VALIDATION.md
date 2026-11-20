@@ -19,9 +19,24 @@ rs builds, Pages packaging and 34 Python checks pass. Local app sizes are
 1,960,352 bytes for classic, 1,961,504 for both C3 profiles, and 1,886,656
 for S3. The slot remains 1,966,080 bytes.
 
+Owner-approved OTA to 0.1.20 succeeded with a single upload of the locally
+verified classic ESP32 package (1,960,352 app bytes, source commit 3d273da).
+The device returned to home Wi-Fi with Matter ready/paired and BLE ready.
+Two stations had readings at the initial check and all four were reachable
+on follow-up. Pre/post comparisons retained network/account settings, room
+name, assignments/OFF choices and GPIO bindings. The verifier initially
+compared the whole GPIO response; checking the saved fields separately from
+the new wake-pin list confirmed that the bindings were retained.
+
+Live guarded browser checks passed in EN/DE at 1280/390/320. The Dangerzone
+follows account settings, Identify is next to Remove on all saved stations,
+and GPIO settings list the classic wake pins and disable activation while
+the two saved bindings are disabled. The diagnostic session is closed.
+Physical LED Identify and Remote Mode operation remain pending.
+
 ## rs-matter 0.1.19: room label and confirmed maintenance
 
-Owner-approved classic OTA from 0.1.18 to **0.1.19** is installed. One upload
+Owner-approved classic OTA from 0.1.18 to **0.1.19** succeeded. One upload
 of the published 1,959,216-byte app was accepted after physical BLE idle; the
 board rebooted normally and reports the expected version. No separate reset,
 restart, room save, station power command or commissioning action was performed.

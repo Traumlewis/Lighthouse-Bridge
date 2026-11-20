@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18 and 0.1.19 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19 and 0.1.20 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -113,13 +113,20 @@ status change. Keep current facts, not a conversation log. User instructions win
   with one LTO partition so the new code fits the unchanged slots; keep the
   cache-off symbol guards. Local app sizes are 1,960,352 classic, 1,961,504
   both C3 and 1,886,656 S3.
-- Hardware wake, LED Identify, release/chord timing and current draw are
-  unverified. Source/build/test work does not authorize a device update or
-  activating Remote Mode on the owner's bridge.
+- Owner-approved classic OTA from 0.1.19 to 0.1.20 succeeded with one upload
+  of the locally verified 1,960,352-byte build from source commit 3d273da.
+  Home Wi-Fi, Matter pairing, all four station assignments/OFF preferences,
+  credentials, room name and GPIO bindings were retained. All four stations
+  became reachable after startup. Live guarded EN/DE browser checks at
+  1280/390/320 passed for Dangerzone order, Identify placement, wake pins and
+  the activation gate. The diagnostic session was closed.
+- Physical LED Identify, GPIO wake, release/chord timing and current draw are
+  unverified. Both GPIO bindings are disabled on the owner's device. The
+  0.1.20 OTA approval does not cover Remote Mode activation or later updates.
 
 ## Room label and confirmed maintenance
 
-- Installed 0.1.19-rs-matter adds a private persistent room/owner label under
+- Release 0.1.19-rs-matter adds a private persistent room/owner label under
   lhbridge/room_name, independent of network naming, 1–64 valid UTF-8 bytes.
   Edit by clicking the heading; explicit Save/Cancel. Hide only the intro heading
   and paragraph when at least one actual station is configured. Default label
@@ -1242,9 +1249,9 @@ Never copy the credential-bearing raw log into the repository.
   A request guard confirms no commissioning/power/config/firmware mutation during
   the browser check. Active-code renewal behavior is software-tested, not retested
   on hardware because no new pairing window was authorized. Sessions are closed.
-- The owner replaced the Tasmota experiment with rs-matter; **0.1.19-rs-matter**
-  is now installed on the owner's board. The authorized public rs-matter release is 0.1.19;
-  publish through the existing checked main-branch workflow. Tasmota's source,
+- The owner replaced the Tasmota experiment with rs-matter; **0.1.20-rs-matter**
+  is installed on the owner's board. Public releases use the existing checked
+  main-branch workflow. Tasmota's source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
 - `experimental/rs-matter/` combines the shared C++ firmware and BLE worker with

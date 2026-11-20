@@ -12,6 +12,10 @@ For validation evidence and remaining hardware checks, see [the validation repor
   bridge returns to deep sleep after the jobs finish. Hold both buttons for
   five seconds to return to the previous Wi-Fi mode.
 
+- Owner-approved classic OTA from 0.1.19 succeeded and preserved the four
+  assignments, GPIO settings and Matter pairing. Live EN/DE UI checks passed.
+  Physical LED and GPIO tests remain pending.
+
 ## Room name and maintenance — 0.1.19-rs-matter (public release; installed on classic ESP32)
 
 - Click the room heading to save a personal room/owner label (up to 64 UTF-8
