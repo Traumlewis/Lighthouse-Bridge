@@ -39,12 +39,13 @@ are software-build targets pending hardware validation. The classic ESP32 remain
 the owner-tested device; hardware installation requires separate owner approval.
 See the [GPIO wiring and board guide](docs/GPIO-BOARDS.md).
 
-Candidate rs-matter **0.1.19** adds a clickable, persistent room/owner name and
+rs-matter **0.1.19** adds a clickable, persistent room/owner name and
 hides the introduction once a station is configured. Its private Dangerzone
 shows setup Wi-Fi credentials with click-to-copy, Restart and a confirmed Factory
 reset. Reset removes all saved settings and Matter pairings; retrieve the new
-setup password over USB before first-time setup. No update or reset has been
-performed on the owner’s device for this change.
+setup password over USB before first-time setup. Owner-approved classic OTA is
+installed, retaining all four assignments, credentials and Matter pairing. Real
+EN/DE device-UI checks pass; no factory-reset or separate restart was performed.
 
 A separate [rs-matter prototype](experimental/rs-matter/README.md) is available
 through its [own WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/rs-matter.html).

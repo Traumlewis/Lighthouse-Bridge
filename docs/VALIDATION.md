@@ -2,8 +2,10 @@
 
 ## rs-matter 0.1.19: room label and confirmed maintenance
 
-Published candidate; 0.1.18 remains installed. No live firmware upload, restart, reset,
-station command or commissioning action was performed for this change.
+Owner-approved classic OTA from 0.1.18 to **0.1.19** is installed. One upload
+of the published 1,959,216-byte app was accepted after physical BLE idle; the
+board rebooted normally and reports the expected version. No separate reset,
+restart, room save, station power command or commissioning action was performed.
 
 The rs-only dashboard hides its introduction once an actual station is configured,
 including an unreachable station. Clicking the localized room heading opens a
@@ -38,8 +40,8 @@ browser/USB programs pass against the freshly built Pages assets. All native
 CI programs, including six GPIO/OTA chip variants and the new maintenance program,
 pass; all eight Rust tests pass in debug and release.
 
-Hardware reset/restart behavior, power interruption and the new candidate’s
-runtime memory margin remain unverified. All app slots/partitions are retained.
+Dangerzone reset/restart behavior, room-save persistence, power interruption and
+runtime memory margin remain unverified on hardware. All app slots/partitions are retained.
 
 Public release verification: source commit `f788690`, GitHub Actions
 [run 44771254454](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/44771254454)
@@ -52,8 +54,22 @@ chip IDs, USB offsets, exact complete partition table, every SHA256SUMS entry,
 OTA payload equality, ZIP CRC/payload and packaged source equality with the
 released implementation. Public app bytes: classic **1,959,216**, both C3
 profiles **1,949,072**, S3 **1,884,752**. Local values above differ with build
-paths. No device install, room save, restart, reset or commissioning was run;
-hardware approval is still required separately.
+paths. The subsequently owner-approved device update used this published classic
+package; no second upload was needed.
+
+Pre/post comparisons retain all four station IDs/names/addresses and OFF choices,
+API key, own web-password access, username settings, hostname/setup SSID, network
+mode and GPIO bindings. The board reports home Wi-Fi connected, Matter ready and
+paired, a usable BLE worker and all four stations reachable. Last-command history
+is none on all four after boot. The new room label starts empty as intended.
+
+Real guarded browser checks pass EN/DE at 1280/390/320: actual 0.1.19 UI, four
+cards, hidden introduction, localized default room label, editor open/Escape
+cancel, visible Dangerzone controls, matching private setup SSID/key, plain-text
+copy styling, no overflow/page errors. Only GET and the dashboard’s read-only
+refresh requests are allowed by the guard; no power/config/room/maintenance/
+commissioning writes occur. The diagnostic personal session is closed. Future
+device changes still require a new explicit owner approval.
 
 ## rs-matter 0.1.18: GPIO buttons and separate board builds
 

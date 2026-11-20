@@ -1,6 +1,6 @@
 # Lighthouse Bridge — rs-matter 0.1.19
 
-## Room name and maintenance — 0.1.19-rs-matter (candidate; not installed)
+## Room name and maintenance — 0.1.19-rs-matter (public release; installed on classic ESP32)
 
 - Click the room heading to save a personal room/owner label (up to 64 UTF-8
   bytes). The label survives reboot and is independent of the network hostname.
@@ -16,7 +16,9 @@
   keys/bootstrap sessions cannot use it. Reject scans, pending commands, setup
   and OTA; stop new BLE work and wait for physical idle before reboot. A durable
   reset flag is applied before network/BLE/Matter initialization on the next boot.
-  No power commands are sent automatically. No device mutation was performed.
+  No power commands are sent automatically. Owner-approved classic OTA from
+  0.1.18 succeeded with one upload of the published package. Assignments, OFF
+  choices, credentials, naming, GPIO settings and Matter pairing are retained.
 
 Local verification passes: four rs builds, stable/SDK builds, native CI checks,
 eight Rust tests in debug/release, 34 Python checks and 16 browser/USB programs.
@@ -29,7 +31,10 @@ password is the current API key, not your home-router or web-login password.
 After a successful reset request the old password is cleared from the page.
 Factory reset requires first-time setup afterwards and may require removing old
 Alexa entries and restoring groups/routines. Do not interrupt its storage erase.
-Reset/power-loss behavior and this candidate remain unverified on hardware.
+Dangerzone reset/restart, room-save persistence and power-loss behavior remain
+unverified on hardware. The owner-approved 0.1.19 OTA is installed; real EN/DE
+device-UI checks pass at 1280/390/320 without power/config/room/maintenance/
+commissioning writes. All four stations are reachable; Matter is ready/paired.
 
 # Lighthouse Bridge — rs-matter 0.1.18
 

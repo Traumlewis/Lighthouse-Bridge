@@ -3,7 +3,7 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
-## Room name and maintenance — 0.1.19-rs-matter (candidate; not installed)
+## Room name and maintenance — 0.1.19-rs-matter (public release; installed on classic ESP32)
 
 - Click the room heading to save a personal room/owner label (up to 64 UTF-8
   bytes). The label survives reboot and is independent of the network hostname.
@@ -19,10 +19,14 @@ For validation evidence and remaining hardware checks, see [the validation repor
   keys/bootstrap sessions cannot use it. Reject scans, pending commands, setup
   and OTA; stop new BLE work and wait for physical idle before reboot. A durable
   reset flag is applied before network/BLE/Matter initialization on the next boot.
-  No power commands are sent automatically. No device mutation was performed.
+  No power commands are sent automatically. Owner-approved classic OTA from
+  0.1.18 succeeded with one upload of the published package. Assignments, OFF
+  choices, credentials, naming, GPIO settings and Matter pairing are retained.
 - Verification passes: four full rs builds plus stable/SDK regressions, all native
   CI checks, eight Rust tests in debug/release, 34 Python checks and 16 browser/USB
-  programs. Classic app 1,959,440/1,966,080 bytes; no actual reset/install tested.
+  programs. Local classic app 1,959,440/1,966,080 bytes; installed public app 1,959,216.
+  Live EN/DE device UI at 1280/390/320 passes. No actual factory-reset, separate
+  restart or room save was performed; those remain software-tested.
 
 ## GPIO buttons and board profiles — 0.1.18-rs-matter (public release; installed on classic ESP32)
 

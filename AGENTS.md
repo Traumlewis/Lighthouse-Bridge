@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17 and 0.1.18 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18 and 0.1.19 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -30,7 +30,7 @@ status change. Keep current facts, not a conversation log. User instructions win
   OTA chip validation and installer manifests must agree. S3 owner specification is
   4 MB flash and 2 MB on-chip PSRAM; use the QSPI PSRAM profile.
   No new-board hardware validation or device mutation is authorized by this request.
-- Installed **0.1.18-rs-matter** adds two optional active-low GPIO buttons,
+- Release **0.1.18-rs-matter** adds two optional active-low GPIO buttons,
   assigned through personal-session/Origin-protected settings to All on/All off.
   Default disabled, conservative pin allowlists exclude boot/flash/USB/UART pins;
   use INPUT_PULLUP and momentary contacts to GND. Require stable release before
@@ -87,7 +87,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## Room label and confirmed maintenance
 
-- Candidate 0.1.19-rs-matter adds a private persistent room/owner label under
+- Installed 0.1.19-rs-matter adds a private persistent room/owner label under
   lhbridge/room_name, independent of network naming, 1–64 valid UTF-8 bytes.
   Edit by clicking the heading; explicit Save/Cancel. Hide only the intro heading
   and paragraph when at least one actual station is configured. Default label
@@ -106,7 +106,8 @@ status change. Keep current facts, not a conversation log. User instructions win
 - After reset, retrieve the new generated setup Wi-Fi password via physical USB
   and repeat initial setup/Matter pairing. Clear the obsolete key in the browser
   after reset acceptance. Restart/reset and code publication are separate from
-  device-install approval; no 0.1.19 device mutation is authorized.
+  device-install approval. The owner explicitly approved the specific 0.1.19 OTA;
+  ask again before a later update or separate device change.
 
 - 0.1.19 local builds fit all unchanged slots: classic 1,959,440, both C3
   1,949,312, S3 1,884,976 bytes; static RAM 67,620 / 55,072 / 64,052.
@@ -123,10 +124,19 @@ status change. Keep current facts, not a conversation log. User instructions win
   Downloaded manifests, chip IDs, offsets, exact full partitions, image/OTA
   SHA256 and ZIP payload/source match the release. Public app sizes are
   1,959,216 classic, 1,949,072 both C3, 1,884,752 S3 bytes; local sizes above
-  differ with build paths. 0.1.18 remains installed; no 0.1.19 update, restart,
-  reset, room save or commissioning on hardware is authorized/performed.
-  Ask before a later device mutation. Real reset/power-loss behavior remains
-  unverified. Publication and browser/software evidence do not establish it.
+  differ with build paths. Owner-approved classic OTA from 0.1.18 to 0.1.19
+  succeeded with one upload of the published package (1,959,216-byte app), after
+  waiting for physical BLE idle. Pre/post checks retain four station IDs/names/
+  addresses/OFF choices, GPIO bindings, API/web credentials, naming and home
+  network mode. The board reports Wi-Fi connected, Matter ready/paired and
+  usable BLE; all four stations are reachable and last-command histories are none.
+  Live guarded EN/DE device-UI checks at 1280/390/320 verify hidden intro, room
+  editor/open/cancel, Dangerzone controls, correct private setup credentials and
+  plain copy styling, without overflow/page errors. No power/config/room-save/
+  reset/restart/commissioning writes were performed by the browser check.
+  The diagnostic personal session is closed. Ask before a later device mutation.
+  Room-save persistence, Dangerzone restart/factory-reset and power-loss behavior
+  remain unverified on hardware; software tests/publication do not establish them.
 
 ## Status and BLE
 
@@ -1200,8 +1210,8 @@ Never copy the credential-bearing raw log into the repository.
   A request guard confirms no commissioning/power/config/firmware mutation during
   the browser check. Active-code renewal behavior is software-tested, not retested
   on hardware because no new pairing window was authorized. Sessions are closed.
-- The owner replaced the Tasmota experiment with rs-matter; **0.1.18-rs-matter**
-  is now installed on the owner's board. The authorized public rs-matter release is 0.1.18;
+- The owner replaced the Tasmota experiment with rs-matter; **0.1.19-rs-matter**
+  is now installed on the owner's board. The authorized public rs-matter release is 0.1.19;
   publish through the existing checked main-branch workflow. Tasmota's source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable
   0.3.9 and the existing SDK prototype 0.3.9-matter remain separate and unchanged.
