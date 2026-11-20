@@ -32,12 +32,19 @@ Repeat to turn Debug off. Cards keep their size; long diagnostics scroll inside.
 See [VERSION.md](VERSION.md) for the version history and [validation](docs/VALIDATION.md)
 for software checks and hardware evidence.
 
-The local rs-matter 0.1.18 build adds two configurable GPIO-to-GND buttons
+The rs-matter 0.1.18 release adds two configurable GPIO-to-GND buttons
 (All on/All off), plus separate WebFlasher profiles for ESP32, WeAct ESP32-C3FH4,
 ESP32 C3 SuperMini and ESP32 S3 SuperMini (4 MB flash / 2 MB PSRAM). New boards
 are software-build targets pending hardware validation. The classic ESP32 remains
-the owner-tested device; new firmware is not installed or published automatically.
+the owner-tested device; hardware installation requires separate owner approval.
 See the [GPIO wiring and board guide](docs/GPIO-BOARDS.md).
+
+Candidate rs-matter **0.1.19** adds a clickable, persistent room/owner name and
+hides the introduction once a station is configured. Its private Dangerzone
+shows setup Wi-Fi credentials with click-to-copy, Restart and a confirmed Factory
+reset. Reset removes all saved settings and Matter pairings; retrieve the new
+setup password over USB before first-time setup. No update or reset has been
+performed on the owner’s device for this change.
 
 A separate [rs-matter prototype](experimental/rs-matter/README.md) is available
 through its [own WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/rs-matter.html).

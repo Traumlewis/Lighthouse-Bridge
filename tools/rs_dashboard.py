@@ -91,4 +91,5 @@ $('logout').addEventListener('click' ''')
     change("account=null;current=null;", "account=null;current=null;$('web-username').value='';$('username-enabled').checked=false;renderUsernameSetting();")
     from rs_local_dashboard import local_dashboard
     from rs_buttons_dashboard import buttons_dashboard
-    return buttons_dashboard(local_dashboard(html))
+    from rs_owner_dashboard import owner_dashboard
+    return owner_dashboard(buttons_dashboard(local_dashboard(html)))

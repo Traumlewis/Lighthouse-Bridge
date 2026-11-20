@@ -49,6 +49,8 @@ std::atomic<uint32_t> wifiApEvent{0}, wifiApJoins{0}, wifiApLeaves{0}, wifiApRea
 String portalModeToken;
 bool webUsernameEnabled = false;
 String webUsername;
+String roomName;
+bool maintenanceWaitIdle=false;
 #endif
 
 #ifndef LH_FIRMWARE_VERSION
@@ -807,6 +809,9 @@ void otaUpload() {
   }
 }
 
+#ifdef LH_RS_MATTER_BUILD
+#include "rs_maintenance.h"
+#endif
 void configureMaintenanceRoutes() {
   server.on("/api/device", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
@@ -880,6 +885,9 @@ void configureRoutes() {
   const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie", "X-OTA-Token"};
   server.collectHeaders(headers, 5);
   configureMaintenanceRoutes();
+#ifdef LH_RS_MATTER_BUILD
+  configureRsMaintenanceRoutes();
+#endif
   server.on("/", HTTP_GET, [] {
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("X-Content-Type-Options", "nosniff");
@@ -1029,7 +1037,12 @@ void configureRoutes() {
     doc["username"] = webUsername;
     doc["network_mode"] = usingLocalWifi() ? "local" : "home";
 #endif
-    if (webHash.length()) doc["api_key"] = accessKey;
+    if (webHash.length()) {
+      doc["api_key"] = accessKey;
+#ifdef LH_RS_MATTER_BUILD
+      doc["room_name"] = roomName;
+#endif
+    }
     sendJson(200, doc);
   });
   server.on("/api/password", HTTP_POST, [] {
@@ -1198,6 +1211,11 @@ void configureRoutes() {
 #endif
   server.onNotFound([] {
     const String uri = server.uri();
+#ifdef LH_RS_MATTER_BUILD
+    if(uri=="/api/room"||uri=="/api/maintenance"){
+      if(authenticated(true))fail(404,"NOT_FOUND");return;
+    }
+#endif
     if (uri == "/api/status" || uri == "/api/power" || uri == "/api/config" ||
         uri == "/api/scan" || uri == "/api/wifi" || uri == "/api/refresh" ||
         uri == "/api/buttons" || uri == "/api/network" || uri == "/api/key" || uri == "/api/username" || uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account" ||
@@ -1419,12 +1437,18 @@ void startServices() {
 void setup() {
   Serial.begin(115200);
 #ifdef LH_RS_MATTER_BUILD
+  FactoryResetStorage resetStorage;
+  if(!applyFactoryResetAtBoot(resetStorage)){
+    Serial.println("FACTORY_RESET_STORAGE_FAILED");while(true)delay(1000);
+  }
   if (!lh_rs_init_diagnostics()) Serial.println("RS_DIAGNOSTICS_INIT_FAILED");
 #endif
   pinMode(LH_BOOT_PIN, INPUT_PULLUP);
   delay(500);
   prefs.begin("lhbridge", false);
 #ifdef LH_RS_MATTER_BUILD
+  roomName=prefs.getString("room_name","");
+  if(roomName.length()&&!validRoomName(roomName.c_str()))roomName="";
   {
     const String savedButtons=prefs.getString("gpio_buttons","");
     if (savedButtons.length()) {
@@ -1625,7 +1649,11 @@ void loop() {
   }
 #endif
   wifiManager.process();
-  if (restartPending && millis() - restartAt >= 1500) restartBridge();
+  if (restartPending && millis() - restartAt >= 1500
+#ifdef LH_RS_MATTER_BUILD
+      && maintenanceRestartReady(millis(),restartAt,maintenanceWaitIdle,bleActive)
+#endif
+     ) restartBridge();
   if (otaPrepared && !otaUploading && !otaSucceeded && millis() - otaPreparedAt >= 60000) cancelOta("OTA_ABORTED");
   if (manualPortal) {
     if (!wifiManager.getConfigPortalActive()) {

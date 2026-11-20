@@ -2,7 +2,7 @@
   "name": "lighthouse-bridge-tests",
   "private": true,
   "scripts": {
-    "test": "node test/web_ui.cjs && node test/web_flasher.cjs && node test/serial_info.cjs && node test/wifi_portal.cjs && node test/matter_info.cjs && node test/matter_ui.cjs && node test/matter_dashboard.cjs && node test/rs_matter_ui.cjs && node test/rs_matter_dashboard.cjs && node test/rs_dashboard_preferences.cjs && node test/rs_account_preferences.cjs && node test/rs_local_mode.cjs && node test/rs_setup_reboot.cjs && node test/rs_gpio_buttons.cjs && node test/rs_board_selection.cjs",
+    "test": "node test/web_ui.cjs && node test/web_flasher.cjs && node test/serial_info.cjs && node test/wifi_portal.cjs && node test/matter_info.cjs && node test/matter_ui.cjs && node test/matter_dashboard.cjs && node test/rs_matter_ui.cjs && node test/rs_matter_dashboard.cjs && node test/rs_dashboard_preferences.cjs && node test/rs_account_preferences.cjs && node test/rs_local_mode.cjs && node test/rs_setup_reboot.cjs && node test/rs_gpio_buttons.cjs && node test/rs_owner_maintenance.cjs && node test/rs_board_selection.cjs",
     "test:usb": "node test/serial_info.cjs"
   },
   "devDependencies": {

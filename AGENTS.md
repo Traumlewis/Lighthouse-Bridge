@@ -85,6 +85,37 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## Room label and confirmed maintenance
+
+- Candidate 0.1.19-rs-matter adds a private persistent room/owner label under
+  lhbridge/room_name, independent of network naming, 1–64 valid UTF-8 bytes.
+  Edit by clicking the heading; explicit Save/Cancel. Hide only the intro heading
+  and paragraph when at least one actual station is configured. Default label
+  remains localized; saved names render as text and survive language changes.
+- rs-only Dangerzone shows setup SSID/current API key as copyable setup password,
+  with plain text button styling, Restart and explicitly confirmed Factory reset.
+  Personal-password session and Origin/JSON gates protect POST /api/room and
+  /api/maintenance; API keys/bootstrap sessions cannot authorize either.
+- Restart preserves settings. Full reset durably marks lhbridge/factory_reset,
+  pauses new work and waits at least 1.5 s plus physical BLE idle before reboot.
+  Reject scans/commands/setup/OTA. At the next boot, before Preferences/WiFi/BLE/
+  Rust initialization, erase only standard NVS (all Wi-Fi/auth/API key, room,
+  stations/endpoint registry, buttons and Matter fabrics). Never erase app slots,
+  OTA selection or the partition table. Failure stops startup with a redacted
+  diagnostic. Do not claim power-loss/real-device reset verification.
+- After reset, retrieve the new generated setup Wi-Fi password via physical USB
+  and repeat initial setup/Matter pairing. Clear the obsolete key in the browser
+  after reset acceptance. Restart/reset and code publication are separate from
+  device-install approval; no 0.1.19 device mutation is authorized.
+
+- 0.1.19 local builds fit all unchanged slots: classic 1,959,440, both C3
+  1,949,312, S3 1,884,976 bytes; static RAM 67,620 / 55,072 / 64,052.
+  Cache-off guards, stable/SDK regressions, Pages, 34 Python checks and all
+  16 browser/USB programs pass (mocked HTTP/USB).
+  All native CI programs (including GPIO/OTA chip variants and the new
+  maintenance program) and eight Rust tests in both debug/release pass.
+  These are software checks, not device reset or runtime memory evidence.
+
 ## Status and BLE
 
 - `src/main.cpp` owns a single BLE worker: scans, connects, reads, writes and

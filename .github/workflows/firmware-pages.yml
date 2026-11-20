@@ -122,6 +122,8 @@ jobs:
           /tmp/lighthouse-rs-matter-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_preferences.cpp -o /tmp/lighthouse-rs-preferences-test
           /tmp/lighthouse-rs-preferences-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_device_maintenance.cpp -o /tmp/lighthouse-maintenance-test
+          /tmp/lighthouse-maintenance-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_network_mode.cpp -o /tmp/lighthouse-network-mode-test
           /tmp/lighthouse-network-mode-test
           g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test

@@ -1,5 +1,46 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.19: room label and confirmed maintenance
+
+Candidate only; 0.1.18 remains installed. No live firmware upload, restart, reset,
+station command or commissioning action was performed for this change.
+
+The rs-only dashboard hides its introduction once an actual station is configured,
+including an unreachable station. Clicking the localized room heading opens a
+Save/Cancel editor; the private room label is persisted independently of the
+hostname. A private Dangerzone shows setup SSID/password with plain-text copy,
+Restart and an additional explicit factory-reset confirmation. Full reset removes
+all standard NVS settings/fabrics and requires USB key recovery and first setup.
+
+The new native maintenance program executes the production parser, UTF-8
+validation, durable reset scheduling/boot sequence and idle/delay gate with fake
+storage. It covers malformed and extra fields, missing/non-boolean confirmation,
+embedded NUL action, normal boot, each storage failure, millis wrap and no erase
+before reboot. This is simulated storage evidence, not physical flash-erasure
+or power-loss verification. Review confirms both routes use personal-session and
+Origin/JSON checks, and only standard NVS is erased before Wi-Fi/BLE/Rust startup.
+
+The new browser program passes EN/DE at 1280/390/320 with mocked HTTP only:
+empty/disabled versus configured/unreachable stations, keyboard edit/cancel,
+draft preservation across polling/language changes, persistence/reload, server
+failure, safe Unicode/HTML-like text, private credentials/copy styling, cancelled
+reset without any request, failed and accepted restart, exactly one confirmed
+reset request, obsolete-key clearing and logout. It asserts no power, network,
+configuration or commissioning requests and no overflow/page errors.
+
+All four complete local builds fit the unchanged 1,966,080-byte slot: classic
+1,959,440 bytes, both C3 profiles 1,949,312, S3 1,884,976. Static RAM is
+67,620 / 55,072 / 64,052 bytes respectively; these are not runtime headroom
+measurements. Cache-off libc/diagnostic/Wi-Fi wrapper guards pass. Stable 0.3.9
+and SDK 0.3.9-matter regression builds pass. Pages assembly and all 34 Python
+checks pass, including chip/layout/hash/OTA/source ZIP validation. All 16
+browser/USB programs pass against the freshly built Pages assets. All native
+CI programs, including six GPIO/OTA chip variants and the new maintenance program,
+pass; all eight Rust tests pass in debug and release.
+
+Hardware reset/restart behavior, power interruption and the new candidate’s
+runtime memory margin remain unverified. All app slots/partitions are retained.
+
 ## rs-matter 0.1.18: GPIO buttons and separate board builds
 
 Owner-approved classic OTA from 0.1.17 to 0.1.18 is installed. The owner now

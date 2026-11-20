@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.18-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.19-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -15,6 +15,36 @@ the [rs-matter guide](../experimental/rs-matter/README.md).
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
 by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
+
+## rs-matter 0.1.19 room and maintenance
+
+Personal-session `GET /api/account` includes `room_name` (empty means the localized
+"Your VR room" default). No room name or API key is returned to bootstrap sessions.
+
+`POST /api/room` accepts exactly `{"name":"Leas VR room"}`: nonempty printable
+UTF-8 up to 64 bytes, persisted independently of the hostname. Returns
+`{"saved":true,"name":"Leas VR room"}`. Invalid input returns `ROOM_NAME_INVALID`;
+storage failure returns `SAVE_FAILED`. No reboot or station command occurs.
+
+`POST /api/maintenance` accepts exactly `{"action":"restart"}` or
+`{"action":"factory_reset","confirm":true}`. Both require a personal-password
+session and matching Origin when supplied, plus JSON. API keys/bootstrap sessions
+cannot authorize these routes. Wrong methods do not mutate. Missing/false/non-boolean
+reset confirmation returns `RESET_CONFIRM_REQUIRED`; unknown/extra fields return
+`MAINTENANCE_INVALID`. Busy scans/commands, setup, OTA or an existing restart return
+409 `BLE_BUSY`. A failed durable reset-flag write returns 500 `SAVE_FAILED` without
+scheduling a reboot. Accepted actions return 202 `{"accepted":true,"restarting":true}`;
+then stop new BLE work and reboot after at least 1.5 seconds and physical BLE idle.
+
+Restart preserves settings. Factory reset erases the standard NVS partition at the
+next boot, before bridge/Matter/BLE startup: home Wi-Fi, API key, web login, room,
+station/endpoint assignments, GPIO bindings and Matter fabric data. Other storage
+partitions, firmware slots, partition table and OTA selection remain untouched.
+A new API/setup key is generated; retrieve it over physical USB and repeat initial
+setup and Matter pairing. No power command is sent automatically. Storage failure
+at boot stops initialization with `FACTORY_RESET_STORAGE_FAILED`; power-loss recovery
+and actual device reset remain hardware checks. Do not invoke these routes merely
+to inspect settings.
 
 ## rs-matter 0.1.16 setup reboot and physical diagnostics
 

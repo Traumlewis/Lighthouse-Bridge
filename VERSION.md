@@ -3,6 +3,27 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Room name and maintenance — 0.1.19-rs-matter (candidate; not installed)
+
+- Click the room heading to save a personal room/owner label (up to 64 UTF-8
+  bytes). The label survives reboot and is independent of the network hostname.
+  Hide the introduction heading and paragraph when a station is configured.
+- Add a private Dangerzone with the setup Wi-Fi name/password (click to copy),
+  Restart and explicitly confirmed Factory reset. Restart retains settings.
+- Factory reset removes all NVS settings, including home Wi-Fi credentials,
+  API key, web authentication, room name, station/endpoint mappings, buttons and
+  Matter fabrics. Read the newly generated setup password over physical USB,
+  then configure Wi-Fi/login/stations and pair Matter again. Existing app slots,
+  the complete partition table and OTA boot selection are not erased.
+- Maintenance requires a personal-password session and same-origin JSON. API
+  keys/bootstrap sessions cannot use it. Reject scans, pending commands, setup
+  and OTA; stop new BLE work and wait for physical idle before reboot. A durable
+  reset flag is applied before network/BLE/Matter initialization on the next boot.
+  No power commands are sent automatically. No device mutation was performed.
+- Verification passes: four full rs builds plus stable/SDK regressions, all native
+  CI checks, eight Rust tests in debug/release, 34 Python checks and 16 browser/USB
+  programs. Classic app 1,959,440/1,966,080 bytes; no actual reset/install tested.
+
 ## GPIO buttons and board profiles — 0.1.18-rs-matter (public release; installed on classic ESP32)
 
 - Add two configurable GPIO-to-GND buttons, disabled by default, for All on/All

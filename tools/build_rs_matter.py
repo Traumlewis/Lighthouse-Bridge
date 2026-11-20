@@ -15,7 +15,7 @@ from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.18-rs-matter'
+VERSION = '0.1.19-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
@@ -31,7 +31,7 @@ from build_matter import validate_segments, render_dashboard
 
 def source_fingerprint():
     paths=[ROOT/'src/main.cpp',ROOT/'include/web_ui.h',ROOT/'partitions.csv',
-           ROOT/'tools/build_rs_matter.py',ROOT/'tools/build_matter.py',ROOT/'tools/matter_dashboard.py',ROOT/'tools/rs_dashboard.py',ROOT/'tools/rs_local_dashboard.py',ROOT/'tools/rs_matter_link.py',ROOT/'tools/rs_boards.py',ROOT/'tools/rs_buttons_dashboard.py']
+           ROOT/'tools/build_rs_matter.py',ROOT/'tools/build_matter.py',ROOT/'tools/matter_dashboard.py',ROOT/'tools/rs_dashboard.py',ROOT/'tools/rs_local_dashboard.py',ROOT/'tools/rs_matter_link.py',ROOT/'tools/rs_boards.py',ROOT/'tools/rs_buttons_dashboard.py',ROOT/'tools/rs_owner_dashboard.py']
     for directory,patterns in [('include',['*.h']),('experimental/matter/MatterBridge',['*.h']),('experimental/rs-matter',['*.h','*.cpp','*.ino']),('experimental/rs-matter/rust',['Cargo.toml','Cargo.lock']),('experimental/rs-matter/rust/src',['*.rs'])]:
         for pattern in patterns:paths.extend((ROOT/directory).glob(pattern))
     digest=hashlib.sha256()
@@ -146,7 +146,7 @@ def main():
         for path in ['experimental/rs-matter/RsMatter.ino', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter').glob('*.h')], 'experimental/rs-matter/rs_platform.cpp', 'experimental/rs-matter/rust/Cargo.toml', 'experimental/rs-matter/rust/Cargo.lock', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter/rust/src').glob('*.rs')],
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'experimental/matter/MatterBridge').glob('*.h')], 'partitions.csv',
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
-                     'src/main.cpp', 'tools/build_rs_matter.py', 'tools/build_matter.py', 'tools/matter_dashboard.py', 'tools/rs_dashboard.py', 'tools/rs_local_dashboard.py', 'tools/ota_package.py', 'tools/rs_matter_link.py', 'tools/rs_boards.py', 'tools/rs_buttons_dashboard.py', 'tools/requirements-matter-build.txt',
+                     'src/main.cpp', 'tools/build_rs_matter.py', 'tools/build_matter.py', 'tools/matter_dashboard.py', 'tools/rs_dashboard.py', 'tools/rs_local_dashboard.py', 'tools/ota_package.py', 'tools/rs_matter_link.py', 'tools/rs_boards.py', 'tools/rs_buttons_dashboard.py', 'tools/rs_owner_dashboard.py', 'tools/requirements-matter-build.txt',
                      'experimental/rs-matter/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():
