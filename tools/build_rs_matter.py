@@ -15,7 +15,7 @@ from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.19-rs-matter'
+VERSION = '0.1.20-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
@@ -84,7 +84,7 @@ def main():
                         'compiler.cpp.extra_flags='+host_config+'-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', ROOT/'experimental/rs-matter', sketch]),
                         '--build-property', 'compiler.c.extra_flags='+host_config+'-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
-                        '--build-property', 'compiler.c.elf.extra_flags=-flto -Wl,--wrap=esp_wifi_init',
+                        '--build-property', 'compiler.c.elf.extra_flags=-Oz -flto -flto-partition=one -Wl,--wrap=esp_wifi_init',
                         '--build-property', 'compiler.libraries.ldflags=-Wl,--undefined=memcpy,--undefined=memmove,--undefined=memset,--undefined=memcmp,--undefined=strlen -lc '+str(rustlib),
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     properties = subprocess.check_output([args.arduino_cli, 'compile', '--fqbn', fqbn,

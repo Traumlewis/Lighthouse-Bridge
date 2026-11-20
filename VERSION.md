@@ -3,6 +3,15 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Identify and Remote Mode — 0.1.20-rs-matter
+
+- Move Dangerzone below the account section. Identify a saved Lighthouse V2
+  from station setup using its LED.
+- GPIO settings offer Remote Mode with two wake-capable button bindings.
+  A single press followed by release runs All on or All off via BLE. The
+  bridge returns to deep sleep after the jobs finish. Hold both buttons for
+  five seconds to return to the previous Wi-Fi mode.
+
 ## Room name and maintenance — 0.1.19-rs-matter (public release; installed on classic ESP32)
 
 - Click the room heading to save a personal room/owner label (up to 64 UTF-8

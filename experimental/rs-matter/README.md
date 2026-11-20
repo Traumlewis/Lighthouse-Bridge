@@ -1,3 +1,15 @@
+# Lighthouse Bridge — rs-matter 0.1.20
+
+Identify is next to Remove in each saved station's configuration. It flashes
+the station LED through the dedicated Lighthouse V2 GATT characteristic.
+
+To use **GPIO buttons & Remote Mode**, save one All on and one All off binding
+on the wake pins shown in the dashboard. Activate Remote Mode and confirm.
+Release a single button after pressing it to switch the stations via BLE.
+The bridge checks the results and returns to deep sleep. Hold both buttons
+together for five seconds to return to the previous home/local Wi-Fi mode.
+Physical wake, LED behavior and power consumption remain unverified.
+
 # Lighthouse Bridge — rs-matter 0.1.19
 
 ## Room name and maintenance — 0.1.19-rs-matter (public release; installed on classic ESP32)

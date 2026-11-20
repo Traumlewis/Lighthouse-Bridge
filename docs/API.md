@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.19-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.20-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -15,6 +15,20 @@ the [rs-matter guide](../experimental/rs-matter/README.md).
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
 by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
+
+## rs-matter 0.1.20 Identify and Remote Mode
+
+Personal-session `POST /api/identify` accepts a saved station `id` and matching
+`mac` and returns HTTP 202 with a numeric `job`. Poll the personal-session
+`GET /api/identify` and check for that `job`, `pending: false`, and an empty
+`error` on success. V2 devices without the Identify characteristic return
+`IDENTIFY_UNSUPPORTED` as the job result. No power or channel writes occur.
+
+`GET /api/buttons` also includes `wake_pins`. Personal-session
+`POST /api/remote` with `{"confirm":true}` starts the BLE-only sleep mode,
+after validating both saved bindings and that a station is assigned.
+Wi-Fi and dashboard access resume after holding both buttons for five seconds.
+Both POST routes use the existing Origin and JSON checks.
 
 ## rs-matter 0.1.19 room and maintenance
 

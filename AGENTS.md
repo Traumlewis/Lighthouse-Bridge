@@ -85,6 +85,38 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## rs-matter 0.1.20 remote and identify
+
+- Put Dangerzone immediately after the account settings. In station setup, put
+  Identify directly before Remove. Identify targets a saved station ID and
+  matching MAC, checks the V2 GATT Identify characteristic, and writes 0x01 only
+  to that characteristic. The authenticated web session queues one job on the
+  sequential BLE worker and reads that job's success or error. Power state,
+  command history and configuration are independent of Identify.
+- Remote Mode is explicitly activated in GPIO settings. Require saved distinct
+  wake-capable pins and one All on / one All off binding plus a station. Use
+  active-low contacts to GND. Keep the saved home/local network mode under
+  wifi_mode and store Remote Mode independently under lhbridge/remote_mode.
+  Accept only a confirmed personal-session request when scans, power, setup
+  and OTA are idle. Pause BLE and reboot once the radio is physically idle.
+- Remote boot branches before Wi-Fi, HTTP and Matter startup. Only a GPIO
+  wake can send power. Recognize a single wake after release, suppress power
+  for a two-button gesture, and clear Remote Mode after a five-second chord.
+  Reboot restores the previous mode. Classic EXT0 and single-pin EXT1 handle
+  independent low wakes, S3 uses EXT1 ANY_LOW, and C3 uses deep-sleep GPIO wake.
+  Reuse the worker's bounded power and confirmation logic, including each
+  station's saved OFF preference. Wait for command completion, BLE cleanup,
+  confirmations or their timeout and button release before sleeping again.
+  No periodic wake or background station reads in Remote Mode.
+- All four local rs builds, both baseline builds, native GPIO/OTA checks,
+  eight Rust tests in debug/release and 34 asset tests pass. C++ links at -Oz
+  with one LTO partition so the new code fits the unchanged slots; keep the
+  cache-off symbol guards. Local app sizes are 1,960,352 classic, 1,961,504
+  both C3 and 1,886,656 S3.
+- Hardware wake, LED Identify, release/chord timing and current draw are
+  unverified. Source/build/test work does not authorize a device update or
+  activating Remote Mode on the owner's bridge.
+
 ## Room label and confirmed maintenance
 
 - Installed 0.1.19-rs-matter adds a private persistent room/owner label under

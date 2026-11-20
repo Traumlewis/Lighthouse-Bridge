@@ -39,3 +39,27 @@ validation. Software build/browser tests are not hardware tests.
 
 Pin exclusions follow Espressif's [C3 GPIO reference](https://docs.espressif.com/projects/esp-idf/en/v4.4.4/esp32c3/api-reference/peripherals/gpio.html)
 and [S3 GPIO reference](https://docs.espressif.com/projects/esp-idf/en/v4.4.3/esp32s3/api-reference/peripherals/gpio.html).
+
+
+## Remote Mode (rs-matter 0.1.20)
+
+Save one All on and one All off button on two distinct wake-capable pins.
+Wiring stays active-low: connect each momentary switch from its GPIO to GND.
+The dashboard lists the available wake pins for the selected firmware:
+
+| Board | Remote Mode wake pins |
+| --- | --- |
+| ESP-WROOM-32 / ESP-32S | 25, 26, 27, 32, 33 |
+| WeAct ESP32-C3FH4 / ESP32 C3 SuperMini | 0, 1, 3, 4, 5 |
+| ESP32 S3 SuperMini | 1, 2, 4–18, 21 |
+
+In **GPIO buttons & Remote Mode**, confirm **Activate Remote Mode**. The bridge
+reboots and sleeps. A single button wakes it. Release the button to run its
+command. All off uses the saved SLEEP/STANDBY preference of each station. The
+bridge waits for Bluetooth command results and then returns to deep sleep.
+Hold both buttons together for five seconds to leave Remote Mode and restore
+the previous home or local Wi-Fi mode. Wi-Fi, Alexa and the dashboard are
+unavailable while the bridge is in Remote Mode.
+
+The GPIO wake and sleep current depend on the actual board and wiring.
+Physical wake, chord recovery and current draw still need hardware verification.

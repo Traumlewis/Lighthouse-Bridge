@@ -1,5 +1,24 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.20: V2 Identify and Remote Mode
+
+Simulated EN/DE browser coverage at 1280/390/320 checks Dangerzone placement
+below the account section, Identify directly before Remove, suppression for
+changed unsaved addresses, a matching Identify job result, and explicit
+Remote Mode confirmation. No power, setup or station assignment requests
+are issued by these flows. Native tests cover allowed wake pins, saved
+binding requirements, individual wake, release debounce, aborted chords,
+five-second exit and timer wrap on all three chip targets. Eight Rust
+release tests pass. These checks do not exercise physical GPIO wake, LED
+behavior, sleep current or command completion on the owner's device.
+
+Stable and SDK regression builds pass. The rs firmware uses GCC size
+optimization with one LTO partition to fit the additional code in both
+existing OTA slots, keeping the pinned libraries and cache-off guards. All four
+rs builds, Pages packaging and 34 Python checks pass. Local app sizes are
+1,960,352 bytes for classic, 1,961,504 for both C3 profiles, and 1,886,656
+for S3. The slot remains 1,966,080 bytes.
+
 ## rs-matter 0.1.19: room label and confirmed maintenance
 
 Owner-approved classic OTA from 0.1.18 to **0.1.19** is installed. One upload

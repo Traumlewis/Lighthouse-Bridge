@@ -39,6 +39,10 @@ are software-build targets pending hardware validation. The classic ESP32 remain
 the owner-tested device; hardware installation requires separate owner approval.
 See the [GPIO wiring and board guide](docs/GPIO-BOARDS.md).
 
+rs-matter **0.1.20** adds LED Identify for saved Lighthouse V2 stations and
+a Bluetooth-only Remote Mode that sleeps between GPIO button presses.
+See the [Remote Mode wiring and operation guide](docs/GPIO-BOARDS.md#remote-mode-rs-matter-0120).
+
 rs-matter **0.1.19** adds a clickable, persistent room/owner name and
 hides the introduction once a station is configured. Its private Dangerzone
 shows setup Wi-Fi credentials with click-to-copy, Restart and a confirmed Factory

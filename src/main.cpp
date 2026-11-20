@@ -44,6 +44,9 @@
 #include "rs_wifi_portal.h"
 #include "network_mode.h"
 #include "gpio_buttons.h"
+#include "remote_buttons.h"
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 bool localWifiMode = false, localApReady = false, wifiSetupBoot = false;
 std::atomic<uint32_t> wifiApEvent{0}, wifiApJoins{0}, wifiApLeaves{0}, wifiApReason{0};
 String portalModeToken;
@@ -51,6 +54,10 @@ bool webUsernameEnabled = false;
 String webUsername;
 String roomName;
 bool maintenanceWaitIdle=false;
+bool remoteOnly = false;
+int identifySlot = -1;
+uint32_t identifyJob = 0;
+const char* identifyResult = nullptr;
 #endif
 
 #ifndef LH_FIRMWARE_VERSION
@@ -267,6 +274,9 @@ bool readBody(JsonDocument& doc) {
   return true;
 }
 bool occupied(bool includeRead = true) { // Caller holds stateMutex.
+#ifdef LH_RS_MATTER_BUILD
+  if (identifySlot >= 0) return true;
+#endif
   if (scanning || scanPending) return true;
   if (includeRead && bleActive) return true;
   for (auto& state : states) if (state.busy || state.pending || (includeRead && state.reading)) return true;
@@ -376,7 +386,11 @@ void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt,
                   : code == BLE_HS_ETIMEOUT ? " (connection timeout)" : "");
 }
 
-bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError) {
+bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError
+#ifdef LH_RS_MATTER_BUILD
+                 , bool identify = false
+#endif
+                 ) {
   waitForBleCleanup();
   bleError = 0;
 #ifdef LH_MATTER_BUILD
@@ -395,6 +409,19 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
     strcpy(error, "BLE_CONNECT_FAILED");
   } else {
     auto* service = client->getService(kService);
+#ifdef LH_RS_MATTER_BUILD
+    if (identify) {
+      auto* light = service ? service->getCharacteristic("00008421-1212-efde-1523-785feabcd124") : nullptr;
+      const uint8_t flash = 1;
+      if (light && (light->canWrite() || light->canWriteNoResponse())) {
+        ok = light->writeValue(&flash, 1, light->canWrite());
+        if (!ok) strcpy(error, "BLE_WRITE_FAILED");
+      } else strcpy(error, "IDENTIFY_UNSUPPORTED");
+      if (!ok) bleError = client->getLastError();
+      NimBLEDevice::deleteClient(client);
+      return ok;
+    }
+#endif
     auto* power = service ? service->getCharacteristic(kPower) : nullptr;
     if (!power || (target && !power->canWriteNoResponse() && !power->canWrite())) {
       strcpy(error, "POWER_CHARACTERISTIC_MISSING");
@@ -481,6 +508,9 @@ void bleWorker(void*) {
     uint32_t generation = 0;
     bool doScan = false;
     bool readOnly = false;
+#ifdef LH_RS_MATTER_BUILD
+    bool identify = false;
+#endif
     {
       Lock lock;
       if (blePaused) { /* Portal owns the radio; do not schedule new BLE work. */ }
@@ -496,6 +526,13 @@ void bleWorker(void*) {
         states[i].busy = true;
         break;
       }
+#ifdef LH_RS_MATTER_BUILD
+      if (selected < 0 && identifySlot >= 0) {
+        selected = identifySlot;
+        config = configs[selected];
+        identify = true;
+      }
+#endif
       if (selected < 0 && scanPending) {
         scanPending = false;
         scanning = doScan = true;
@@ -504,6 +541,9 @@ void bleWorker(void*) {
         for (unsigned offset = 0; offset < kStations; ++offset) {
           const unsigned i = (cursor + offset) % kStations;
           const auto& state = states[i];
+#ifdef LH_RS_MATTER_BUILD
+          if (remoteOnly && !awaitingConfirmation(state, millis())) continue;
+#endif
           const uint32_t interval = readInterval(state, millis());
           if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
               millis() - state.lastReadAttemptMs < interval)) continue;
@@ -522,6 +562,16 @@ void bleWorker(void*) {
       int observed = -1;
       bool sent = false;
       int bleError = 0;
+#ifdef LH_RS_MATTER_BUILD
+      if (identify) {
+        const bool flashed = accessPower(config, nullptr, observed, error, bleError, true);
+        waitForBleCleanup();
+        Lock lock;
+        identifyResult = flashed ? "" : !strcmp(error, "IDENTIFY_UNSUPPORTED")
+                         ? "IDENTIFY_UNSUPPORTED" : "IDENTIFY_FAILED";
+        identifySlot = -1;
+      } else
+#endif
       if (readOnly) {
         // Retry one failed read without changing power. Yield to pending user
         // commands between attempts, and let the device finish disconnecting.
@@ -582,7 +632,22 @@ void bleWorker(void*) {
       }
       cursor = (selected + 1) % kStations;
     }
-    { Lock lock; bleActive = NimBLEDevice::getCreatedClientCount() != 0; }
+#ifdef LH_RS_MATTER_BUILD
+    bool stopRemoteWorker;
+#endif
+    {
+      Lock lock;
+      bleActive = NimBLEDevice::getCreatedClientCount() != 0;
+#ifdef LH_RS_MATTER_BUILD
+      stopRemoteWorker = remoteOnly && blePaused && !bleActive;
+#endif
+    }
+#ifdef LH_RS_MATTER_BUILD
+    if (stopRemoteWorker) {
+      bleWorkerAvailable = false;
+      vTaskDelete(nullptr);
+    }
+#endif
     vTaskDelay(pdMS_TO_TICKS(selected >= 0 ? 150 : 20));
   }
 }
@@ -811,6 +876,7 @@ void otaUpload() {
 
 #ifdef LH_RS_MATTER_BUILD
 #include "rs_maintenance.h"
+void configureRemoteRoutes();
 #endif
 void configureMaintenanceRoutes() {
   server.on("/api/device", HTTP_POST, [] {
@@ -887,6 +953,7 @@ void configureRoutes() {
   configureMaintenanceRoutes();
 #ifdef LH_RS_MATTER_BUILD
   configureRsMaintenanceRoutes();
+  configureRemoteRoutes();
 #endif
   server.on("/", HTTP_GET, [] {
     server.sendHeader("Cache-Control", "no-store");
@@ -993,6 +1060,8 @@ void configureRoutes() {
   server.on("/api/buttons", HTTP_GET, [] {
     if (!authenticated(true)) return;
     StaticJsonDocument<1024> doc;
+    auto wakePins = doc.createNestedArray("wake_pins");
+    for (int pin = 0; pin <= 48; ++pin) if (remoteWakePin(pin)) wakePins.add(pin);
     auto pins=doc.createNestedArray("pins");
     for (int pin=0;pin<=48;++pin) if (buttonPinAllowed(pin)) pins.add(pin);
     auto buttons=doc.createNestedArray("buttons");
@@ -1320,6 +1389,38 @@ void processSerial() {
   }
 }
 
+bool loadStations() {
+  stateMutex = xSemaphoreCreateMutex();
+  if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
+  String saved = prefs.getString("stations", "");
+  bool validSavedConfig = !saved.length() && !prefs.isKey("stations");
+  if (saved.length()) {
+#ifdef LH_MATTER_BUILD
+    DynamicJsonDocument doc(kStationJsonCapacity);
+#else
+    DynamicJsonDocument doc(16384);
+#endif
+    std::unique_ptr<StationConfig[]> restored(new (std::nothrow) StationConfig[kStations]);
+    if (!restored || !doc.capacity()) return false;
+    std::string error;
+    if (!deserializeJson(doc, saved)) {
+      const bool legacy = doc.is<JsonArray>();
+      uint32_t counter = legacy ? 6 : doc["next_id"].as<uint32_t>();
+      if (parseStationList(legacy ? doc.as<JsonVariantConst>() : doc["stations"].as<JsonVariantConst>(),
+                           restored.get(), nullptr, counter, true, legacy, error)) {
+        for (unsigned i = 0; i < kStations; ++i) configs[i] = restored[i];
+        nextHueId = counter;
+        validSavedConfig = true;
+      } else Serial.println("Saved station configuration is invalid; please assign the stations again.");
+    }
+  }
+  return validSavedConfig;
+}
+
+#ifdef LH_RS_MATTER_BUILD
+#include "rs_remote.h"
+#endif
+
 void startServices() {
   WiFi.setAutoReconnect(!usingLocalWifi());
   persistWifiCredentials();
@@ -1335,35 +1436,8 @@ void startServices() {
 #endif
   }
   if (powerSaveResult == ESP_OK) Serial.println("Wi-Fi ready; modem sleep policy enabled for Wi-Fi/BLE coexistence.");
-  stateMutex = xSemaphoreCreateMutex();
-  if (!stateMutex) { Serial.println("Could not allocate state mutex"); while (true) delay(1000); }
-  String saved = prefs.getString("stations", "");
+  const bool validSavedConfig = loadStations();
 #ifdef LH_MATTER_BUILD
-  bool validSavedConfig = !saved.length() && !prefs.isKey("stations");
-#endif
-  if (saved.length()) {
-#ifdef LH_MATTER_BUILD
-    DynamicJsonDocument doc(kStationJsonCapacity);
-#else
-    DynamicJsonDocument doc(16384);
-#endif
-    std::unique_ptr<StationConfig[]> restored(new StationConfig[kStations]);
-    std::string error;
-    if (!deserializeJson(doc, saved)) {
-      const bool legacy = doc.is<JsonArray>();
-      uint32_t counter = legacy ? 6 : doc["next_id"].as<uint32_t>();
-      if (parseStationList(legacy ? doc.as<JsonVariantConst>() : doc["stations"].as<JsonVariantConst>(),
-                           restored.get(), nullptr, counter, true, legacy, error)) {
-        for (unsigned i = 0; i < kStations; ++i) configs[i] = restored[i];
-        nextHueId = counter;
-#ifdef LH_MATTER_BUILD
-        validSavedConfig = true;
-#endif
-      } else Serial.println("Saved station configuration is invalid; please assign the stations again.");
-    }
-  }
-#ifdef LH_MATTER_BUILD
-  saved = String(); // Free the boot configuration text before reserving resources.
   struct Services {
     bool validConfig, coexReady;
     bool reserveWorker() {
@@ -1444,7 +1518,9 @@ void setup() {
   if (!lh_rs_init_diagnostics()) Serial.println("RS_DIAGNOSTICS_INIT_FAILED");
 #endif
   pinMode(LH_BOOT_PIN, INPUT_PULLUP);
+#ifndef LH_RS_MATTER_BUILD
   delay(500);
+#endif
   prefs.begin("lhbridge", false);
 #ifdef LH_RS_MATTER_BUILD
   roomName=prefs.getString("room_name","");
@@ -1459,6 +1535,10 @@ void setup() {
     }
     applyButtonPins();
   }
+#endif
+#ifdef LH_RS_MATTER_BUILD
+  if (prefs.getBool("remote_mode", false)) runRemoteMode();
+  delay(500);
 #endif
   WiFi.setSleep(WIFI_PS_MIN_MODEM);
   WiFi.persistent(true);
