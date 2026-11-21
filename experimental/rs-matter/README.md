@@ -1,3 +1,11 @@
+# Lighthouse Bridge — rs-matter 0.1.23
+
+The default setup Wi-Fi is `Lighthouse-Bridge-Setup-XXXXXX` and the
+default local address is `http://lighthouse-bridge-xxxxxx.local/`.
+Existing custom names take precedence. Enable debug with three quick
+clicks on the footer's version button, then choose **Device information**
+on a station card. The bridge reads the Bluetooth metadata on demand.
+
 # Lighthouse Bridge — rs-matter 0.1.22
 
 Identify uses the dedicated V2 LED command and may wake a sleeping base

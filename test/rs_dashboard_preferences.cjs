@@ -9,15 +9,15 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
  try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   let signedIn=false,installed=false,invalid=true,rootReads=0,reconnects=0,uploads=0,mutations=[];
-  let servedVersion='0.1.22-rs-matter';
+  let servedVersion='0.1.23-rs-matter';
   const stations=['on','unknown','sleep','standby'].map((observed,i)=>({id:i+1,name:'Station '+(i+1),mac:'02:00:00:00:00:0'+(i+1),configured:true,
    observed,observed_raw:[11,-1,0,2][i],reachable:i!==1,observed_ms:89000,command_status:'none',requested:null,pending:false,busy:false}));
-  const status={version:'0.1.22-rs-matter',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
-   ip:'192.0.2.1',hostname:'synthetic',uptime_ms:90000,stations,discovered:[]};
-  const account={password_required:false,api_key:'1234567890abcdef12345678',hostname:'synthetic',alexa_protocol:'matter',matter_ready:true};
+  const status={version:'0.1.23-rs-matter',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
+   ip:'192.0.2.1',hostname:'lighthouse-bridge-a1b2c3',uptime_ms:90000,stations,discovered:[]};
+  const account={setup_ssid:'Lighthouse-Bridge-Setup-A1B2C3',password_required:false,api_key:'1234567890abcdef12345678',hostname:'lighthouse-bridge-a1b2c3',alexa_protocol:'matter',matter_ready:true};
   await page.route('http://bridge.test/**',async route=>{
    const r=route.request(),uri=new URL(r.url()).pathname;
-   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.22-rs-matter',servedVersion)});}
+   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.23-rs-matter',servedVersion)});}
    if(r.method()==='POST')mutations.push(uri);
    if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});
     if(uri==='/api/login'){signedIn=true;return route.fulfill({json:{password_required:false}});}
@@ -33,6 +33,13 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
    if(uri==='/api/status')return route.fulfill({json:status});
    if(uri==='/api/refresh')return route.fulfill({status:202,json:{accepted:true}});
    if(uri==='/api/matter')return route.fulfill({json:{ready:true,paired:true,bridge_name:'Lighthouse-Bridge',commissioning_open:false,pairing_code:null}});
+   if(uri==='/api/station-info'){
+    if(r.method()==='POST'){
+     assert.deepEqual(r.postDataJSON(),{id:3,mac:stations[2].mac});
+     return route.fulfill({status:202,json:{job:7}});
+    }
+    return route.fulfill({json:{job:7,pending:false,info:{type:'Lighthouse V2',name:'LHB-12345678',firmware:'R: 1.2.3\nM: 4.5.6\nB: 7.8.9',channel:1,manufacturer:'Example <b>Vendor</b>',model:112233,serial:445566}}});
+   }
    if(uri==='/api/ota/prepare')return route.fulfill({status:202,json:{token:'synthetic-token',ready:true,max_bytes:0x1e0000}});
    if(uri==='/api/ota/cancel')return route.fulfill({json:{cancelled:true}});
    if(uri==='/api/ota'&&r.method()==='POST'){
@@ -73,6 +80,26 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
   await page.waitForFunction(()=>document.getElementById('state-3').dataset.state==='unknown');
   assert.equal(await page.locator('#state-3').getAttribute('data-state'),'unknown','unreachable cached SLEEP must use Unknown gray');
   stations[2].reachable=true;stations[2].pending=false;stations[2].requested=null;await page.evaluate(()=>refresh());
+  await page.locator('#network-settings summary').click();
+  assert.equal(await page.locator('#setup-ssid').textContent(),account.setup_ssid);
+  assert.equal(await page.locator('#device-name').inputValue(),account.hostname);
+  await page.locator('#network-settings summary').click();
+  assert.equal(await page.locator('#station-info-3').isVisible(),false);
+  await page.locator('#version-toggle').click({clickCount:3});
+  await page.locator('#station-info-3').click();
+  const info=page.locator('#station-info-data');
+  await page.waitForFunction(()=>document.getElementById('station-info-data').textContent.includes('LHB-12345678'));
+  for(const value of ['Lighthouse V2','Firmware-Version: R: 1.2.3\nM: 4.5.6\nB: 7.8.9','Kanal: 1','Example <b>Vendor</b>','Modellnummer: 112233','Seriennummer: 445566','Hardware-Revision: Nicht verfügbar']){
+   assert.ok((await info.textContent()).includes(value),value);
+  }
+  assert.equal(await info.locator('b').count(),0);
+  const bounds=await page.locator('#station-info-dialog').boundingBox();
+  assert.ok(bounds.x>=0&&bounds.x+bounds.width<=320);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>!document.getElementById('station-info-dialog').open&&document.getElementById('station-info-data').textContent==='');
+  await page.locator('#version-toggle').click({clickCount:3});
+  assert.equal(await page.locator('#station-info-3').isVisible(),false);
+  assert.equal(mutations.filter(p=>p==='/api/station-info').length,1);
   await page.locator('#matter-settings summary').click();
   await page.waitForFunction(()=>document.getElementById('matter-name').textContent==='Lighthouse-Bridge');
   assert.equal(await page.locator('#matter-name').textContent(),'Lighthouse-Bridge');

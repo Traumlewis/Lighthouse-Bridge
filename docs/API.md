@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.22-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.23-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -15,6 +15,20 @@ the [rs-matter guide](../experimental/rs-matter/README.md).
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
 by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
+
+## rs-matter 0.1.23 network names and station information
+
+With no valid custom name the setup SSID is `Lighthouse-Bridge-Setup-XXXXXX`
+and the network hostname is `lighthouse-bridge-xxxxxx`.
+
+Personal-session `POST /api/station-info` with the saved station `id` and
+`mac` returns 202 with a numeric `job`. Poll personal-session
+`GET /api/station-info` for the same `job` and `pending: false`. The
+successful `info` object contains `type` and any available attributes:
+`name`, `firmware`, `channel`, `manufacturer`, `model`, `serial` and
+`hardware`. Unavailable fields are omitted. The transient read job shares
+the same BLE queue with Identify and uses the existing Origin and JSON
+checks. API-key and bootstrap sessions cannot access these routes.
 
 ## rs-matter 0.1.20 Identify and Remote Mode
 

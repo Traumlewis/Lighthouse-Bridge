@@ -3,6 +3,14 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Bridge network names and station diagnostics — 0.1.23-rs-matter
+
+- Default setup Wi-Fi is `Lighthouse-Bridge-Setup-XXXXXX` and the default
+  hostname is `lighthouse-bridge-xxxxxx`.
+- Read V2 device information on demand from a station's debug card, including
+  its Bluetooth name, firmware revisions, channel, manufacturer, model,
+  serial number and hardware revision when available.
+
 ## Identify on sleeping stations — 0.1.22-rs-matter
 
 - Restore the 0.1.20 Identify behavior at the owner's request. The dedicated

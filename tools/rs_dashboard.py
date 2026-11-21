@@ -20,7 +20,9 @@ def preferences_dashboard(html):
 #stations .slot{display:block;margin-top:12px}#stations .address{margin-top:4px;overflow-wrap:anywhere}
 #stations .status{height:auto;min-height:0;margin:12px 0;scrollbar-gutter:auto}#stations .debug .status{height:6em;min-height:6em;overflow:auto;scrollbar-gutter:stable}
 #stations .actions{margin-top:18px}.account-toggle{display:flex;align-items:center;gap:10px;margin:16px 0}.account-toggle input{width:auto;margin:0}
-#username-form{max-width:460px}#username-form button{margin-top:12px}.discovered-choice{margin-top:10px}
+#station-info-dialog{width:min(34rem,calc(100% - 2rem));max-height:85vh;box-sizing:border-box;overflow:auto;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:18px}
+#station-info-dialog::backdrop{background:#0009}#station-info-data{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+#stations .info-action{display:block;margin-top:8px}#username-form{max-width:460px}#username-form button{margin-top:12px}.discovered-choice{margin-top:10px}
 </style>''')
     change('id="refresh"', 'id="refresh" hidden')
     change('function renderDebugMode(){', "function renderDebugMode(){$('refresh').hidden=!debugEnabled;")
@@ -54,6 +56,8 @@ def preferences_dashboard(html):
         chooseDiscovered='Gefundenes Gerät auswählen …',discoveredLabel='Gefundene Bluetooth-Geräte',
         loginHelp='Erste Anmeldung: API-Schlüssel aus USB verwenden, dann ein eigenes Passwort wählen. Später mit dem eigenen Passwort und, falls aktiviert, Benutzernamen anmelden.',
         LOGIN_FAILED='Anmeldung fehlgeschlagen. Prüfe Passwort und gegebenenfalls Benutzername. Bei der Ersteinrichtung gilt der API-Schlüssel.')
+    translations['en'].update(stationInfo='Device information', stationInfoRead='Reading Bluetooth device information…', STATION_INFO_FAILED='Device information could not be read.', infoType='Device type', infoName='Bluetooth name', infoFirmware='Firmware version', infoChannel='Channel', infoManufacturer='Manufacturer name', infoModel='Model number', infoSerial='Serial number', infoHardware='Hardware revision', infoMissing='Unavailable', infoClose='Close')
+    translations['de'].update(stationInfo='Geräteinformationen', stationInfoRead='Bluetooth-Geräteinformationen werden gelesen …', STATION_INFO_FAILED='Die Geräteinformationen konnten nicht gelesen werden.', infoType='Gerätetyp', infoName='Bluetooth-Name', infoFirmware='Firmware-Version', infoChannel='Kanal', infoManufacturer='Hersteller', infoModel='Modellnummer', infoSerial='Seriennummer', infoHardware='Hardware-Revision', infoMissing='Nicht verfügbar', infoClose='Schließen')
     for language,values in translations.items():
         if language=='en':
             for k,v in values.items(): values[k]=v.replace('Basis station','Base station').replace('basis station','base station')
@@ -66,6 +70,14 @@ def preferences_dashboard(html):
  const actions=element('div','actions');for(const[state,key]of[['on','turnOn'],['sleep','sleep']]){const button=trans(element('button',state==='on'?'primary':''),key);button.id=state+'-'+id;button.disabled=true;button.addEventListener('click',()=>power(id,state==='on'?'on':'off'));actions.append(button);}card.append(actions);$('stations').append(card);
 }
 '''+html[end:]
+    change(" const actions=element('div','actions');for(const[state,key]", """ const details=card.querySelector('.status');
+ const statusText=element('span');statusText.id='status-text-'+id;
+ const info=trans(element('button','info-action'),'stationInfo');info.type='button';info.id='station-info-'+id;info.hidden=true;
+ info.addEventListener('click',()=>openStationInfo(id));details.append(statusText,info);
+ const actions=element('div','actions');for(const[state,key]""")
+    change("$('status-'+s.id).textContent=value;", """$('status-text-'+s.id).textContent=value;
+ $('station-info-'+s.id).hidden=!debugEnabled||!s.configured;
+ $('station-info-'+s.id).disabled=!bleAvailable||Boolean(data.maintenance)||otaBusy||configSaving||statusNeedsReload;""")
     change("$('status-'+s.id).hidden=false;", "$('status-'+s.id).hidden=!debugEnabled&&!value;")
     change("$('name-'+s.id).textContent=s.name;", "$('card-'+s.id).classList.toggle('debug',debugEnabled);$('station-id-'+s.id).textContent=t('stationId')+' '+s.id;$('station-id-'+s.id).hidden=$('mac-'+s.id).hidden=!debugEnabled;trans($('sleep-'+s.id),s.off_state==='standby'?'standby':'sleep');$('name-'+s.id).textContent=s.name;")
     change("d.alexa_compat=$('edit-alexa-'+d.key).checked;", "d.alexa_compat=$('edit-alexa-'+d.key).checked;d.off_state=$('edit-off-'+d.key).value;")
@@ -89,6 +101,42 @@ $('rotate-key').addEventListener('click',async()=>{if(!confirm(t('keyConfirm')))
 $('logout').addEventListener('click' ''')
     # The optional account name is cleared with other private page state.
     change("account=null;current=null;", "account=null;current=null;$('web-username').value='';$('username-enabled').checked=false;renderUsernameSetting();")
+    change('</main><script>', '</main><dialog id="station-info-dialog" aria-labelledby="station-info-heading"><h2 id="station-info-heading" data-t="stationInfo"></h2><pre id="station-info-data" aria-live="polite"></pre><form method="dialog"><button data-t="infoClose"></button></form></dialog><script>')
+    change('function renderDebugMode(){', """let stationInfoEpoch=0,stationInfoView=null;
+function renderStationInfo(){
+ if(!stationInfoView)return;
+ const {info,error}=stationInfoView;
+ const fields=[['type','infoType'],['name','infoName'],['firmware','infoFirmware'],['channel','infoChannel'],['manufacturer','infoManufacturer'],['model','infoModel'],['serial','infoSerial'],['hardware','infoHardware']];
+ $('station-info-data').textContent=info?fields.map(([key,label])=>t(label)+': '+(info[key]??t('infoMissing'))).join('\\n'):t(error||'stationInfoRead');
+}
+function closeStationInfo(){
+ stationInfoEpoch++;
+ stationInfoView=null;
+ $('station-info-data').textContent='';
+ if($('station-info-dialog').open)$('station-info-dialog').close();
+}
+$('station-info-dialog').addEventListener('close',()=>{if(!$('station-info-dialog').open)closeStationInfo();});
+async function openStationInfo(id){
+ const saved=current?.stations.find(s=>s.id===id&&s.configured);
+ if(!debugEnabled||!loggedIn||!saved||otaBusy||networkChanging)return;
+ const epoch=++stationInfoEpoch;
+ const active=()=>epoch===stationInfoEpoch&&$('station-info-dialog').open&&current?.stations.some(s=>s.id===id&&s.mac===saved.mac);
+ stationInfoView={};renderStationInfo();$('station-info-dialog').showModal();
+ try{
+  const {job}=await api('/api/station-info',{id,mac:saved.mac});
+  for(let attempt=0;attempt<60&&active();attempt++){
+   await new Promise(resolve=>setTimeout(resolve,500));
+   if(!active())return;
+   const result=await api('/api/station-info');
+   if(!active())return;
+   if(result.job!==job)break;
+   if(result.pending)continue;
+   stationInfoView={info:result.info,error:result.error||(!result.info?'STATION_INFO_FAILED':null)};renderStationInfo();return;
+  }
+  if(active())throw new Error();
+ }catch(e){if(active()){stationInfoView={error:e.code||'STATION_INFO_FAILED'};renderStationInfo();}}
+}
+function renderDebugMode(){if(!debugEnabled)closeStationInfo();else renderStationInfo();""")
     from rs_local_dashboard import local_dashboard
     from rs_buttons_dashboard import buttons_dashboard
     from rs_owner_dashboard import owner_dashboard

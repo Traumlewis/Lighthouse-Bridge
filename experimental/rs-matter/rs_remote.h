@@ -134,44 +134,50 @@ void configureRemoteRoutes() {
     restartAt = millis();
   });
 
-  server.on("/api/identify", HTTP_POST, [] {
-    if (!authenticated(true) || !sameOriginJson()) return;
-    StaticJsonDocument<192> doc;
-    if (!readBody(doc)) return;
-    if (doc.size() != 2 || !doc["id"].is<unsigned>() || !doc["mac"].is<const char*>() ||
-        doc["mac"].as<JsonString>().size() != 17) {
-      fail(400, "STATION_INVALID"); return;
-    }
-    const auto id = doc["id"].as<unsigned>();
-    const char* mac = doc["mac"];
-    {
-      Lock lock;
-      if (!bleWorkerAvailable.load() || occupied(false) || blePaused || restartPending || portalRequested) {
-        fail(409, "BLE_BUSY"); return;
+  for (const bool info : {false, true}) {
+    const char* path = info ? "/api/station-info" : "/api/identify";
+    server.on(path, HTTP_POST, [info] {
+      if (!authenticated(true) || !sameOriginJson()) return;
+      StaticJsonDocument<192> doc;
+      if (!readBody(doc)) return;
+      if (doc.size() != 2 || !doc["id"].is<unsigned>() || !doc["mac"].is<const char*>() ||
+          doc["mac"].as<JsonString>().size() != 17) {
+        fail(400, "STATION_INVALID"); return;
       }
-      for (unsigned i = 0; i < kStations; ++i) {
-        if (configs[i].id == id && !strcasecmp(configs[i].mac, mac)) {
-          identifySlot = i;
-          break;
+      const auto id = doc["id"].as<unsigned>();
+      const char* mac = doc["mac"];
+      {
+        Lock lock;
+        if (!bleWorkerAvailable.load() || occupied(false) || blePaused || restartPending || portalRequested) {
+          fail(409, "BLE_BUSY"); return;
         }
+        for (unsigned i = 0; i < kStations; ++i) {
+          if (configs[i].id == id && !strcasecmp(configs[i].mac, mac)) {
+            identifySlot = i;
+            break;
+          }
+        }
+        if (identifySlot < 0) { fail(404, "STATION_INVALID"); return; }
+        if (++identifyJob == 0) ++identifyJob;
+        stationInfoJob = info;
+        identifyResult = nullptr;
       }
-      if (identifySlot < 0) { fail(404, "STATION_INVALID"); return; }
-      if (++identifyJob == 0) ++identifyJob;
-      identifyResult = nullptr;
-    }
-    doc.clear();
-    doc["job"] = identifyJob;
-    sendJson(202, doc);
-  });
-  server.on("/api/identify", HTTP_GET, [] {
-    if (!authenticated(true)) return;
-    StaticJsonDocument<128> doc;
-    {
-      Lock lock;
+      doc.clear();
       doc["job"] = identifyJob;
-      doc["pending"] = identifyResult == nullptr;
-      doc["error"] = identifyResult;
-    }
-    sendJson(200, doc);
-  });
+      sendJson(202, doc);
+    });
+    server.on(path, HTTP_GET, [info] {
+      if (!authenticated(true)) return;
+      StaticJsonDocument<768> doc;
+      {
+        Lock lock;
+        if (stationInfoJob != info) { fail(404, "STATION_INVALID"); return; }
+        doc["job"] = identifyJob;
+        doc["pending"] = identifyResult == nullptr;
+        doc["error"] = identifyResult;
+        if (info && identifyResult && !*identifyResult) writeStationInfo(doc.createNestedObject("info"));
+      }
+      sendJson(200, doc);
+    });
+  }
 }

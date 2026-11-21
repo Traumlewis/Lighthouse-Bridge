@@ -85,6 +85,29 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## rs-matter 0.1.23 network names and station information
+
+- With no valid custom device name, rs-matter uses `Lighthouse-Bridge-Setup-XXXXXX`
+  and `lighthouse-bridge-xxxxxx` using the existing STA-MAC suffix. The actual
+  AP/hostname, USB information and dashboard agree. Valid saved custom names
+  still take precedence. The stable and SDK naming defaults are independent.
+- Debug adds a per-station device information dialog. An explicit click queues
+  a read-only job through the single BLE worker, bound to the saved station ID
+  and MAC. Use the Lighthouse control service to verify V2 and read its channel;
+  use GAP Device Name (matched scan name as fallback) and the Bluetooth Device
+  Information Service for firmware, manufacturer, model, serial and hardware.
+  Parse Valve model/serial values as binary big-endian numbers. Preserve line
+  breaks in the firmware string. Missing attributes display as unavailable.
+  The transient result is private to personal web sessions, excluded from
+  general status, logs and persistence. No startup, background or power write
+  is added. Closing the dialog, disabling debug or logging out clears the UI.
+- All four local rs builds preserve both app slots and pass chip and package
+  verification. App sizes are 1,963,440 classic, 1,964,880 for both C3 profiles
+  and 1,889,536 S3. The targeted desktop/mobile browser regression and 34 asset
+  tests pass.
+- 0.1.23 OTA and BLE metadata from the owner's stations require verification
+  after separate owner approval. Keep both app slots and all settings.
+
 ## rs-matter 0.1.20 remote and identify
 
 - Put Dangerzone immediately after the account settings. In station setup, put

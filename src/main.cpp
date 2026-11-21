@@ -56,6 +56,7 @@ String roomName;
 bool maintenanceWaitIdle=false;
 bool remoteOnly = false;
 int identifySlot = -1;
+bool stationInfoJob = false;
 uint32_t identifyJob = 0;
 const char* identifyResult = nullptr;
 #endif
@@ -386,9 +387,12 @@ void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt,
                   : code == BLE_HS_ETIMEOUT ? " (connection timeout)" : "");
 }
 
+#ifdef LH_RS_MATTER_BUILD
+#include "rs_station_info.h"
+#endif
 bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError
 #ifdef LH_RS_MATTER_BUILD
-                 , bool identify = false
+                 , bool identify = false, bool info = false
 #endif
                  ) {
   waitForBleCleanup();
@@ -410,6 +414,11 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
   } else {
     auto* service = client->getService(kService);
 #ifdef LH_RS_MATTER_BUILD
+    if (info) {
+      ok = readStationInfo(client, service);
+      NimBLEDevice::deleteClient(client);
+      return ok;
+    }
     if (identify) {
       auto* light = service ? service->getCharacteristic("00008421-1212-efde-1523-785feabcd124") : nullptr;
       const uint8_t flash = 1;
@@ -509,7 +518,7 @@ void bleWorker(void*) {
     bool doScan = false;
     bool readOnly = false;
 #ifdef LH_RS_MATTER_BUILD
-    bool identify = false;
+    bool identify = false, info = false;
 #endif
     {
       Lock lock;
@@ -531,6 +540,7 @@ void bleWorker(void*) {
         selected = identifySlot;
         config = configs[selected];
         identify = true;
+        info = stationInfoJob;
       }
 #endif
       if (selected < 0 && scanPending) {
@@ -564,10 +574,18 @@ void bleWorker(void*) {
       int bleError = 0;
 #ifdef LH_RS_MATTER_BUILD
       if (identify) {
-        const bool flashed = accessPower(config, nullptr, observed, error, bleError, true);
+        const bool completed = accessPower(config, nullptr, observed, error, bleError, !info, info);
         waitForBleCleanup();
         Lock lock;
-        identifyResult = flashed ? "" : !strcmp(error, "IDENTIFY_UNSUPPORTED")
+        if (completed && info && !stationInfo.name[0]) {
+          for (unsigned i = 0; i < foundCount; ++i) {
+            if (!strcmp(found[i].mac, config.mac)) {
+              snprintf(stationInfo.name, sizeof stationInfo.name, "%s", found[i].name);
+              break;
+            }
+          }
+        }
+        identifyResult = completed ? "" : info ? "STATION_INFO_FAILED" : !strcmp(error, "IDENTIFY_UNSUPPORTED")
                          ? "IDENTIFY_UNSUPPORTED" : "IDENTIFY_FAILED";
         identifySlot = -1;
       } else
@@ -1605,8 +1623,14 @@ void setup() {
 #else
   String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
 #endif
+#ifdef LH_RS_MATTER_BUILD
+  apName = "Lighthouse-Bridge-Setup-" + suffix;
+  hostname = "lighthouse-bridge-" + suffix;
+#else
   apName = "Lighthouse-Setup-" + suffix;
-  hostname = "lighthouse-" + suffix; hostname.toLowerCase();
+  hostname = "lighthouse-" + suffix;
+#endif
+  hostname.toLowerCase();
   customDeviceName = prefs.getString("dev_name", "");
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";

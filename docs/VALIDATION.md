@@ -1,5 +1,21 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.23: network names and station metadata
+
+Default AP and hostname use the Bridge prefix. Custom device names still
+override both defaults. The private debug dialog reads Lighthouse V2 metadata
+on demand and displays absent fields as unavailable. The metadata source is
+the V2 GATT mapping used by Lighthouse PM and the Bluetooth Device
+Information Service. The owner's firmware, channel and revision fields have
+not yet been checked on the physical station.
+
+Four complete rs builds and 34 Python package checks pass. Apps are
+1,963,440 classic, 1,964,880 both C3 profiles and 1,889,536 S3 bytes in the
+1,966,080-byte slots. The browser regression verifies the default names,
+debug visibility, selected station and one read request, multiline firmware,
+numeric model/serial values, a missing hardware revision, safe text rendering
+and clearing after the dialog closes. The narrow dialog fits 320 px.
+
 ## rs-matter 0.1.22: restored Identify behavior
 
 The owner requests the 0.1.20 Identify behavior. Remove the 0.1.21 steady-ON
