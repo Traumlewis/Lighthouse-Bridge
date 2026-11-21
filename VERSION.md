@@ -9,6 +9,9 @@ For validation evidence and remaining hardware checks, see [the validation repor
   LED command can wake a sleeping station. The bridge sends no separate power
   command.
 
+- Owner-approved OTA is installed on the classic ESP32. All four stations
+  are reachable and Matter remains paired.
+
 ## Identify requires an already running station — 0.1.21-rs-matter
 
 - Prevent Identify from waking sleeping stations. Require a recent successful

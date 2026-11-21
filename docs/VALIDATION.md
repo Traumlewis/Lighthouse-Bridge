@@ -6,8 +6,14 @@ The owner requests the 0.1.20 Identify behavior. Remove the 0.1.21 steady-ON
 guard. The dashboard regression exercises Identify for a saved station
 reporting SLEEP and checks the dedicated Identify request. All four rs
 builds, native core and 34 asset checks pass. The classic app is 1,960,352
-bytes in the 1,966,080-byte slot. Installation and physical behavior for
-0.1.22 are pending.
+bytes in the 1,966,080-byte slot. All 16 browser and USB programs pass.
+
+Owner-approved OTA from 0.1.21 to 0.1.22 succeeded with one upload of the
+locally verified classic ESP32 package from commit 098e0f3. All four stations
+are reachable and Matter is ready and paired. Station assignments and OFF
+choices, network, account, room and GPIO settings were retained. The running
+dashboard serves the restored Identify action. The diagnostic session is
+closed. Physical Identify testing remains pending.
 
 ## rs-matter 0.1.21: Identify while already on
 
