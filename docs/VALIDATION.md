@@ -1,5 +1,14 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.22: restored Identify behavior
+
+The owner requests the 0.1.20 Identify behavior. Remove the 0.1.21 steady-ON
+guard. The dashboard regression exercises Identify for a saved station
+reporting SLEEP and checks the dedicated Identify request. All four rs
+builds, native core and 34 asset checks pass. The classic app is 1,960,352
+bytes in the 1,966,080-byte slot. Installation and physical behavior for
+0.1.22 are pending.
+
 ## rs-matter 0.1.21: Identify while already on
 
 The owner observed that Identify on 0.1.20 could wake a station. The new

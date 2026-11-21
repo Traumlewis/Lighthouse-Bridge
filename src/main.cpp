@@ -45,7 +45,6 @@
 #include "network_mode.h"
 #include "gpio_buttons.h"
 #include "remote_buttons.h"
-#include "identify.h"
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 bool localWifiMode = false, localApReady = false, wifiSetupBoot = false;
@@ -413,13 +412,12 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
 #ifdef LH_RS_MATTER_BUILD
     if (identify) {
       auto* light = service ? service->getCharacteristic("00008421-1212-efde-1523-785feabcd124") : nullptr;
-      auto* power = service ? service->getCharacteristic(kPower) : nullptr;
-      const char* result = identifyWhileOn(power, light);
-      ok = !*result;
-      if (!ok) {
-        strcpy(error, result);
-        bleError = client->getLastError();
-      }
+      const uint8_t flash = 1;
+      if (light && (light->canWrite() || light->canWriteNoResponse())) {
+        ok = light->writeValue(&flash, 1, light->canWrite());
+        if (!ok) strcpy(error, "BLE_WRITE_FAILED");
+      } else strcpy(error, "IDENTIFY_UNSUPPORTED");
+      if (!ok) bleError = client->getLastError();
       NimBLEDevice::deleteClient(client);
       return ok;
     }
@@ -569,10 +567,8 @@ void bleWorker(void*) {
         const bool flashed = accessPower(config, nullptr, observed, error, bleError, true);
         waitForBleCleanup();
         Lock lock;
-        if (flashed) identifyResult = "";
-        else if (!strcmp(error, "IDENTIFY_UNSUPPORTED")) identifyResult = "IDENTIFY_UNSUPPORTED";
-        else if (!strcmp(error, "IDENTIFY_REQUIRES_ON")) identifyResult = "IDENTIFY_REQUIRES_ON";
-        else identifyResult = "IDENTIFY_FAILED";
+        identifyResult = flashed ? "" : !strcmp(error, "IDENTIFY_UNSUPPORTED")
+                         ? "IDENTIFY_UNSUPPORTED" : "IDENTIFY_FAILED";
         identifySlot = -1;
       } else
 #endif

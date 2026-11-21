@@ -3,6 +3,12 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Identify on sleeping stations — 0.1.22-rs-matter
+
+- Restore the 0.1.20 Identify behavior at the owner's request. The dedicated
+  LED command can wake a sleeping station. The bridge sends no separate power
+  command.
+
 ## Identify requires an already running station — 0.1.21-rs-matter
 
 - Prevent Identify from waking sleeping stations. Require a recent successful

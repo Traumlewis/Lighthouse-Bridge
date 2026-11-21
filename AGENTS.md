@@ -91,18 +91,13 @@ status change. Keep current facts, not a conversation log. User instructions win
   Identify directly before Remove. Identify targets a saved station ID and
   matching MAC, checks the V2 GATT Identify characteristic, and writes 0x01 only
   to that characteristic. The authenticated web session queues one job on the
-  sequential BLE worker and reads the job result. The owner observed on 0.1.20
-  that Identify woke sleeping stations even though the firmware wrote only the
-  dedicated Identify characteristic. Starting in 0.1.21, queue only with a fresh
-  successful steady-ON (0x0b) observation. Before the Identify write, read the
-  same station's power characteristic on the current BLE connection and require
-  a successful single-byte 0x0b result. SLEEP, STANDBY, booting, stale, malformed
-  and unknown readings must never trigger the Identify write. Return
-  IDENTIFY_REQUIRES_ON and explain the prerequisite in EN/DE. Identify never
-  writes power, changes configuration or modifies command history. Physical
-  verification of the guard is pending. All four
-  0.1.21 rs builds and the new native and EN/DE browser regression cases pass;
-  classic app size is 1,960,688 bytes in the unchanged 1,966,080-byte slot.
+  sequential BLE worker and reads the job result. The owner accepts that the
+  dedicated Identify command can wake a sleeping station. In 0.1.22 restore
+  the 0.1.20 behavior: do not require a steady-ON measurement and do not send
+  a separate power write. Identify leaves configuration and command history
+  independent. The 0.1.21 steady-ON guard is superseded. All four 0.1.22 rs
+  builds, the native core check, the mocked SLEEP Identify browser case and
+  34 asset checks pass. No 0.1.22 device installation has been authorized.
 - Owner-approved classic OTA from 0.1.20 to 0.1.21 succeeded with one upload
   of the locally checked build from commit 302614b. All four stations became
   reachable and Matter is ready/paired. The station assignments/OFF choices,

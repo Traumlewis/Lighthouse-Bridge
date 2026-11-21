@@ -151,9 +151,6 @@ void configureRemoteRoutes() {
       }
       for (unsigned i = 0; i < kStations; ++i) {
         if (configs[i].id == id && !strcasecmp(configs[i].mac, mac)) {
-          if (!canQueueIdentify(states[i], millis())) {
-            fail(409, "IDENTIFY_REQUIRES_ON"); return;
-          }
           identifySlot = i;
           break;
         }
