@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19 and 0.1.20 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20 and 0.1.21 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -100,9 +100,15 @@ status change. Keep current facts, not a conversation log. User instructions win
   and unknown readings must never trigger the Identify write. Return
   IDENTIFY_REQUIRES_ON and explain the prerequisite in EN/DE. Identify never
   writes power, changes configuration or modifies command history. Physical
-  verification of the guard and installation of 0.1.21 are pending. All four
+  verification of the guard is pending. All four
   0.1.21 rs builds and the new native and EN/DE browser regression cases pass;
   classic app size is 1,960,688 bytes in the unchanged 1,966,080-byte slot.
+- Owner-approved classic OTA from 0.1.20 to 0.1.21 succeeded with one upload
+  of the locally checked build from commit 302614b. All four stations became
+  reachable and Matter is ready/paired. The station assignments/OFF choices,
+  credentials, network mode, room and GPIO settings are preserved. HTTP delivers
+  the updated Identify dashboard. The diagnostic session is closed. The OTA
+  approval does not cover a physical Identify test or further device changes.
 - Remote Mode is explicitly activated in GPIO settings. Require saved distinct
   wake-capable pins and one All on / one All off binding plus a station. Use
   active-low contacts to GND. Keep the saved home/local network mode under
@@ -1259,7 +1265,7 @@ Never copy the credential-bearing raw log into the repository.
   A request guard confirms no commissioning/power/config/firmware mutation during
   the browser check. Active-code renewal behavior is software-tested, not retested
   on hardware because no new pairing window was authorized. Sessions are closed.
-- The owner replaced the Tasmota experiment with rs-matter; **0.1.20-rs-matter**
+- The owner replaced the Tasmota experiment with rs-matter; **0.1.21-rs-matter**
   is installed on the owner's board. Public releases use the existing checked
   main-branch workflow. Tasmota's source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable

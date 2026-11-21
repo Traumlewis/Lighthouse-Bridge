@@ -11,7 +11,15 @@ steady-ON data. The fake receives one LED write for confirmed steady ON and
 zero power writes across the whole test. The targeted EN/DE browser test
 covers refusal and a successful Identify job. All four rs builds and 34
 Python asset checks pass. The classic app is 1,960,688 bytes in the
-1,966,080-byte slot. The device retest is pending.
+1,966,080-byte slot. All 16 browser and USB programs pass.
+
+Owner-approved OTA from 0.1.20 to 0.1.21 succeeded with one upload of the
+locally verified classic ESP32 package from commit 302614b. The device
+reports Wi-Fi connected, Matter ready and paired, a usable BLE worker and
+all four stations reachable. Station assignments and OFF settings, account,
+room, network and GPIO settings were retained. The running device serves
+the updated Identify message and the diagnostic session is closed. The
+physical Identify behavior on a sleeping station remains pending.
 
 ## rs-matter 0.1.20: V2 Identify and Remote Mode
 
@@ -32,7 +40,7 @@ rs builds, Pages packaging and 34 Python checks pass. Local app sizes are
 1,960,352 bytes for classic, 1,961,504 for both C3 profiles, and 1,886,656
 for S3. The slot remains 1,966,080 bytes.
 
-Owner-approved OTA to 0.1.20 succeeded with a single upload of the locally
+The earlier owner-approved OTA to 0.1.20 succeeded with a single upload of the locally
 verified classic ESP32 package (1,960,352 app bytes, source commit 3d273da).
 The device returned to home Wi-Fi with Matter ready/paired and BLE ready.
 Two stations had readings at the initial check and all four were reachable

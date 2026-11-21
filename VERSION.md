@@ -8,6 +8,8 @@ For validation evidence and remaining hardware checks, see [the validation repor
 - Prevent Identify from waking sleeping stations. Require a recent successful
   steady-ON measurement before queuing, and confirm steady ON over Bluetooth
   immediately before sending the LED command.
+- Owner-approved classic OTA is installed. All four stations are reachable
+  and Matter remains paired. Physical Identify verification is pending.
 
 ## Identify and Remote Mode — 0.1.20-rs-matter
 
