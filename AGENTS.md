@@ -91,8 +91,18 @@ status change. Keep current facts, not a conversation log. User instructions win
   Identify directly before Remove. Identify targets a saved station ID and
   matching MAC, checks the V2 GATT Identify characteristic, and writes 0x01 only
   to that characteristic. The authenticated web session queues one job on the
-  sequential BLE worker and reads that job's success or error. Power state,
-  command history and configuration are independent of Identify.
+  sequential BLE worker and reads the job result. The owner observed on 0.1.20
+  that Identify woke sleeping stations even though the firmware wrote only the
+  dedicated Identify characteristic. Starting in 0.1.21, queue only with a fresh
+  successful steady-ON (0x0b) observation. Before the Identify write, read the
+  same station's power characteristic on the current BLE connection and require
+  a successful single-byte 0x0b result. SLEEP, STANDBY, booting, stale, malformed
+  and unknown readings must never trigger the Identify write. Return
+  IDENTIFY_REQUIRES_ON and explain the prerequisite in EN/DE. Identify never
+  writes power, changes configuration or modifies command history. Physical
+  verification of the guard and installation of 0.1.21 are pending. All four
+  0.1.21 rs builds and the new native and EN/DE browser regression cases pass;
+  classic app size is 1,960,688 bytes in the unchanged 1,966,080-byte slot.
 - Remote Mode is explicitly activated in GPIO settings. Require saved distinct
   wake-capable pins and one All on / one All off binding plus a station. Use
   active-low contacts to GND. Keep the saved home/local network mode under

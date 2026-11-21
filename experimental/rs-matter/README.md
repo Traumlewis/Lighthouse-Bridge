@@ -1,3 +1,9 @@
+# Lighthouse Bridge — rs-matter 0.1.21
+
+Identify is available once a station is fully on and its state has been read.
+The bridge verifies the current power state before sending the LED command.
+Sleeping stations and stations with an unverifiable state get no Identify write.
+
 # Lighthouse Bridge — rs-matter 0.1.20
 
 Identify is next to Remove in each saved station's configuration. It flashes

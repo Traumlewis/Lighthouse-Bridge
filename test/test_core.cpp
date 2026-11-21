@@ -1,8 +1,56 @@
+#include "identify.h"
+#include <vector>
 #include "bridge_core.h"
 #include <cassert>
 #include <iostream>
 
+struct IdentifyCharacteristic {
+  std::vector<uint8_t> bytes;
+  bool readOk = true;
+  unsigned writes = 0;
+  bool canRead() const { return true; }
+  bool canWrite() const { return true; }
+  bool canWriteNoResponse() const { return false; }
+  std::vector<uint8_t> readValue(std::time_t* completed) const {
+    if (readOk) *completed = 0;
+    return bytes;
+  }
+  bool writeValue(const uint8_t* value, size_t length, bool withResponse) {
+    assert(length == 1 && *value == 1 && withResponse);
+    ++writes;
+    return true;
+  }
+};
+
+void testIdentifyRequiresOn() {
+  bridge::StationState cached;
+  cached.reachable = true;
+  cached.observedMs = 100;
+  cached.observed = 11;
+  assert(bridge::canQueueIdentify(cached, 110));
+  assert(!bridge::canQueueIdentify(cached, 60100));
+  cached.readFailures = 1;
+  assert(!bridge::canQueueIdentify(cached, 110));
+  cached.readFailures = 0;
+  cached.observed = 0;
+  assert(!bridge::canQueueIdentify(cached, 110));
+
+  IdentifyCharacteristic power, light;
+  for (auto unreadable : std::vector<std::vector<uint8_t>>{{}, {0}, {2}, {1}, {8}, {9}, {255}, {11, 0}}) {
+    power.bytes = unreadable;
+    assert(!std::strcmp(bridge::identifyWhileOn(&power, &light), "IDENTIFY_REQUIRES_ON"));
+  }
+  power.bytes = {11};
+  power.readOk = false;
+  assert(!std::strcmp(bridge::identifyWhileOn(&power, &light), "IDENTIFY_REQUIRES_ON"));
+  assert(light.writes == 0 && power.writes == 0);
+  power.readOk = true;
+  assert(!*bridge::identifyWhileOn(&power, &light));
+  assert(light.writes == 1 && power.writes == 0);
+}
+
 int main() {
+  testIdentifyRequiresOn();
   using namespace bridge;
   assert(!matchesTarget(Target::Sleep, 2)); // STANDBY never confirms SLEEP.
   assert(!matchesTarget(Target::On, 1)); // Starting never confirms steady ON.

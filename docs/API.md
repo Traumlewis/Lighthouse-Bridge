@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.20-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.21-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -22,7 +22,12 @@ Personal-session `POST /api/identify` accepts a saved station `id` and matching
 `mac` and returns HTTP 202 with a numeric `job`. Poll the personal-session
 `GET /api/identify` and check for that `job`, `pending: false`, and an empty
 `error` on success. V2 devices without the Identify characteristic return
-`IDENTIFY_UNSUPPORTED` as the job result. No power or channel writes occur.
+`IDENTIFY_UNSUPPORTED` as the job result. No power or channel writes occur. Starting with
+0.1.21, a fresh
+successful steady-ON measurement is required to queue the job. The worker
+confirms steady ON over BLE just before sending Identify. The route or job
+returns `IDENTIFY_REQUIRES_ON` when it cannot verify that the station is
+fully on. This avoids sending Identify while a station is asleep or in standby.
 
 `GET /api/buttons` also includes `wake_pins`. Personal-session
 `POST /api/remote` with `{"confirm":true}` starts the BLE-only sleep mode,

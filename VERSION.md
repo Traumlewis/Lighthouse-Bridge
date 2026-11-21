@@ -3,6 +3,12 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Identify requires an already running station — 0.1.21-rs-matter
+
+- Prevent Identify from waking sleeping stations. Require a recent successful
+  steady-ON measurement before queuing, and confirm steady ON over Bluetooth
+  immediately before sending the LED command.
+
 ## Identify and Remote Mode — 0.1.20-rs-matter
 
 - Move Dangerzone below the account section. Identify a saved Lighthouse V2

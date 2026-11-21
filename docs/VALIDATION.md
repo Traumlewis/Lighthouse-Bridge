@@ -1,5 +1,18 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.21: Identify while already on
+
+The owner observed that Identify on 0.1.20 could wake a station. The new
+guard checks a recent successful steady-ON observation before queuing and
+reads the power characteristic immediately before writing Identify.
+Native regression coverage checks stale or failed observations, SLEEP,
+STANDBY, starting values, malformed data and a failed read with partial
+steady-ON data. The fake receives one LED write for confirmed steady ON and
+zero power writes across the whole test. The targeted EN/DE browser test
+covers refusal and a successful Identify job. All four rs builds and 34
+Python asset checks pass. The classic app is 1,960,688 bytes in the
+1,966,080-byte slot. The device retest is pending.
+
 ## rs-matter 0.1.20: V2 Identify and Remote Mode
 
 Simulated EN/DE browser coverage at 1280/390/320 checks Dangerzone placement
