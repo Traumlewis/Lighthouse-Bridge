@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21 and 0.1.22 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22 and 0.1.23 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -105,8 +105,21 @@ status change. Keep current facts, not a conversation log. User instructions win
   verification. App sizes are 1,963,440 classic, 1,964,880 for both C3 profiles
   and 1,889,536 S3. The targeted desktop/mobile browser regression and 34 asset
   tests pass.
-- 0.1.23 OTA and BLE metadata from the owner's stations require verification
-  after separate owner approval. Keep both app slots and all settings.
+- Owner-approved classic OTA from 0.1.22 to 0.1.23 succeeded with one upload
+  of the locally verified 1,963,440-byte app from commit 5370cf1. The new default
+  hostname and setup SSID were verified through the private account API. Home
+  Wi-Fi, credentials, Matter pairing, room, all assignments/OFF choices and GPIO
+  settings were retained. All four stations are reachable.
+- Read-only metadata jobs succeeded on all four physical stations. Station 2
+  needed a later retry. All four results contained V2 type, Bluetooth name,
+  R/M/B firmware, channel, manufacturer, numeric model and hardware revision.
+  Serial numbers were absent from all four results; the raw characteristic and
+  reason are unverified. No power or configuration writes were performed during
+  these checks. Both diagnostic sessions were closed.
+- GitHub Actions run 44921519226 published 0.1.23. All four live manifests,
+  chip/offset checks, exact partitions, image SHA256 and OTA payloads passed.
+  Public app bytes: 1,963,216 classic, 1,964,640 both C3 and 1,889,312 S3.
+  Ask again before further device changes.
 
 ## rs-matter 0.1.20 remote and identify
 
@@ -1288,7 +1301,7 @@ Never copy the credential-bearing raw log into the repository.
   A request guard confirms no commissioning/power/config/firmware mutation during
   the browser check. Active-code renewal behavior is software-tested, not retested
   on hardware because no new pairing window was authorized. Sessions are closed.
-- The owner replaced the Tasmota experiment with rs-matter; **0.1.22-rs-matter**
+- The owner replaced the Tasmota experiment with rs-matter; **0.1.23-rs-matter**
   is installed on the owner's board. Public releases use the existing checked
   main-branch workflow. Tasmota's source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable

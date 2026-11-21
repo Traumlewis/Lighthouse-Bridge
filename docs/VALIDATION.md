@@ -6,8 +6,7 @@ Default AP and hostname use the Bridge prefix. Custom device names still
 override both defaults. The private debug dialog reads Lighthouse V2 metadata
 on demand and displays absent fields as unavailable. The metadata source is
 the V2 GATT mapping used by Lighthouse PM and the Bluetooth Device
-Information Service. The owner's firmware, channel and revision fields have
-not yet been checked on the physical station.
+Information Service.
 
 Four complete rs builds and 34 Python package checks pass. Apps are
 1,963,440 classic, 1,964,880 both C3 profiles and 1,889,536 S3 bytes in the
@@ -15,6 +14,26 @@ Four complete rs builds and 34 Python package checks pass. Apps are
 debug visibility, selected station and one read request, multiline firmware,
 numeric model/serial values, a missing hardware revision, safe text rendering
 and clearing after the dialog closes. The narrow dialog fits 320 px.
+
+Owner-approved OTA from 0.1.22 succeeded with a single upload of the local
+classic package from commit 5370cf1. The device serves 0.1.23, the updated
+dashboard and the new default names through the account API. All four
+stations report reachable. Matter is ready and remains paired. Saved
+assignments and OFF choices, account credentials, network mode, room and
+GPIO bindings were retained.
+
+Read-only diagnostic jobs returned V2 type, Bluetooth name, firmware
+blocks R/M/B, channel, manufacturer, numeric model and hardware revision
+for all four physical stations. Station 2 responded on a later retry.
+No job returned a serial number. The missing field does not establish
+whether the raw characteristic is absent, unreadable or in an unhandled
+format. Diagnostic sessions were closed. No station power or settings
+writes were performed during metadata validation.
+
+GitHub Actions run 44921519226 completed successfully. All four public
+manifests and image SHA256s, chip/offset checks, exact partitions and OTA
+payload equivalence were verified. Public app sizes are 1,963,216 classic,
+1,964,640 both C3 and 1,889,312 S3 bytes.
 
 ## rs-matter 0.1.22: restored Identify behavior
 

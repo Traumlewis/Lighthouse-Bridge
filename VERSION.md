@@ -11,6 +11,9 @@ For validation evidence and remaining hardware checks, see [the validation repor
   its Bluetooth name, firmware revisions, channel, manufacturer, model,
   serial number and hardware revision when available.
 
+- Owner-approved classic OTA was verified. Read-only metadata jobs succeeded
+  for all four stations. Serial numbers were unavailable in these results.
+
 ## Identify on sleeping stations — 0.1.22-rs-matter
 
 - Restore the 0.1.20 Identify behavior at the owner's request. The dedicated
