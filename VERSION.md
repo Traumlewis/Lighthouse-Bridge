@@ -7,6 +7,8 @@ For validation evidence and remaining hardware checks, see [the validation repor
 
 - Show the current setup Wi-Fi name and API key in Wi-Fi & local API.
   Dangerzone shows the future password when preparing a factory reset.
+- Owner-approved classic OTA was verified. All four stations are reachable
+  and Matter remains paired.
 
 ## Reset password preview and smart home — 0.1.24-rs-matter
 

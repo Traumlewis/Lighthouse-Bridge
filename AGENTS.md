@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22, 0.1.23 and 0.1.24 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22, 0.1.23, 0.1.24 and 0.1.25 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -90,7 +90,12 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Since 0.1.25 the current setup Wi-Fi name and API key appear in WLAN/local
   API only. Dangerzone retains the restart and reset controls and the future
   credential preview. All four 0.1.25 rs builds, 34 asset checks and the
-  targeted EN/DE browser checks pass. A new device update requires approval.
+  full browser and USB suite pass. Owner-approved classic OTA from 0.1.24
+  to 0.1.25 succeeded on retry after the initial upload connection failed.
+  The live dashboard serves the revised Dangerzone. All four stations are
+  reachable and retain their assignments and OFF choices. Wi-Fi, account,
+  room, GPIO settings and Matter pairing are retained. The diagnostic
+  session was closed. A new device update requires approval.
 - Open the reset preview only from an explicit Dangerzone action. A personal
   password session and the existing Origin/JSON gate must protect both preview
   and confirmation. Generate a 24-digit hex key in RAM, valid for five minutes

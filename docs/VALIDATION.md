@@ -7,7 +7,13 @@ current setup SSID and API key. The account-protected Wi-Fi & local API
 section still shows both and copies the current key. Factory-reset preview
 and copying the future password remain covered. All four rs builds and 34
 asset checks pass. Classic firmware is 1,963,872 bytes in the 1,966,080-byte
-slot. Device installation and verification are pending.
+slot. All 16 browser and USB programs pass. Owner-approved classic OTA from
+0.1.24 to 0.1.25 succeeded on retry after the first upload connection failed
+and the device was verified to still run 0.1.24. The live dashboard omits the
+duplicate credentials and retains the network credentials and reset preview
+controls. Home Wi-Fi, Matter pairing, account, room, GPIO bindings and all
+four station assignments and OFF choices were retained. All four are
+reachable. The diagnostic session was closed. A physical reset was not tested.
 
 ## rs-matter 0.1.24: reset preview and Matter platforms
 
