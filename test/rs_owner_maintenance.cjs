@@ -5,7 +5,7 @@ const html=zlib.gunzipSync(Buffer.from(source.split('{')[1].split('}')[0].split(
 for(const lang of ['en','de'])for(const width of [1280,390,320]){
  const page=await browser.newPage({viewport:{width,height:1100}}),calls=[],errors=[];let signed=false,room='',rejectRoom=false,rejectMaintenance=false;
  const account={password_required:false,alexa_protocol:'matter',network_mode:'home',matter_ready:true,api_key:'111111111111111111111111',setup_ssid:'Example-Bridge',hostname:'example'};
- const status={version:'0.1.24-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
+ const status={version:'0.1.25-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
  page.on('pageerror',e=>errors.push(e.message));await page.route('http://bridge.test/**',route=>{
   const r=route.request(),p=new URL(r.url()).pathname;calls.push({p,method:r.method(),body:r.postDataJSON()});
   if(p==='/')return route.fulfill({contentType:'text/html',body:html});
@@ -35,23 +35,30 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
  await page.locator('#language').selectOption(lang);assert.equal(await page.locator('#room-label').textContent(),room);
  await page.locator('#room-edit').click();rejectRoom=true;await page.locator('#room-input').fill('Rejected');await page.locator('#room-form button[type=submit]').click();await page.waitForFunction(()=>!ownerBusy);assert.equal(await page.locator('#room-label').textContent(),room);await page.locator('#room-cancel').click();rejectRoom=false;
  await page.reload();await page.waitForFunction(()=>current&&!polling);assert.equal(await page.locator('#room-label').textContent(),room);
- await page.locator('#danger-settings summary').click();assert.equal(await page.locator('#danger-ssid').textContent(),account.setup_ssid);assert.equal(await page.locator('#danger-key').textContent(),account.api_key);
- assert.deepEqual(await page.locator('#danger-copy-key').evaluate(e=>{const s=getComputedStyle(e);return [s.backgroundColor,s.borderTopWidth,s.paddingTop,s.paddingLeft];}),['rgba(0, 0, 0, 0)','0px','0px','0px']);
- await page.evaluate(()=>{window.copied=[];window.copyText=async text=>window.copied.push(text);});await page.locator('#danger-copy-key').click();assert.deepEqual(await page.evaluate(()=>window.copied),[account.api_key]);
+ await page.locator('#danger-settings summary').click();
+ const danger=page.locator('#danger-settings');
+ for(const value of [account.setup_ssid,account.api_key])assert.equal((await danger.textContent()).includes(value),false);
+ await page.locator('#network-settings summary').click();
+ assert.equal(await page.locator('#setup-ssid').textContent(),account.setup_ssid);
+ assert.equal(await page.locator('#api-key').textContent(),account.api_key);
+ await page.evaluate(()=>{window.copied=[];window.copyText=async text=>window.copied.push(text);});
+ await page.locator('#copy-key').click();
+ assert.deepEqual(await page.evaluate(()=>window.copied),[account.api_key]);
+ await page.locator('#network-settings summary').click();
  assert.equal(await page.locator('summary[data-t="alexa"]').count(),0);
  const smart=page.locator('#matter-settings');
  assert.deepEqual(await smart.locator('li').allTextContents(),['Google Home','Apple HomeKit','Alexa','Home Assistant','Samsung SmartThings','IKEA DIRIGERA Hub']);
  assert.match(await smart.locator('summary').textContent(),/Smart Home/i);
  await page.locator('#factory-reset').click();await page.locator('#reset-preview').waitFor();
  assert.equal(await page.locator('#reset-key').textContent(),'222222222222222222222222');
- assert.equal(await page.locator('#danger-key').textContent(),account.api_key);
+ assert.equal(await page.locator('#api-key').textContent(),account.api_key);
  await page.locator('#reset-copy-key').click();
  assert.deepEqual(await page.evaluate(()=>window.copied),[account.api_key,'222222222222222222222222']);
  page.once('dialog',d=>d.dismiss());await page.locator('#reset-confirm').click();
  assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,1);
  await page.locator('#reset-cancel').click();assert.equal(await page.locator('#reset-key').textContent(),'');
  rejectMaintenance=true;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>!ownerBusy);assert.equal(await page.evaluate(()=>networkChanging),false);
- rejectMaintenance=false;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>networkChanging);assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'restart'});assert.equal(await page.locator('#danger-copy-key').isEnabled(),true);
+ rejectMaintenance=false;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>networkChanging);assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'restart'});assert.equal(await page.locator('#copy-key').isEnabled(),true);
  await page.reload();await page.waitForFunction(()=>current&&!polling);await page.locator('#danger-settings summary').click();
  await page.locator('#factory-reset').click();await page.locator('#reset-preview').waitFor();
  page.once('dialog',d=>d.accept());await page.locator('#reset-confirm').click();await page.waitForFunction(()=>networkChanging);
@@ -59,10 +66,10 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
  assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,5);
  assert.equal(await page.locator('#reset-key').textContent(),'222222222222222222222222');
  assert.equal(await page.locator('#reset-copy-key').isEnabled(),true);
- assert.equal(await page.locator('#danger-key').textContent(),'');assert.equal(await page.locator('#api-key').textContent(),'');assert.equal(await page.locator('#danger-copy-key').isEnabled(),false);
+ assert.equal(await page.locator('#api-key').textContent(),'');assert.equal(await page.locator('#copy-key').isEnabled(),false);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.equal(calls.some(x=>['/api/power','/api/network','/api/config','/api/matter/commissioning','/api/wifi'].includes(x.p)),false);assert.deepEqual(errors,[]);
- await page.locator('#logout').click();assert.equal(await page.locator('#room-label').textContent(),'');assert.equal(await page.locator('#danger-ssid').textContent(),'');await page.evaluate(()=>apiTail.catch(()=>{}));await page.close();
+ await page.locator('#logout').click();assert.equal(await page.locator('#room-label').textContent(),'');assert.equal(await page.locator('#reset-key').textContent(),'');await page.evaluate(()=>apiTail.catch(()=>{}));await page.close();
 }
 console.log('Owner/maintenance UI passed EN/DE 1280/390/320: configured intro, editable persisted text, cancel/failure, explicit confirmations, private copy, reset clearing and no unrelated mutations.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

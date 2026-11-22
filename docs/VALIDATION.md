@@ -1,5 +1,14 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.25: Dangerzone setup details
+
+The EN/DE browser regression at 1280/390/320 confirms Dangerzone omits the
+current setup SSID and API key. The account-protected Wi-Fi & local API
+section still shows both and copies the current key. Factory-reset preview
+and copying the future password remain covered. All four rs builds and 34
+asset checks pass. Classic firmware is 1,963,872 bytes in the 1,966,080-byte
+slot. Device installation and verification are pending.
+
 ## rs-matter 0.1.24: reset preview and Matter platforms
 
 Native maintenance checks cover the new preview action, strict confirmation

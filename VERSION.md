@@ -3,6 +3,11 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Dangerzone setup details — 0.1.25-rs-matter
+
+- Show the current setup Wi-Fi name and API key in Wi-Fi & local API.
+  Dangerzone shows the future password when preparing a factory reset.
+
 ## Reset password preview and smart home — 0.1.24-rs-matter
 
 - Show the next API key and setup Wi-Fi password before factory reset.

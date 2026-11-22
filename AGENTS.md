@@ -87,6 +87,10 @@ status change. Keep current facts, not a conversation log. User instructions win
 
 ## rs-matter 0.1.24 reset preview and Matter platforms
 
+- Since 0.1.25 the current setup Wi-Fi name and API key appear in WLAN/local
+  API only. Dangerzone retains the restart and reset controls and the future
+  credential preview. All four 0.1.25 rs builds, 34 asset checks and the
+  targeted EN/DE browser checks pass. A new device update requires approval.
 - Open the reset preview only from an explicit Dangerzone action. A personal
   password session and the existing Origin/JSON gate must protect both preview
   and confirmation. Generate a 24-digit hex key in RAM, valid for five minutes
@@ -209,8 +213,8 @@ status change. Keep current facts, not a conversation log. User instructions win
   Edit by clicking the heading; explicit Save/Cancel. Hide only the intro heading
   and paragraph when at least one actual station is configured. Default label
   remains localized; saved names render as text and survive language changes.
-- rs-only Dangerzone shows setup SSID/current API key as copyable setup password,
-  with plain text button styling, Restart and explicitly confirmed Factory reset.
+- rs-only Dangerzone contains Restart and explicitly confirmed Factory reset.
+  Current setup details are in Wi-Fi/local API.
   Personal-password session and Origin/JSON gates protect POST /api/room and
   /api/maintenance; API keys/bootstrap sessions cannot authorize either.
 - Restart preserves settings. Full reset durably marks lhbridge/factory_reset,

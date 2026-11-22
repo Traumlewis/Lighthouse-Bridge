@@ -1,5 +1,5 @@
-import { translations } from './translations.js?v=rs-matter-0.1.24';
-import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.24';
+import { translations } from './translations.js?v=rs-matter-0.1.25';
+import { validMatterParts, validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.25';
 import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
 import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.8';
 
