@@ -7,6 +7,8 @@ For validation evidence and remaining hardware checks, see [the validation repor
 
 - Show the USB/API-key login instructions only before a web password is set.
 - Display printable Bluetooth serial numbers in Device information.
+- Owner-approved classic OTA and the configured login screen were verified.
+  Device information returned serials for all four physical stations.
 
 ## Dangerzone setup details — 0.1.25-rs-matter
 

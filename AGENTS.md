@@ -10,7 +10,9 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22, 0.1.23, 0.1.24 and 0.1.25 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18,
+  0.1.19, 0.1.20, 0.1.21, 0.1.22, 0.1.23, 0.1.24, 0.1.25 and 0.1.26 OTA
+  updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -93,9 +95,14 @@ status change. Keep current facts, not a conversation log. User instructions win
   names out of this response.
 - Device information accepts printable serials from the standard serial
   characteristic and preserves them as text, including leading zeroes.
-  Keep the existing numeric decoding for short binary values. Hardware
-  verification of the serial field requires a separate approved OTA. All four
-  rs builds, 34 asset checks and the full browser and USB suite pass.
+  Keep the existing numeric decoding for short binary values. All four rs
+  builds, 34 asset checks and the full browser and USB suite pass.
+- Owner-approved classic OTA from 0.1.25 succeeded with one upload. All four
+  stations are reachable, and all four device information reads return serials
+  as text. Network, account, room, GPIO, station assignments and OFF choices
+  and Matter pairing were retained. Live EN desktop and DE mobile browser checks
+  confirm the configured login hides the USB hint. Both diagnostic sessions
+  closed. Ask again before further device changes.
 
 ## rs-matter 0.1.24 reset preview and Matter platforms
 

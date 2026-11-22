@@ -9,7 +9,15 @@ NUL-terminated printable serial, a four-byte binary serial and unavailable
 values. All four rs builds, 34 asset checks and 16 browser/USB programs pass.
 App bytes are 1,963,984
 classic, 1,965,376 both C3 profiles and 1,889,952 S3 in the unchanged
-1,966,080-byte slots. Physical station serial reads are pending.
+1,966,080-byte slots.
+
+Owner-approved classic OTA from 0.1.25 succeeded with one upload of the
+1,963,984-byte build from commit aef0efd. Wi-Fi, account, GPIO, room, Matter
+pairing and the four assignments and OFF choices were retained. All stations
+became reachable and returned serial numbers as text in the private device
+information response. Live EN desktop (1280 px) and DE mobile (390 px)
+verified the configured login hides the first-login hint. Both diagnostic
+sessions were closed.
 
 ## rs-matter 0.1.25: Dangerzone setup details
 
