@@ -10,7 +10,7 @@ status change. Keep current facts, not a conversation log. User instructions win
 - The owner requires an explicit question before future device changes,
   especially firmware writes, resets and new commissioning actions. Credentials
   do not grant standing mutation approval. The owner approved the 0.1.9,
-  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22 and 0.1.23 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
+  0.1.10, 0.1.11, 0.1.12, 0.1.13, 0.1.14, 0.1.15, 0.1.16, 0.1.17, 0.1.18, 0.1.19, 0.1.20, 0.1.21, 0.1.22, 0.1.23 and 0.1.24 OTA updates and the specific unbound-endpoint-1 aggregator exception; ask again
   before later updates or separate device changes. Read-only checks may proceed.
 - The owner defers code cleanup until an explicit go-ahead such as
   "Aufräumen lohnt sich" is sent as an instruction. Discussing or quoting that
@@ -103,7 +103,13 @@ status change. Keep current facts, not a conversation log. User instructions win
   Alexa is verified; do not imply the other integrations were tested. Remove
   the separate Alexa/shared status panel from rs-matter.
 - Four local rs builds, native maintenance, the targeted EN/DE browser test
-  and 34 asset checks pass. 0.1.24 OTA needs separate approval.
+  and 34 asset checks pass. Owner-approved classic OTA from 0.1.23 to 0.1.24
+  succeeded with one upload of the local build from commit 93dc1e4. All four
+  stations are reachable and Matter remains paired. Saved assignments and
+  OFF choices, Wi-Fi/account, room and GPIO settings were retained. On-device
+  checks verified the consolidated section and a distinct preview key while
+  the current account and active key remained unchanged. Diagnostic sessions
+  are closed. No reset was confirmed. Future device changes require approval.
 
 ## rs-matter 0.1.23 network names and station information
 
@@ -1321,7 +1327,7 @@ Never copy the credential-bearing raw log into the repository.
   A request guard confirms no commissioning/power/config/firmware mutation during
   the browser check. Active-code renewal behavior is software-tested, not retested
   on hardware because no new pairing window was authorized. Sessions are closed.
-- The owner replaced the Tasmota experiment with rs-matter; **0.1.23-rs-matter**
+- The owner replaced the Tasmota experiment with rs-matter; **0.1.24-rs-matter**
   is installed on the owner's board. Public releases use the existing checked
   main-branch workflow. Tasmota's source,
   Berry runtime, builder, dedicated tests and public installer are removed. Stable

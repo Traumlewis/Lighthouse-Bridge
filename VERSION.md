@@ -10,6 +10,9 @@ For validation evidence and remaining hardware checks, see [the validation repor
 - Combine Matter setup and smart home platforms in one panel. The list
   identifies Matter controllers and marks Alexa as tested with this bridge.
 
+- Owner-approved classic OTA succeeded. Live verification confirmed the
+  preview key is distinct and leaves the active key in place.
+
 ## Bridge network names and station diagnostics — 0.1.23-rs-matter
 
 - Default setup Wi-Fi is `Lighthouse-Bridge-Setup-XXXXXX` and the default

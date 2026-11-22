@@ -13,6 +13,17 @@ are 1,964,064 classic, 1,965,456 both C3 profiles and 1,890,064 S3. The app
 slot is still 1,966,080 bytes. Real NVS reset and power interruption remain
 unverified.
 
+All 16 browser and USB programs pass. Owner-approved classic OTA from
+0.1.23 to 0.1.24 succeeded with one upload of the locally checked
+1,964,064-byte app from commit 93dc1e4. All four configured stations are
+reachable and Matter remains ready and paired. The before/after snapshots
+confirmed station settings, network, account, room and GPIO preservation.
+
+Private on-device preview returned a distinct 24-digit hex key and left the
+active key and account response unchanged. The running dashboard includes
+all six Matter platforms and omits the separate Alexa panel. Diagnostic
+sessions were closed. No reset confirmation request was sent.
+
 ## rs-matter 0.1.23: network names and station metadata
 
 Default AP and hostname use the Bridge prefix. Custom device names still
