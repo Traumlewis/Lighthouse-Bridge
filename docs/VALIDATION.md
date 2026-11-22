@@ -7,9 +7,19 @@ an accepted restart with an old authenticated response, a dropped connection
 and the new login gate. The browser then reloads once at the same URL. The
 factory-reset flow still presents the new setup password. All four rs builds,
 the SDK Matter build, 34 asset checks and 16 browser/USB programs pass. App
-bytes are 1,964,048 classic,
-1,965,456 both C3 profiles and 1,890,016 S3 in the unchanged 1,966,080-byte
-slots. A physical restart from the dashboard is pending.
+bytes are 1,964,048 classic, 1,965,456 both C3 profiles and 1,890,016 S3 in
+the unchanged 1,966,080-byte slots.
+
+Owner-approved classic OTA from 0.1.26 succeeded with one upload of the
+locally checked build from commit 0a1cd31. Network, account, room, GPIO,
+station assignments, OFF choices and Matter pairing were preserved. The
+single authorized Dangerzone restart was verified by uptime. All four
+stations became reachable again. The browser verifier failed an assertion;
+the served-dashboard replay reproduced the mismatch in the observer's
+expected request list, which omitted the normal BLE read refresh on login.
+With that check corrected, the replay confirmed automatic reload to sign-in
+at the same URL after simulated reconnect. The replay did not send a second
+restart to the device.
 
 ## rs-matter 0.1.26: login and serial number
 

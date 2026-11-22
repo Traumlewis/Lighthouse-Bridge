@@ -6,6 +6,8 @@ For validation evidence and remaining hardware checks, see [the validation repor
 ## Automatic reload after restart — 0.1.27-rs-matter
 
 - Dangerzone restart reloads the dashboard once the bridge is available again.
+- The classic OTA and one physical restart were verified. The served dashboard
+  reloaded to sign-in in the simulated reconnect check.
 
 ## Login and station serial number — 0.1.26-rs-matter
 
