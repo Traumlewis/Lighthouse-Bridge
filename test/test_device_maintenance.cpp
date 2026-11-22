@@ -19,7 +19,16 @@ int main(){
   }
   assert(!deserializeJson(doc,"{\"action\":\"restart\"}"));assert(!parseDeviceAction(doc.as<JsonVariantConst>(),action)&&action==DeviceAction::Restart);
   Storage normal;assert(prepareDeviceAction(action,normal)&&normal.calls.empty());assert(applyFactoryResetAtBoot(normal)&&normal.calls=="r"&&!normal.settings.empty());
-  assert(!deserializeJson(doc,"{\"action\":\"factory_reset\",\"confirm\":true}"));assert(!parseDeviceAction(doc.as<JsonVariantConst>(),action)&&action==DeviceAction::FactoryReset);
+  assert(!deserializeJson(doc,R"({"action":"factory_preview"})"));
+  assert(!parseDeviceAction(doc.as<JsonVariantConst>(),action)&&action==DeviceAction::FactoryPreview);
+  assert(prepareDeviceAction(action,normal)&&normal.calls=="r");
+  assert(!deserializeJson(doc,R"({"action":"factory_reset","confirm":true})"));
+  assert(!strcmp(parseDeviceAction(doc.as<JsonVariantConst>(),action),"RESET_PREVIEW_REQUIRED"));
+  assert(!deserializeJson(doc,R"({"action":"factory_reset","confirm":true,"reset_key":"0123456789abcdef01234567"})"));
+  assert(!parseDeviceAction(doc.as<JsonVariantConst>(),action)&&action==DeviceAction::FactoryReset);
+  assert(!validResetKey("0123456789abcDef01234567")&&!validResetKey("old"));
+  assert(resetPreviewFresh(299999,0)&&!resetPreviewFresh(300000,0));
+  assert(resetPreviewFresh(10,UINT32_MAX-10));
   Storage reset;assert(prepareDeviceAction(action,reset)&&reset.calls=="m"&&reset.requested&&!reset.settings.empty());
   assert(applyFactoryResetAtBoot(reset)&&reset.calls=="mrdei"&&reset.settings.empty()&&!reset.requested);
   assert(reset.apps=="two original app slots"&&reset.ota=="boot selection");reset.calls.clear();assert(applyFactoryResetAtBoot(reset)&&reset.calls=="r");

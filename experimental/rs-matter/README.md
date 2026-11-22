@@ -1,3 +1,13 @@
+# Lighthouse Bridge — rs-matter 0.1.24
+
+In Dangerzone, open Factory reset to see and copy the next API key and setup
+Wi-Fi password. Confirm separately to erase settings and use the displayed
+key during first setup. USB remains available for recovery.
+
+The Matter setup & smart home panel lists Google Home, Apple HomeKit, Alexa,
+Home Assistant, Samsung SmartThings and IKEA DIRIGERA Hub. A compatible
+Matter controller is required. This bridge has been tested with Alexa.
+
 # Lighthouse Bridge — rs-matter 0.1.23
 
 The default setup Wi-Fi is `Lighthouse-Bridge-Setup-XXXXXX` and the

@@ -5,7 +5,7 @@ const html=zlib.gunzipSync(Buffer.from(source.split('{')[1].split('}')[0].split(
 for(const lang of ['en','de'])for(const width of [1280,390,320]){
  const page=await browser.newPage({viewport:{width,height:1100}}),calls=[],errors=[];let signed=false,room='',rejectRoom=false,rejectMaintenance=false;
  const account={password_required:false,alexa_protocol:'matter',network_mode:'home',matter_ready:true,api_key:'111111111111111111111111',setup_ssid:'Example-Bridge',hostname:'example'};
- const status={version:'0.1.23-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
+ const status={version:'0.1.24-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
  page.on('pageerror',e=>errors.push(e.message));await page.route('http://bridge.test/**',route=>{
   const r=route.request(),p=new URL(r.url()).pathname;calls.push({p,method:r.method(),body:r.postDataJSON()});
   if(p==='/')return route.fulfill({contentType:'text/html',body:html});
@@ -16,7 +16,8 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
   if(p==='/api/status')return route.fulfill({json:status});
   if(p==='/api/refresh')return route.fulfill({status:202,json:{accepted:true}});
   if(p==='/api/room'){if(rejectRoom)return route.fulfill({status:500,json:{error:'SAVE_FAILED'}});room=r.postDataJSON().name;return route.fulfill({json:{saved:true,name:room}});}
-  if(p==='/api/maintenance')return route.fulfill({status:rejectMaintenance?409:202,json:rejectMaintenance?{error:'BLE_BUSY'}:{accepted:true,restarting:true}});
+  if(p==='/api/maintenance'&&r.postDataJSON().action==='factory_preview')return route.fulfill({json:{reset_key:'222222222222222222222222'}});
+ if(p==='/api/maintenance')return route.fulfill({status:rejectMaintenance?409:202,json:rejectMaintenance?{error:'BLE_BUSY'}:{accepted:true,restarting:true}});
   if(p==='/api/logout'){signed=false;return route.fulfill({json:{ok:true}});}
   return route.fulfill({status:404,json:{error:'NOT_FOUND'}});
  });
@@ -37,11 +38,27 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
  await page.locator('#danger-settings summary').click();assert.equal(await page.locator('#danger-ssid').textContent(),account.setup_ssid);assert.equal(await page.locator('#danger-key').textContent(),account.api_key);
  assert.deepEqual(await page.locator('#danger-copy-key').evaluate(e=>{const s=getComputedStyle(e);return [s.backgroundColor,s.borderTopWidth,s.paddingTop,s.paddingLeft];}),['rgba(0, 0, 0, 0)','0px','0px','0px']);
  await page.evaluate(()=>{window.copied=[];window.copyText=async text=>window.copied.push(text);});await page.locator('#danger-copy-key').click();assert.deepEqual(await page.evaluate(()=>window.copied),[account.api_key]);
- page.once('dialog',d=>d.dismiss());await page.locator('#factory-reset').click();assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,0);
+ assert.equal(await page.locator('summary[data-t="alexa"]').count(),0);
+ const smart=page.locator('#matter-settings');
+ assert.deepEqual(await smart.locator('li').allTextContents(),['Google Home','Apple HomeKit','Alexa','Home Assistant','Samsung SmartThings','IKEA DIRIGERA Hub']);
+ assert.match(await smart.locator('summary').textContent(),/Smart Home/i);
+ await page.locator('#factory-reset').click();await page.locator('#reset-preview').waitFor();
+ assert.equal(await page.locator('#reset-key').textContent(),'222222222222222222222222');
+ assert.equal(await page.locator('#danger-key').textContent(),account.api_key);
+ await page.locator('#reset-copy-key').click();
+ assert.deepEqual(await page.evaluate(()=>window.copied),[account.api_key,'222222222222222222222222']);
+ page.once('dialog',d=>d.dismiss());await page.locator('#reset-confirm').click();
+ assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,1);
+ await page.locator('#reset-cancel').click();assert.equal(await page.locator('#reset-key').textContent(),'');
  rejectMaintenance=true;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>!ownerBusy);assert.equal(await page.evaluate(()=>networkChanging),false);
  rejectMaintenance=false;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>networkChanging);assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'restart'});assert.equal(await page.locator('#danger-copy-key').isEnabled(),true);
- await page.reload();await page.waitForFunction(()=>current&&!polling);await page.locator('#danger-settings summary').click();page.once('dialog',d=>{assert.match(d.message(),/USB/);d.accept();});await page.locator('#factory-reset').click();await page.waitForFunction(()=>networkChanging);
- assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'factory_reset',confirm:true});assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,3);
+ await page.reload();await page.waitForFunction(()=>current&&!polling);await page.locator('#danger-settings summary').click();
+ await page.locator('#factory-reset').click();await page.locator('#reset-preview').waitFor();
+ page.once('dialog',d=>d.accept());await page.locator('#reset-confirm').click();await page.waitForFunction(()=>networkChanging);
+ assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'factory_reset',confirm:true,reset_key:'222222222222222222222222'});
+ assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,5);
+ assert.equal(await page.locator('#reset-key').textContent(),'222222222222222222222222');
+ assert.equal(await page.locator('#reset-copy-key').isEnabled(),true);
  assert.equal(await page.locator('#danger-key').textContent(),'');assert.equal(await page.locator('#api-key').textContent(),'');assert.equal(await page.locator('#danger-copy-key').isEnabled(),false);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.equal(calls.some(x=>['/api/power','/api/network','/api/config','/api/matter/commissioning','/api/wifi'].includes(x.p)),false);assert.deepEqual(errors,[]);

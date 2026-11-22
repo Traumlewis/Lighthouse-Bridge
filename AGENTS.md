@@ -85,6 +85,26 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## rs-matter 0.1.24 reset preview and Matter platforms
+
+- Open the reset preview only from an explicit Dangerzone action. A personal
+  password session and the existing Origin/JSON gate must protect both preview
+  and confirmation. Generate a 24-digit hex key in RAM, valid for five minutes
+  and tied to that session. Display/copy it before reset. Preview alone does not
+  change the active key or NVS. Confirm must include the exact preview key.
+  Make one durable NVS record for the confirmed reset and its key, then reboot
+  after physical BLE idle. At boot read the record, erase standard NVS as before,
+  and save the confirmed key as access_key before services start. The legacy
+  reset flag remains understood. USB still provides key recovery. A real reset
+  and interruption during the erase/rewrite are not hardware-verified.
+- The rs-matter dashboard has one Matter setup and smart home section. List
+  Google Home, Apple HomeKit, Alexa, Home Assistant, Samsung SmartThings and
+  IKEA DIRIGERA Hub as Matter platforms requiring a compatible controller.
+  Alexa is verified; do not imply the other integrations were tested. Remove
+  the separate Alexa/shared status panel from rs-matter.
+- Four local rs builds, native maintenance, the targeted EN/DE browser test
+  and 34 asset checks pass. 0.1.24 OTA needs separate approval.
+
 ## rs-matter 0.1.23 network names and station information
 
 - With no valid custom device name, rs-matter uses `Lighthouse-Bridge-Setup-XXXXXX`
@@ -194,8 +214,8 @@ status change. Keep current facts, not a conversation log. User instructions win
   stations/endpoint registry, buttons and Matter fabrics). Never erase app slots,
   OTA selection or the partition table. Failure stops startup with a redacted
   diagnostic. Do not claim power-loss/real-device reset verification.
-- After reset, retrieve the new generated setup Wi-Fi password via physical USB
-  and repeat initial setup/Matter pairing. Clear the obsolete key in the browser
+- After reset, use the new setup Wi-Fi password and repeat initial setup/Matter
+  pairing. Since 0.1.24 it is shown before confirmation; USB remains recovery. Clear the obsolete key in the browser
   after reset acceptance. Restart/reset and code publication are separate from
   device-install approval. The owner explicitly approved the specific 0.1.19 OTA;
   ask again before a later update or separate device change.

@@ -3,6 +3,13 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Reset password preview and smart home — 0.1.24-rs-matter
+
+- Show the next API key and setup Wi-Fi password before factory reset.
+  Confirmation applies the displayed key after the standard NVS erase.
+- Combine Matter setup and smart home platforms in one panel. The list
+  identifies Matter controllers and marks Alexa as tested with this bridge.
+
 ## Bridge network names and station diagnostics — 0.1.23-rs-matter
 
 - Default setup Wi-Fi is `Lighthouse-Bridge-Setup-XXXXXX` and the default

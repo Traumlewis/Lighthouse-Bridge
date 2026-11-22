@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.23-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.24-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -56,22 +56,25 @@ UTF-8 up to 64 bytes, persisted independently of the hostname. Returns
 `{"saved":true,"name":"Leas VR room"}`. Invalid input returns `ROOM_NAME_INVALID`;
 storage failure returns `SAVE_FAILED`. No reboot or station command occurs.
 
-`POST /api/maintenance` accepts exactly `{"action":"restart"}` or
-`{"action":"factory_reset","confirm":true}`. Both require a personal-password
-session and matching Origin when supplied, plus JSON. API keys/bootstrap sessions
-cannot authorize these routes. Wrong methods do not mutate. Missing/false/non-boolean
-reset confirmation returns `RESET_CONFIRM_REQUIRED`; unknown/extra fields return
-`MAINTENANCE_INVALID`. Busy scans/commands, setup, OTA or an existing restart return
-409 `BLE_BUSY`. A failed durable reset-flag write returns 500 `SAVE_FAILED` without
-scheduling a reboot. Accepted actions return 202 `{"accepted":true,"restarting":true}`;
-then stop new BLE work and reboot after at least 1.5 seconds and physical BLE idle.
+`POST /api/maintenance` requires a personal-password session and the matching
+Origin when supplied, plus JSON. It accepts `{"action":"restart"}` for a
+normal restart. Since 0.1.24, `{"action":"factory_preview"}` returns
+200 with a `reset_key` valid for five minutes in the same session and
+leaves the active key and NVS untouched. To reset, submit
+`{"action":"factory_reset","confirm":true,"reset_key":"<preview key>"}`.
+Missing confirmation returns `RESET_CONFIRM_REQUIRED`. A missing, replaced
+or expired preview requires a new preview (`RESET_PREVIEW_REQUIRED`).
+Busy scans/commands, setup, OTA or an existing restart can return 409
+`BLE_BUSY`. A failed durable reset record write returns 500 `SAVE_FAILED`.
+Accepted restarts/resets return 202 `{"accepted":true,"restarting":true}`
+and reboot after at least 1.5 seconds and physical BLE idle.
 
 Restart preserves settings. Factory reset erases the standard NVS partition at the
 next boot, before bridge/Matter/BLE startup: home Wi-Fi, API key, web login, room,
 station/endpoint assignments, GPIO bindings and Matter fabric data. Other storage
 partitions, firmware slots, partition table and OTA selection remain untouched.
-A new API/setup key is generated; retrieve it over physical USB and repeat initial
-setup and Matter pairing. No power command is sent automatically. Storage failure
+The confirmed preview key becomes the new API/setup key. It remains recoverable
+over physical USB. Repeat initial setup and Matter pairing. No power command is sent automatically. Storage failure
 at boot stops initialization with `FACTORY_RESET_STORAGE_FAILED`; power-loss recovery
 and actual device reset remain hardware checks. Do not invoke these routes merely
 to inspect settings.

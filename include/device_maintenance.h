@@ -4,15 +4,29 @@
 #include <cstring>
 
 namespace bridge {
-enum class DeviceAction { Restart, FactoryReset };
+enum class DeviceAction { Restart, FactoryPreview, FactoryReset };
+inline bool validResetKey(const char* value) {
+  if (!value || std::strlen(value) != 24) return false;
+  for (; *value; ++value) {
+    if ((*value < '0' || *value > '9') && (*value < 'a' || *value > 'f')) return false;
+  }
+  return true;
+}
+inline bool resetPreviewFresh(uint32_t now, uint32_t shown) {
+  return now - shown < 300000;
+}
 inline const char* parseDeviceAction(JsonVariantConst input, DeviceAction& action) {
   if (!input.is<JsonObjectConst>() || !input["action"].is<const char*>()) return "MAINTENANCE_INVALID";
   const char* value=input["action"];
   if(input["action"].as<JsonString>().size()!=std::strlen(value))return "MAINTENANCE_INVALID";
   if (!std::strcmp(value,"restart") && input.size()==1) { action=DeviceAction::Restart;return nullptr; }
+  if (!std::strcmp(value,"factory_preview") && input.size()==1) { action=DeviceAction::FactoryPreview;return nullptr; }
   if (std::strcmp(value,"factory_reset")) return "MAINTENANCE_INVALID";
   if (!input["confirm"].is<bool>() || !input["confirm"].as<bool>()) return "RESET_CONFIRM_REQUIRED";
-  if(input.size()!=2)return "MAINTENANCE_INVALID";
+  if (input.size()!=3 || !input["reset_key"].is<const char*>() ||
+      input["reset_key"].as<JsonString>().size()!=24 || !validResetKey(input["reset_key"])) {
+    return "RESET_PREVIEW_REQUIRED";
+  }
   action=DeviceAction::FactoryReset;return nullptr;
 }
 // A display label is data, not HTML or a DNS hostname. Bound UTF-8 bytes and

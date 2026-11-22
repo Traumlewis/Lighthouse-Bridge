@@ -1,5 +1,18 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.24: reset preview and Matter platforms
+
+Native maintenance checks cover the new preview action, strict confirmation
+and key format, five-minute expiry, timer wrap and reset ordering. The
+mocked EN/DE browser flow checks the two separate actions, current and
+future password visibility, copying, cancellation, use of the displayed
+key in the confirm request and retention of that key on the restart screen.
+It also verifies the six Matter platforms and removal of the standalone
+Alexa section. All four rs builds and 34 asset checks pass. Local app bytes
+are 1,964,064 classic, 1,965,456 both C3 profiles and 1,890,064 S3. The app
+slot is still 1,966,080 bytes. Real NVS reset and power interruption remain
+unverified.
+
 ## rs-matter 0.1.23: network names and station metadata
 
 Default AP and hostname use the Bridge prefix. Custom device names still
