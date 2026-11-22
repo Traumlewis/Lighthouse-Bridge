@@ -109,19 +109,20 @@ def presentation_dashboard(html):
     # Sessions are lost on reboot. A still-authenticated old server is not yet
     # proof that the new image is ready; reload only on a reachable login gate.
     html=replace_once(html,"$('ota-form').addEventListener('submit',async event=>{",
-        "async function waitForOtaRestart(){const deadline=Date.now()+90000;"
+        "async function waitForBridgeRestart(onTimeout){const deadline=Date.now()+90000;"
         "while(Date.now()<deadline){await new Promise(resolve=>setTimeout(resolve,2000));"
         "const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);"
         "try{const response=await fetch('/api/account',{credentials:'same-origin',cache:'no-store',signal:controller.signal});"
         "if(response.status===401){location.reload();return;}await response.arrayBuffer();}catch(_){}finally{clearTimeout(timer);}}"
-        "$('ota-status').textContent=t('otaReconnectFailed');message(()=>t('otaReconnectFailed'));}\n"
+        "onTimeout();}\n"
         "$('ota-form').addEventListener('submit',async event=>{")
     html=replace_once(html,"if($('matter-settings').open&&(info.commissioning_pending||info.commissioning_open))",
         "if(!otaBusy&&$('matter-settings').open&&(info.commissioning_pending||info.commissioning_open))")
     html=replace_once(html,'const controlsBusy=(matterBusy&&!loadMatter.background)||',
         'const controlsBusy=otaBusy||(matterBusy&&!loadMatter.background)||')
     html=replace_once(html,"message(()=>t('otaDone'));prepared=false;",
-        "message(()=>t('otaDone'));prepared=false;clearTimeout(loadMatter.timer);waitForOtaRestart();")
+        "message(()=>t('otaDone'));prepared=false;clearTimeout(loadMatter.timer);"
+        "waitForBridgeRestart(()=>{$('ota-status').textContent=t('otaReconnectFailed');message(()=>t('otaReconnectFailed'));});")
     html=replace_once(html,'otaBusy=false;if(current)render(current);',
         "otaBusy=false;if(current)render(current);if($('matter-settings').open)loadMatter(false,true);")
     from rs_dashboard import preferences_dashboard

@@ -3,6 +3,10 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Automatic reload after restart — 0.1.27-rs-matter
+
+- Dangerzone restart reloads the dashboard once the bridge is available again.
+
 ## Login and station serial number — 0.1.26-rs-matter
 
 - Show the USB/API-key login instructions only before a web password is set.

@@ -15,7 +15,7 @@ from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.26-rs-matter'
+VERSION = '0.1.27-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'

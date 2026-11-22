@@ -3,21 +3,31 @@ const source=fs.readFileSync('.pio/rs-matter-sketch/RsMatter/web_ui_gzip.h','utf
 const html=zlib.gunzipSync(Buffer.from(source.split('{')[1].split('}')[0].split(',').map(Number))).toString();
 (async()=>{const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});try{
 for(const lang of ['en','de'])for(const width of [1280,390,320]){
- const page=await browser.newPage({viewport:{width,height:1100}}),calls=[],errors=[];let signed=false,room='',rejectRoom=false,rejectMaintenance=false;
+ const page=await browser.newPage({viewport:{width,height:1100}}),calls=[],errors=[];
+ let signed=false,room='',rejectRoom=false,rejectMaintenance=false,restarting=false,restartProbes=0;
  const account={password_required:false,alexa_protocol:'matter',network_mode:'home',matter_ready:true,api_key:'111111111111111111111111',setup_ssid:'Example-Bridge',hostname:'example'};
- const status={version:'0.1.26-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
+ const status={version:'0.1.27-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
  page.on('pageerror',e=>errors.push(e.message));await page.route('http://bridge.test/**',route=>{
   const r=route.request(),p=new URL(r.url()).pathname;calls.push({p,method:r.method(),body:r.postDataJSON()});
   if(p==='/')return route.fulfill({contentType:'text/html',body:html});
   if(p==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});
   if(p==='/api/login'){signed=true;return route.fulfill({json:{password_required:false}});}
+  if(p==='/api/account'&&restarting){
+   restartProbes++;
+   if(restartProbes===2)return route.abort('connectionrefused');
+   if(restartProbes===3){restarting=false;signed=false;}
+  }
   if(!signed)return route.fulfill({status:401,json:{error:'LOGIN_REQUIRED'}});
   if(p==='/api/account')return route.fulfill({json:{...account,room_name:room}});
   if(p==='/api/status')return route.fulfill({json:status});
   if(p==='/api/refresh')return route.fulfill({status:202,json:{accepted:true}});
   if(p==='/api/room'){if(rejectRoom)return route.fulfill({status:500,json:{error:'SAVE_FAILED'}});room=r.postDataJSON().name;return route.fulfill({json:{saved:true,name:room}});}
   if(p==='/api/maintenance'&&r.postDataJSON().action==='factory_preview')return route.fulfill({json:{reset_key:'222222222222222222222222'}});
- if(p==='/api/maintenance')return route.fulfill({status:rejectMaintenance?409:202,json:rejectMaintenance?{error:'BLE_BUSY'}:{accepted:true,restarting:true}});
+  if(p==='/api/maintenance'){
+   if(rejectMaintenance)return route.fulfill({status:409,json:{error:'BLE_BUSY'}});
+   restarting=r.postDataJSON().action==='restart';
+   return route.fulfill({status:202,json:{accepted:true,restarting:true}});
+  }
   if(p==='/api/logout'){signed=false;return route.fulfill({json:{ok:true}});}
   return route.fulfill({status:404,json:{error:'NOT_FOUND'}});
  });
@@ -58,8 +68,15 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
  assert.equal(calls.filter(x=>x.p==='/api/maintenance').length,1);
  await page.locator('#reset-cancel').click();assert.equal(await page.locator('#reset-key').textContent(),'');
  rejectMaintenance=true;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>!ownerBusy);assert.equal(await page.evaluate(()=>networkChanging),false);
+ const reload=page.waitForNavigation({waitUntil:'domcontentloaded'});
+ const documentCount=()=>calls.filter(x=>x.p==='/').length;
+ const beforeRestart=documentCount();
  rejectMaintenance=false;page.once('dialog',d=>d.accept());await page.locator('#bridge-restart').click();await page.waitForFunction(()=>networkChanging);assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'restart'});assert.equal(await page.locator('#copy-key').isEnabled(),true);
- await page.reload();await page.waitForFunction(()=>current&&!polling);await page.locator('#danger-settings summary').click();
+ await reload;
+ assert.equal(restartProbes,3,'wait for the new login gate after an old response and a dropped connection');
+ assert.equal(documentCount(),beforeRestart+1);
+ assert.equal(new URL(page.url()).searchParams.get('lang'),lang);
+ await page.locator('#login-panel').waitFor();await login();await page.locator('#danger-settings summary').click();
  await page.locator('#factory-reset').click();await page.locator('#reset-preview').waitFor();
  page.once('dialog',d=>d.accept());await page.locator('#reset-confirm').click();await page.waitForFunction(()=>networkChanging);
  assert.deepEqual(calls.filter(x=>x.p==='/api/maintenance').at(-1).body,{action:'factory_reset',confirm:true,reset_key:'222222222222222222222222'});
@@ -71,5 +88,5 @@ for(const lang of ['en','de'])for(const width of [1280,390,320]){
  assert.equal(calls.some(x=>['/api/power','/api/network','/api/config','/api/matter/commissioning','/api/wifi'].includes(x.p)),false);assert.deepEqual(errors,[]);
  await page.locator('#logout').click();assert.equal(await page.locator('#room-label').textContent(),'');assert.equal(await page.locator('#reset-key').textContent(),'');await page.evaluate(()=>apiTail.catch(()=>{}));await page.close();
 }
-console.log('Owner/maintenance UI passed EN/DE 1280/390/320: configured intro, editable persisted text, cancel/failure, explicit confirmations, private copy, reset clearing and no unrelated mutations.');
+console.log('Owner/maintenance UI passed EN/DE 1280/390/320: owner label, restart reconnect and automatic reload, explicit reset, private copy, reset clearing and no unrelated mutations.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

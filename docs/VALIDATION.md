@@ -1,5 +1,16 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.27: Dangerzone restart
+
+EN/DE browser checks at 1280, 390 and 320 px cover a rejected restart and
+an accepted restart with an old authenticated response, a dropped connection
+and the new login gate. The browser then reloads once at the same URL. The
+factory-reset flow still presents the new setup password. All four rs builds,
+the SDK Matter build, 34 asset checks and 16 browser/USB programs pass. App
+bytes are 1,964,048 classic,
+1,965,456 both C3 profiles and 1,890,016 S3 in the unchanged 1,966,080-byte
+slots. A physical restart from the dashboard is pending.
+
 ## rs-matter 0.1.26: login and serial number
 
 EN/DE browser checks cover the initial USB sign-in hint, personal-password

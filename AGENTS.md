@@ -87,6 +87,16 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## rs-matter 0.1.27 Dangerzone restart
+
+- After a confirmed Dangerzone restart, keep controls paused and probe the
+  private account endpoint on the same origin. Reload the current page once the
+  old session is rejected after reboot. Reuse the bounded OTA reconnect probe
+  and show a manual reload message if it times out. Factory reset keeps its
+  credential handoff visible. All four rs builds, the SDK Matter build, 34
+  asset checks and the full browser and USB suite pass. Hardware verification
+  requires separate approval for the OTA and restart.
+
 ## rs-matter 0.1.26 login and serial number
 
 - Public GET /api/login includes password_set alongside username_enabled.
