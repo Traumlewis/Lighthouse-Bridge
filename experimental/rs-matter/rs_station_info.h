@@ -2,7 +2,7 @@
 
 // One transient result, shared by the worker and its private HTTP job.
 struct StationInfo {
-  char name[32], firmware[80], manufacturer[48], hardware[32];
+  char name[32], firmware[80], manufacturer[48], hardware[32], serialText[32];
   uint32_t model, serial;
   uint8_t channel;
   bool hasModel, hasSerial;
@@ -32,9 +32,22 @@ static void stationText(char* output, size_t capacity, const NimBLEAttValue& val
 static bool stationNumber(const NimBLEAttValue& value, uint32_t& number) {
   if (!value.size() || value.size() > 4) return false;
   number = 0;
-  // Valve returns binary big-endian integers in Model and Serial Number.
+  // Preserve the existing big-endian decoding for binary values.
   for (size_t i = 0; i < value.size(); ++i) number = (number << 8) | value[i];
   return true;
+}
+
+static void readStationSerial(NimBLERemoteService* device) {
+  const auto value = readStationAttribute(device, NimBLEUUID(uint16_t(0x2a25)));
+  size_t length = value.size();
+  while (length && value[length - 1] == 0) --length;
+  bool text = length && length < sizeof stationInfo.serialText;
+  for (size_t i = 0; text && i < length; ++i) text = value[i] >= 32 && value[i] <= 126;
+  if (text) {
+    memcpy(stationInfo.serialText, value.data(), length);
+  } else {
+    stationInfo.hasSerial = stationNumber(value, stationInfo.serial);
+  }
 }
 
 static bool readStationInfo(NimBLEClient* client, NimBLERemoteService* control) {
@@ -51,7 +64,7 @@ static bool readStationInfo(NimBLEClient* client, NimBLERemoteService* control) 
     stationText(stationInfo.manufacturer, sizeof stationInfo.manufacturer, readStationAttribute(device, NimBLEUUID(uint16_t(0x2a29))));
     stationText(stationInfo.hardware, sizeof stationInfo.hardware, readStationAttribute(device, NimBLEUUID(uint16_t(0x2a27))));
     stationInfo.hasModel = stationNumber(readStationAttribute(device, NimBLEUUID(uint16_t(0x2a24))), stationInfo.model);
-    stationInfo.hasSerial = stationNumber(readStationAttribute(device, NimBLEUUID(uint16_t(0x2a25))), stationInfo.serial);
+    readStationSerial(device);
   }
   return true;
 }
@@ -63,6 +76,7 @@ static void writeStationInfo(JsonObject out) {
   if (stationInfo.channel) out["channel"] = stationInfo.channel;
   if (stationInfo.manufacturer[0]) out["manufacturer"] = stationInfo.manufacturer;
   if (stationInfo.hasModel) out["model"] = stationInfo.model;
-  if (stationInfo.hasSerial) out["serial"] = stationInfo.serial;
+  if (stationInfo.serialText[0]) out["serial"] = stationInfo.serialText;
+  else if (stationInfo.hasSerial) out["serial"] = stationInfo.serial;
   if (stationInfo.hardware[0]) out["hardware"] = stationInfo.hardware;
 }

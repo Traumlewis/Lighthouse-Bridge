@@ -26,6 +26,7 @@ def preferences_dashboard(html):
 </style>''')
     change('id="refresh"', 'id="refresh" hidden')
     change('function renderDebugMode(){', "function renderDebugMode(){$('refresh').hidden=!debugEnabled;")
+    change('<p class="muted" data-t="loginHelp"></p>', '<p class="muted" id="login-help" data-t="loginHelp" hidden></p>')
     change('<p data-t="username">Username: admin</p>', '<label id="login-username-label" hidden><span data-t="usernameLabel"></span><input id="login-username" autocomplete="username" maxlength="32"></label>')
     change('<button id="change-password" data-t="changePassword"></button>', '''<button id="change-password" data-t="changePassword"></button><form id="username-form"><label class="account-toggle"><input type="checkbox" id="username-enabled"><span data-t="usernameEnabled"></span></label><label id="username-setting-label" hidden><span data-t="usernameLabel"></span><input id="web-username" autocomplete="username" maxlength="32" pattern="[A-Za-z0-9_.-]{1,32}"></label><p data-t="usernameHelp"></p><button type="submit" data-t="saveUsername"></button></form>''')
     # Place rotation beside the private key, never in public information.
@@ -42,8 +43,8 @@ def preferences_dashboard(html):
         note='Each station uses its saved SLEEP or STANDBY preference when switched off. Displayed states are measured over Bluetooth.',
         STATE_INVALID='Only on, off, sleep and standby are allowed.',CONFIG_OFF_STATE='Choose SLEEP or STANDBY.',
         chooseDiscovered='Choose a discovered device…',discoveredLabel='Discovered Bluetooth devices',
-        loginHelp='First login: use the API key shown over USB, then choose your own password. Later logins use your password and, if enabled, your username.',
-        LOGIN_FAILED='Sign-in failed. Check your password and, if enabled, username. First setup uses the API key.')
+        loginHelp='For the first login, use the API key shown over USB. Then choose your web password.',
+        LOGIN_FAILED='Sign-in failed. Check your sign-in details.')
     translations['de'].update(security='Passwort und Benutzername ändern',changePassword='Passwort',
         usernameLabel='Benutzername',usernameEnabled='Benutzernamen bei der Anmeldung verlangen',saveUsername='Benutzernamen speichern',
         usernameHelp='Optional. 1–32 Buchstaben, Ziffern, Punkte, Bindestriche oder Unterstriche. Bei der Ersteinrichtung ist kein Benutzername nötig. Speichern meldet andere Browser-Sitzungen ab.',
@@ -54,8 +55,8 @@ def preferences_dashboard(html):
         note='Beim Ausschalten verwendet jede Station ihre gespeicherte Auswahl SLEEP oder STANDBY. Die angezeigten Zustände werden über Bluetooth gemessen.',
         STATE_INVALID='Erlaubt sind on, off, sleep und standby.',CONFIG_OFF_STATE='Wähle SLEEP oder STANDBY.',
         chooseDiscovered='Gefundenes Gerät auswählen …',discoveredLabel='Gefundene Bluetooth-Geräte',
-        loginHelp='Erste Anmeldung: API-Schlüssel aus USB verwenden, dann ein eigenes Passwort wählen. Später mit dem eigenen Passwort und, falls aktiviert, Benutzernamen anmelden.',
-        LOGIN_FAILED='Anmeldung fehlgeschlagen. Prüfe Passwort und gegebenenfalls Benutzername. Bei der Ersteinrichtung gilt der API-Schlüssel.')
+        loginHelp='Verwende bei der ersten Anmeldung den über USB angezeigten API-Schlüssel. Wähle danach dein Web-Passwort.',
+        LOGIN_FAILED='Anmeldung fehlgeschlagen. Prüfe deine Anmeldedaten.')
     translations['en'].update(stationInfo='Device information', stationInfoRead='Reading Bluetooth device information…', STATION_INFO_FAILED='Device information could not be read.', infoType='Device type', infoName='Bluetooth name', infoFirmware='Firmware version', infoChannel='Channel', infoManufacturer='Manufacturer name', infoModel='Model number', infoSerial='Serial number', infoHardware='Hardware revision', infoMissing='Unavailable', infoClose='Close')
     translations['de'].update(stationInfo='Geräteinformationen', stationInfoRead='Bluetooth-Geräteinformationen werden gelesen …', STATION_INFO_FAILED='Die Geräteinformationen konnten nicht gelesen werden.', infoType='Gerätetyp', infoName='Bluetooth-Name', infoFirmware='Firmware-Version', infoChannel='Kanal', infoManufacturer='Hersteller', infoModel='Modellnummer', infoSerial='Seriennummer', infoHardware='Hardware-Revision', infoMissing='Nicht verfügbar', infoClose='Schließen')
     for language,values in translations.items():
@@ -91,7 +92,7 @@ function initForm(stations){''')
     change("t('requested')+': '+(station==='all'?t(state):t('station')+' '+station+' · '+t(state))", "t('requested')+': '+(station==='all'?(state==='off'?t('turnOff'):t(state)):t('station')+' '+station+' · '+(state==='off'?t(current?.stations.find(s=>s.id===station)?.off_state||'sleep'):t(state)))")
     change("{password:$('login-password').value}", "{password:$('login-password').value,...(!$('login-username-label').hidden?{username:$('login-username').value}:{})}")
     change("$('login-password').value='';", "$('login-password').value='';$('login-username').value='';")
-    change('function showLogin(){', "let loginOptionsEpoch=0;\nasync function loadLoginOptions(){const epoch=++loginOptionsEpoch;try{const info=await api('/api/login');if(epoch!==loginOptionsEpoch||loggedIn)return;$('login-username-label').hidden=!info.username_enabled;$('login-username').required=!!info.username_enabled;}catch(_){}}\nfunction showLogin(){$('login-username').value='';$('login-username-label').hidden=true;$('login-username').required=false;loadLoginOptions();")
+    change('function showLogin(){', "let loginOptionsEpoch=0;\nasync function loadLoginOptions(){const epoch=++loginOptionsEpoch;try{const info=await api('/api/login');if(epoch!==loginOptionsEpoch||loggedIn)return;$('login-help').hidden=info.password_set!==false;$('login-username-label').hidden=!info.username_enabled;$('login-username').required=!!info.username_enabled;}catch(_){}}\nfunction showLogin(){$('login-help').hidden=true;$('login-username').value='';$('login-username-label').hidden=true;$('login-username').required=false;loadLoginOptions();")
     change("loggedIn=true;$('login-panel')", "loggedIn=true;loginOptionsEpoch++;$('login-panel')")
     change("if(!account.password_required){$('api-key')", "if(!account.password_required){$('username-enabled').checked=!!account.username_enabled;$('web-username').value=account.username||'';renderUsernameSetting();$('api-key')")
     change("$('logout').addEventListener('click'", '''function renderUsernameSetting(){$('username-setting-label').hidden=!$('username-enabled').checked;$('web-username').required=$('username-enabled').checked;}

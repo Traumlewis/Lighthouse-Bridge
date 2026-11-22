@@ -3,6 +3,11 @@
 Release notes are listed newest first. Current stable firmware: **0.3.9**.
 For validation evidence and remaining hardware checks, see [the validation report](docs/VALIDATION.md).
 
+## Login and station serial number — 0.1.26-rs-matter
+
+- Show the USB/API-key login instructions only before a web password is set.
+- Display printable Bluetooth serial numbers in Device information.
+
 ## Dangerzone setup details — 0.1.25-rs-matter
 
 - Show the current setup Wi-Fi name and API key in Wi-Fi & local API.

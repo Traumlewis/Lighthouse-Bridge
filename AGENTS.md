@@ -85,6 +85,18 @@ status change. Keep current facts, not a conversation log. User instructions win
 - Never send power commands automatically on boot/reboot/Wi-Fi reconnect. Pure
   BLE reads at startup and periodically are intended and required.
 
+## rs-matter 0.1.26 login and serial number
+
+- Public GET /api/login includes password_set alongside username_enabled.
+  Show the USB/API-key sign-in hint only when password_set is explicitly
+  false. Clear the hint while loading login options. Keep secrets and account
+  names out of this response.
+- Device information accepts printable serials from the standard serial
+  characteristic and preserves them as text, including leading zeroes.
+  Keep the existing numeric decoding for short binary values. Hardware
+  verification of the serial field requires a separate approved OTA. All four
+  rs builds, 34 asset checks and the full browser and USB suite pass.
+
 ## rs-matter 0.1.24 reset preview and Matter platforms
 
 - Since 0.1.25 the current setup Wi-Fi name and API key appear in WLAN/local
@@ -96,6 +108,7 @@ status change. Keep current facts, not a conversation log. User instructions win
   reachable and retain their assignments and OFF choices. Wi-Fi, account,
   room, GPIO settings and Matter pairing are retained. The diagnostic
   session was closed. A new device update requires approval.
+
 - Open the reset preview only from an explicit Dangerzone action. A personal
   password session and the existing Origin/JSON gate must protect both preview
   and confirmation. Generate a 24-digit hex key in RAM, valid for five minutes
@@ -131,7 +144,7 @@ status change. Keep current facts, not a conversation log. User instructions win
   and MAC. Use the Lighthouse control service to verify V2 and read its channel;
   use GAP Device Name (matched scan name as fallback) and the Bluetooth Device
   Information Service for firmware, manufacturer, model, serial and hardware.
-  Parse Valve model/serial values as binary big-endian numbers. Preserve line
+  Parse binary model/serial values as big-endian numbers. Preserve line
   breaks in the firmware string. Missing attributes display as unavailable.
   The transient result is private to personal web sessions, excluded from
   general status, logs and persistence. No startup, background or power write
@@ -1228,7 +1241,8 @@ Never copy the credential-bearing raw log into the repository.
   Usernames use 1..32 ASCII letters/digits/dot/underscore/hyphen. Login requires
   the matching name only when enabled after bootstrap; physical web-auth recovery
   clears it with the password. Settings changes invalidate other web sessions.
-  Public GET /api/login exposes only username_enabled, never the name or secrets.
+  Public GET /api/login exposes username_enabled and (since 0.1.26) password_set,
+  never the name or secrets.
   Personal-session POST /api/key with confirm:true regenerates access_key, also
   changing the future setup-AP password. It leaves router Wi-Fi, own password,
   sessions, stations and Matter fabrics intact. Old integration keys immediately

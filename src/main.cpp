@@ -995,7 +995,9 @@ void configureRoutes() {
 #ifdef LH_RS_MATTER_BUILD
   // Public capability only: no account name, key, hash or salt is returned.
   server.on("/api/login", HTTP_GET, [] {
-    StaticJsonDocument<64> doc; doc["username_enabled"] = webHash.length() && webUsernameEnabled;
+    StaticJsonDocument<64> doc;
+    doc["username_enabled"] = webHash.length() && webUsernameEnabled;
+    doc["password_set"] = webHash.length() != 0;
     sendJson(200,doc);
   });
   server.on("/api/network", HTTP_POST, [] {

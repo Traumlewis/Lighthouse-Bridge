@@ -1,7 +1,7 @@
 # Local API — 0.3.9
 
 The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.25-rs-matter**, with the Matter-only private endpoints below. The separate
+**0.3.9-matter** and **0.1.26-rs-matter**, with the Matter-only private endpoints below. The separate
 [prototype guide](../experimental/matter/README.md) covers installation and
 hardware-test limits. Stable firmware remains 0.3.9.
 
@@ -26,7 +26,8 @@ Personal-session `POST /api/station-info` with the saved station `id` and
 `GET /api/station-info` for the same `job` and `pending: false`. The
 successful `info` object contains `type` and any available attributes:
 `name`, `firmware`, `channel`, `manufacturer`, `model`, `serial` and
-`hardware`. Unavailable fields are omitted. The transient read job shares
+`hardware`. Since 0.1.26, `serial` may be a string for printable serials;
+short binary serials remain numeric. Unavailable fields are omitted. The transient read job shares
 the same BLE queue with Identify and uses the existing Origin and JSON
 checks. API-key and bootstrap sessions cannot access these routes.
 
@@ -168,8 +169,9 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 
 These additions apply only to rs-matter; stable/SDK behavior remains as above.
 
-- Public `GET /api/login` returns only `{"username_enabled":false|true}`. First
-  setup and migrated accounts default to false. It never returns the account name.
+- Public `GET /api/login` returns boolean `username_enabled` and, since 0.1.26,
+  boolean `password_set`. First setup and migrated accounts default to having
+  usernames disabled. The endpoint never returns the account name.
 - If enabled after personal-password setup, `POST /api/login` additionally needs
   `"username":"…"`. Incorrect names/passwords share the existing failure/throttle
   behavior. Bootstrap login needs no name.

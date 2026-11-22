@@ -1,5 +1,16 @@
 # Validation report — 0.3.9
 
+## rs-matter 0.1.26: login and serial number
+
+EN/DE browser checks cover the initial USB sign-in hint, personal-password
+login with and without a username, and a full printable serial in Device
+information. A host check of the BLE reader and JSON output covered a
+NUL-terminated printable serial, a four-byte binary serial and unavailable
+values. All four rs builds, 34 asset checks and 16 browser/USB programs pass.
+App bytes are 1,963,984
+classic, 1,965,376 both C3 profiles and 1,889,952 S3 in the unchanged
+1,966,080-byte slots. Physical station serial reads are pending.
+
 ## rs-matter 0.1.25: Dangerzone setup details
 
 The EN/DE browser regression at 1280/390/320 confirms Dangerzone omits the

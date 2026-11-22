@@ -1,4 +1,4 @@
-import { translations } from './translations.js?v=rs-matter-0.1.25';
+import { translations } from './translations.js?v=rs-matter-0.1.26';
 import { validUpdateParts } from './flash-layout.mjs?v=rs-matter-0.1.8';
 import { watchDeviceInfo } from './serial-info.mjs?v=rs-matter-0.1.8';
 

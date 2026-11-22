@@ -5,7 +5,7 @@ const html=zlib.gunzipSync(Buffer.from(source.split('{')[1].split('}')[0].split(
 for(const lang of ['en','de'])for(const width of [1280,390,320]){
  const page=await browser.newPage({viewport:{width,height:1100}}),calls=[],errors=[];let signed=false,room='',rejectRoom=false,rejectMaintenance=false;
  const account={password_required:false,alexa_protocol:'matter',network_mode:'home',matter_ready:true,api_key:'111111111111111111111111',setup_ssid:'Example-Bridge',hostname:'example'};
- const status={version:'0.1.25-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
+ const status={version:'0.1.26-rs-matter',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]};
  page.on('pageerror',e=>errors.push(e.message));await page.route('http://bridge.test/**',route=>{
   const r=route.request(),p=new URL(r.url()).pathname;calls.push({p,method:r.method(),body:r.postDataJSON()});
   if(p==='/')return route.fulfill({contentType:'text/html',body:html});
