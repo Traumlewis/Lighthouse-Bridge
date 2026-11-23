@@ -19,7 +19,7 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
    const r=route.request(),uri=new URL(r.url()).pathname;
    if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.35',servedVersion)});}
    if(r.method()==='POST')mutations.push(uri);
-   if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});
+   if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false,version:servedVersion}});
     if(uri==='/api/login'){signedIn=true;return route.fulfill({json:{password_required:false}});}
    if(uri==='/api/logout'){signedIn=false;return route.fulfill({json:{logged_out:true}});}
    if(installed&&uri==='/api/account'){
@@ -134,17 +134,17 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
   await signIn();servedVersion='99.0.1';status.version=servedVersion;signedIn=false;
   await page.evaluate(()=>{refresh();});
   await page.waitForFunction(()=>document.getElementById('version-toggle').textContent==='LH-Bridge 99.0.1');
-  assert.equal(rootReads,4,'external update probes the public version then reloads the new HTML once');
+  assert.equal(rootReads,3,'external update probes the login options then reloads the new HTML once');
   await page.locator('#login-panel').waitFor({state:'visible'});
   await signIn();signedIn=false;
-  const unchangedPage=page.waitForResponse(r=>new URL(r.url()).pathname==='/'&&r.request().resourceType()==='fetch');
+  const unchangedPage=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/login'&&r.request().method()==='GET');
   await page.evaluate(()=>refresh());await unchangedPage;
   await page.waitForTimeout(150);
-  assert.equal(rootReads,5,'ordinary session expiry probes once without reloading unchanged firmware');
+  assert.equal(rootReads,3,'ordinary session expiry checks the version without transferring the dashboard');
   await signIn();servedVersion='99.0.2';status.version=servedVersion;
   await page.evaluate(()=>{refresh();});
   await page.waitForFunction(()=>document.getElementById('version-toggle').textContent==='LH-Bridge 99.0.2');
-  assert.equal(rootReads,6,'a version mismatch on an authenticated status also reloads the page');
+  assert.equal(rootReads,4,'a version mismatch on an authenticated status also reloads the page');
   assert.equal(uploads,2,'external firmware detection never writes another image');
 
   assert.equal(mutations.some(p=>['/api/power','/api/config','/api/matter/commissioning'].includes(p)),false);
