@@ -1,4 +1,3 @@
-#define LH_RS_MATTER_BUILD 1
 #include "web_account.h"
 #include "rs_matter_commands.h"
 #include "config_stream.h"

@@ -2,9 +2,7 @@
 #include "socket_write.h"
 #include <errno.h>
 #include <sys/socket.h>
-#ifdef LH_RS_MATTER_BUILD
 extern "C" int lh_rs_pump();
-#endif
 
 class MatterWebServer : public WebServer {
   uint32_t writeStarted = 0;
@@ -13,9 +11,7 @@ class MatterWebServer : public WebServer {
     NetworkClient& client;
     uint32_t now() { return millis(); }
     void pause() {
-#ifdef LH_RS_MATTER_BUILD
       lh_rs_pump();
-#endif
       delay(1);
     }
     int tryWrite(const uint8_t* data,size_t size) {
@@ -34,9 +30,7 @@ public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
   void handleClient() { writing = false; WebServer::handleClient(); }
   size_t writeBytes(const uint8_t* bytes,size_t size) {
-#ifdef LH_RS_MATTER_BUILD
     lh_rs_pump();
-#endif
     if (!writing) { writing = true; writeStarted = millis(); }
     Transport transport{_currentClient};
     const size_t sent = bridge::writeSocketBody(transport,bytes,size,writeStarted);

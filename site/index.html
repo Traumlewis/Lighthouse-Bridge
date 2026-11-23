@@ -1,62 +1,39 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="description" data-i18n-content="description" content="Install Lighthouse Bridge on an ESP32. Control up to 16 Valve Lighthouse V2 base stations using Alexa, a web interface and a local API.">
+  <meta name="description" content="Install Lighthouse Bridge for Valve Lighthouse V2 using the USB WebFlasher.">
   <title>Lighthouse Bridge · WebFlasher</title>
-  <link rel="stylesheet" href="style.css?v=0.3.0-copy1">
-  <script type="module" src="app.js?v=rs-matter-0.1.27"></script>
+  <link rel="stylesheet" href="style.css?v=rs-matter-0.1.28">
+  <script type="module" src="flasher.js?v=rs-matter-0.1.28"></script>
 </head>
-<body>
-  <main>
-    <header><a class="brand" href="./"><span class="mark" aria-hidden="true">◈</span> Lighthouse Bridge</a><nav class="header-actions" data-i18n-aria-label="navigation" aria-label="Language and project"><label class="language-picker"><span class="sr-only" data-i18n="language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option></select></label><a class="repo" href="https://github.com/Traumlewis/Lighthouse-Bridge">GitHub ↗</a></nav></header>
-    <section class="hero">
-      <div><p class="eyebrow">ESP32 · WebFlasher</p><h1 data-i18n="hero_title">Your VR room.<br>A little helper.</h1><p class="lead" data-i18n="hero_lead">Install Lighthouse Bridge directly over USB. Your ESP32 controls up to 16 Valve Lighthouse V2 base stations using Alexa and a local web interface.</p><div class="tags"><span>ON &amp; SLEEP</span><span data-i18n="four_stations">Up to 16 base stations</span><span data-i18n="no_companion">No companion app</span></div></div>
-      <div class="board" aria-hidden="true"><div class="rays"></div><div class="chip"><span>LIGHTHOUSE<br>BRIDGE</span><small>ESP-WROOM-32</small><div class="led"></div></div><div class="usb"></div><span class="board-label" data-i18n="wireless">Wi-Fi ↔ BLE</span></div>
-    </section>
-    <section class="install-panel" aria-labelledby="install-title">
-      <div class="install-heading"><div><p class="eyebrow" data-i18n="install_eyebrow">Install firmware</p><h2 id="install-title" data-i18n="install_title">Plug in your ESP32. Get started.</h2></div><span id="version" class="version" data-i18n="loading_version">Loading firmware …</span></div>
-      <p data-i18n="board_description">This stable Hue firmware supports the original <strong>ESP-WROOM-32 / ESP-32S</strong> with at least <strong>4 MB flash</strong>, including CH340 boards with USB-C. For WeAct ESP32-C3FH4, C3 SuperMini or S3 SuperMini, use the <a href="rs-matter.html">rs-matter WebFlasher with board selection</a>. ESP32-S2 is not supported.</p>
-      <label class="check"><input id="board-confirm" type="checkbox"><span data-i18n="board_confirmation">I have connected the supported board using a USB data cable.</span></label>
-      <div class="install-actions">
-        <esp-web-install-button id="installer" manifest="manifest.json" hidden>
-          <button id="install" slot="activate" disabled data-i18n="install_button">Connect &amp; install <span aria-hidden="true">→</span></button>
-          <span slot="unsupported" data-i18n="unsupported">Use Chrome or Edge on a computer to flash your board. This browser does not provide Web Serial access here.</span>
-          <span slot="not-allowed" data-i18n="not_allowed">The flasher requires HTTPS or localhost.</span>
-        </esp-web-install-button>
-        <a id="download" class="download" href="firmware/lighthouse-bridge-esp32-merged.bin" download hidden data-i18n="factory_warning">Factory BIN (resets settings) ↓</a>
-      </div>
-      <p id="load-status" class="hint" role="status" data-i18n="checking">Checking firmware. Your USB port has not been accessed.</p>
-      <p><a id="ota-download" class="download" href="firmware/lighthouse-bridge-v0.3.9.lhota" download hidden data-i18n="ota_download"></a></p><p data-i18n="ota_help"></p>
-      <p id="module-error" class="error" hidden data-i18n="module_error">The flasher could not be loaded. Reload the page, or download the firmware instead.</p>
-      <details class="erase-note"><summary data-i18n="erase_title">First install or update?</summary><p data-i18n="erase_body">For a first installation on a previously used board, erasing the flash is recommended. <strong>This deletes existing settings.</strong> For a Bridge update, leave the erase option unchecked to keep your Wi-Fi credentials, access key and station assignments. The installer lets you choose.</p></details>
-    </section>
-    <section class="install-panel usb-panel" aria-labelledby="usb-title">
-      <h2 id="usb-title" data-i18n="usb_title">Your device, over USB</h2>
-      <p data-i18n="usb_help">After flashing, close the installer dialog. This panel then reads your key and Wi-Fi address over USB.</p>
-      <div class="install-actions"><button id="usb-read" data-i18n="usb_read">Read key &amp; address</button><button id="usb-stop" data-i18n="usb_stop" hidden>Disconnect USB</button></div>
-      <p id="usb-status" class="hint" role="status">USB information is read only after you connect.</p>
-      <dl id="usb-info" hidden><dt data-i18n="usb_key">API key / setup Wi-Fi password</dt><dd><button type="button" id="copy-key"><code id="usb-key"></code></button><span id="copy-status" role="status" data-i18n="copy_hint"></span></dd><dt data-i18n="usb_ssid">Setup Wi-Fi</dt><dd id="usb-ssid"></dd><dt data-i18n="usb_url">Web interface address</dt><dd><a id="usb-url" target="_blank" rel="noopener noreferrer" hidden></a><span id="usb-wifi-wait" data-i18n="usb_wifi_wait">Waiting for Wi-Fi connection …</span></dd></dl>
-      <p class="hint" data-i18n="usb_login">First web login uses admin and this key. Then choose your own web password.</p>
-    </section>
-    <section class="next" aria-labelledby="next-title"><p class="eyebrow" data-i18n="after_install">After installation</p><h2 id="next-title" data-i18n="next_title">Three steps to your first SLEEP.</h2>
-      <ol class="steps">
-        <li><span class="number">01</span><div><h3 data-i18n="key_title">Read your access key</h3><p data-i18n="key_body">Open the serial console / “Logs &amp; Console” in the flasher at 115200 baud and briefly press <strong>EN/RESET</strong>. The ESP32 prints its setup Wi-Fi name and a unique 24-character key. This is your setup and web password.</p></div></li>
-        <li><span class="number">02</span><div><h3 data-i18n="wifi_title">Connect to your Wi-Fi</h3><p data-i18n="wifi_body">Connect to <strong>Lighthouse-Setup-XXXXXX</strong> using your key as the password. Open <strong>http://192.168.4.1</strong>, select your 2.4 GHz home Wi-Fi and save. Wi-Fi setup runs on the ESP32.</p></div></li>
-        <li><span class="number">03</span><div><h3 data-i18n="assign_title">Add your stations</h3><p data-i18n="assign_body">Reconnect to your home Wi-Fi and open the IP address shown in the serial console. Sign in with <strong>admin</strong> and your key. Discover the up to 16 LHB devices, assign them and save. You can then ask Alexa to discover devices.</p></div></li>
-      </ol>
-    </section>
-    <aside class="prototype"><span class="dot" aria-hidden="true"></span><div><strong data-i18n="prototype_title">Prototype · hardware testing pending</strong><p data-i18n="prototype_body">The firmware compiles and the interface has been tested with simulated data. BLE and Hue emulation on the Alexa still need testing on real devices. “Off” always sends SLEEP, never STANDBY.</p></div></aside>
-    <section class="help"><h2 data-i18n="help_title">Need a hand?</h2>
-      <details><summary data-i18n="port_title">My board does not appear as a USB port</summary><p data-i18n="port_body">Use a USB data cable and close other serial applications. Install the CH340 driver if needed. Use a browser on a computer; this flasher is not intended for smartphones.</p></details>
-      <details><summary data-i18n="connect_title">The flasher cannot connect to my ESP32</summary><p data-i18n="connect_body">Hold BOOT, briefly press EN/RESET, then release BOOT once the flasher connects. For a normal restart, press EN/RESET only.</p></details>
-      <details><summary data-i18n="improv_title">Can I enter my Wi-Fi credentials in the flasher?</summary><p data-i18n="improv_body">This firmware uses its own Wi-Fi setup portal. Improv Serial configuration is not implemented yet. Read your key in the console, then connect to the setup Wi-Fi.</p></details>
-      <details><summary data-i18n="api_title">Can other tools control the Bridge?</summary><p data-i18n="api_body">Use the local HTTP API with X-API-Key. See the repository API documentation.</p></details>
-      <details><summary data-i18n="dialog_title">Which language does the installation dialog use?</summary><p data-i18n="dialog_body">This page is available in English and German. The ESP Web Tools installation dialog and your browser’s USB port picker use their own language settings and may remain in English.</p></details>
-    </section>
-    <footer><span data-i18n="footer">Your Bridge stays on your home network.</span><a href="https://github.com/Traumlewis/Lighthouse-Bridge#readme" data-i18n="guide">Guide</a><a href="matter.html" data-i18n="matter_link">Experimental Matter test</a><a href="rs-matter.html" data-i18n="rs_matter_link">rs-matter prototype</a><a href="https://github.com/Traumlewis/Lighthouse-Bridge/actions">Builds</a><a id="checksum-link" href="firmware/SHA256SUMS" hidden>SHA-256</a><span id="build-info"></span></footer>
-  </main>
-</body>
-</html>
+<body><main>
+  <header><a class="brand" href="./">◈ Lighthouse Bridge</a><nav class="header-actions" data-i18n-aria-label="navigation"><label class="language-picker"><span class="sr-only" data-i18n="language">Language</span><select id="language"><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option></select></label></nav></header>
+  <section class="hero"><div><p class="eyebrow" data-i18n="rs_matter_eyebrow">Matter · ESP32 / C3 / S3</p><h1 data-i18n="rs_matter_title">Lighthouse Bridge WebFlasher</h1><p class="lead" data-i18n="rs_matter_intro">Control up to 16 Valve Lighthouse V2 base stations over Bluetooth. Matter exposes each station as a separate light in your smart home.</p></div></section>
+  <section class="install-panel">
+    <h2 data-i18n="rs_matter_prepare">Install Lighthouse Bridge</h2>
+    <p data-i18n="rs_matter_prerequisites">Connect the board with a USB data cable and open this page in Chrome or Edge on a computer.</p>
+    <p data-i18n="rs_matter_layout">Keep “Erase device” unchecked to retain settings. For Wi-Fi updates, download the .lhota for your board and upload it in the bridge dashboard.</p>
+    <label for="rs-board" data-i18n="rs_board">Board</label><select id="rs-board"><option value="esp32">ESP-WROOM-32 / ESP-32S</option><option value="weact-c3">WeAct ESP32-C3FH4</option><option value="c3-supermini">ESP32 C3 SuperMini</option><option value="s3-supermini">ESP32 S3 SuperMini · 4 MB Flash / 2 MB PSRAM</option></select><p data-i18n="rs_board_help">Choose the exact board. Operation on C3 and S3 boards has yet to be verified on hardware.</p>
+    <label class="check"><input id="matter-confirm" type="checkbox"><span data-i18n="rs_matter_confirmation">I selected my board and will leave “Erase device” unchecked.</span></label>
+    <div class="install-actions"><esp-web-install-button id="matter-installer" manifest="manifest.json" hidden><button slot="activate" id="matter-install" disabled data-i18n="rs_matter_install">Install Lighthouse Bridge</button><span slot="unsupported" data-i18n="unsupported"></span><span slot="not-allowed" data-i18n="not_allowed"></span></esp-web-install-button><a id="matter-download" class="download" hidden download data-i18n="matter_download">Firmware and source (ZIP) ↓</a><a id="matter-ota" class="download" hidden download data-i18n="matter_ota">Matter Wi-Fi update (.lhota) ↓</a></div>
+    <p id="matter-load" class="hint" role="status"></p><p id="matter-module-error" class="error" hidden data-i18n="module_error"></p>
+  </section>
+  <section class="install-panel usb-panel">
+    <h2 data-i18n="matter_pair_title">Setup and pairing over USB</h2>
+    <p data-i18n="rs_matter_pair_help">Read the setup key and address after flashing. Open the dashboard and sign in. To pair a new bridge, get the code under Matter setup and add the bridge in your smart home app. Existing rs-matter updates keep pairings.</p>
+    <div class="install-actions"><button id="matter-read" type="button" data-i18n="matter_read">Read setup code & status</button><button id="matter-stop" type="button" hidden data-i18n="usb_stop">Disconnect USB</button></div>
+    <p id="matter-usb-status" role="status" class="hint"></p>
+    <div id="matter-access" hidden><p><span data-i18n="matter_access">First web login / setup Wi-Fi key</span>: <button class="plain-key" id="matter-key" type="button"></button></p><p><span data-i18n="matter_ssid">Setup Wi-Fi</span>: <strong id="matter-ssid"></strong></p><p><a id="matter-url" hidden></a></p></div>
+    <div id="matter-device" hidden>
+      <p><span data-i18n="matter_bridge">Matter bridge</span>: <strong id="matter-bridge"></strong></p>
+      <p><span data-i18n="matter_station">Configured stations</span>: <strong id="matter-station"></strong></p>
+      <ul id="matter-stations" class="matter-stations"></ul>
+      <p><span data-i18n="matter_code_label">Matter setup code</span>: <button class="plain-key" id="matter-code" type="button" data-i18n-aria-label="matter_copy_code"></button></p>
+      <p id="matter-pair-state"></p><p id="matter-measurement"></p><p id="matter-copy-status" class="hint" role="status"></p>
+    </div>
+    <p data-i18n="matter_privacy">USB keys and codes remain in page memory; they are never stored or sent to a website. The dashboard reveals the Matter code only after signing in with your own password. Startup and reconnect only read station state.</p>
+  </section>
+  <footer><a href="https://github.com/Traumlewis/Lighthouse-Bridge" data-i18n="guide">Guide</a><a href="https://github.com/Traumlewis/Lighthouse-Bridge/actions">GitHub Actions</a></footer>
+</main></body></html>

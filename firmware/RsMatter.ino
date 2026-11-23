@@ -1,6 +1,4 @@
-#define LH_MATTER_BUILD 1
-#define LH_RS_MATTER_BUILD 1
-#define LH_FIRMWARE_VERSION "0.1.27-rs-matter"
+#define LH_FIRMWARE_VERSION "0.1.28-rs-matter"
 #include <Arduino.h>
 // Owner 0.1.7 commissioning left only 692 bytes of the 16-KiB task stack.
 // Move 2 KiB here from the compile-checked Rust future arena; their sum stays 32 KiB.

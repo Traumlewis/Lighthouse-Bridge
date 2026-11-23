@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-"""Assemble GitHub Pages from an already verified firmware release."""
+"""Publish only the verified rs-matter firmware profiles to GitHub Pages."""
 import base64
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import shutil
+from tempfile import TemporaryDirectory
 
-from package_release import ROOT, VERSION
+from build_rs_matter import BOARDS, ROOT, SEGMENTS, VERSION
+from firmware_assets import validate_segments
 from ota_package import unpack
-from build_matter import validate_segments, SEGMENTS, VERSION as MATTER_VERSION
-from build_rs_matter import VERSION as RS_MATTER_VERSION
-from rs_boards import BOARDS
 
 
-def build():
+def verify_vendor():
     upstream = json.loads((ROOT / 'site/vendor/UPSTREAM.json').read_text())
     for entry in upstream['files']:
         file = ROOT / 'site/vendor' / Path(entry['path']).name
@@ -27,117 +25,61 @@ def build():
         for relative in re.findall(r'["\x27](\./[^"\x27]+\.js)["\x27]', file.read_text()):
             if not (file.parent / relative).is_file():
                 raise ValueError(f'Missing module {relative} imported by {file.name}')
-    image = ROOT / 'dist/lighthouse-bridge-esp32-merged.bin'
-    checksum = hashlib.sha256(image.read_bytes()).hexdigest()
-    recorded = (ROOT / 'dist/SHA256SUMS').read_text().split()[0]
-    if checksum != recorded:
-        raise ValueError('Firmware checksum mismatch')
-    if image.stat().st_size > 4 * 1024 * 1024 or image.read_bytes()[0x1000] != 0xe9:
-        raise ValueError('Not a merged 4 MB ESP32 image with bootloader at 0x1000')
-    output = ROOT / '_site'
-    output.mkdir(exist_ok=True)
-    shutil.copytree(ROOT / 'site', output, dirs_exist_ok=True)
-    firmware = output / 'firmware'
-    firmware.mkdir(exist_ok=True)
-    shutil.copy2(image, firmware / image.name)
-    names = ['bootloader', 'partitions', 'boot-app0', 'app']
-    offsets = [0x1000, 0x8000, 0xe000, 0x10000]
+
+
+def publish_board(output, board_id, board):
+    folder = Path('rs-matter')
+    if board_id != 'esp32':
+        folder /= board_id
+    source = ROOT / 'dist' / folder
+    destination = output / 'firmware' / folder
+    destination.mkdir(parents=True)
+    manifest = json.loads((source / 'manifest.json').read_text())
+    segments = [
+        (board['boot'] if name == 'bootloader' else offset,
+         (source / f'lighthouse-rs-matter-{name}.bin').read_bytes())
+        for name, offset, _ in SEGMENTS
+    ]
+    validate_segments(segments, board['chip'], board['boot'])
     parts = []
-    for name, offset in zip(names, offsets):
-        file = ROOT / 'dist' / f'lighthouse-bridge-{name}.bin'
-        if not file.is_file():
-            raise ValueError(f'Missing update segment: {file}')
-        end = offset + ((file.stat().st_size + 4095) // 4096) * 4096
-        if offset < 0xe000 and end > 0x9000:
-            raise ValueError('Update segment would erase NVS')
-        if image.read_bytes()[offset:offset + file.stat().st_size] != file.read_bytes():
-            raise ValueError('Update segment differs from merged firmware')
-        shutil.copy2(file, firmware / file.name)
-        # The installer uses normal browser caching: give each image its own URL.
-        digest = hashlib.sha256(file.read_bytes()).hexdigest()
-        parts.append({'path': 'firmware/' + file.name + '?sha=' + digest, 'offset': offset})
-    ota = ROOT / 'dist' / f'lighthouse-bridge-v{VERSION}.lhota'
-    if unpack(ota.read_bytes()) != (ROOT / 'dist/lighthouse-bridge-app.bin').read_bytes():
-        raise ValueError('OTA payload differs from application')
-    shutil.copy2(ota, firmware)
-    shutil.copy2(ROOT / 'dist/SHA256SUMS', firmware / 'SHA256SUMS')
-    shutil.copy2(ROOT / 'dist' / f'lighthouse-bridge-v{VERSION}.zip', firmware)
-    manifest = {
-        'name': 'Lighthouse Bridge', 'version': VERSION,
-        'new_install_prompt_erase': True,
-        'new_install_improv_wait_time': 0,
-        'builds': [{'chipFamily': 'ESP32', 'parts': parts}],
-    }
-    (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    (output / 'build-info.json').write_text(json.dumps({
-        'version': VERSION, 'commit': os.environ.get('GITHUB_SHA', ''),
-        'sha256': checksum, 'esp_web_tools': upstream['version'],
-    }, indent=2) + '\n')
-    matter = ROOT / 'dist/matter'
-    matter_manifest = json.loads((matter / 'manifest.json').read_text())
-    if matter_manifest['version'] != MATTER_VERSION or len(matter_manifest['builds']) != 1 or matter_manifest['builds'][0]['chipFamily'] != 'ESP32':
-        raise ValueError('Unexpected Matter prototype identity')
-    matter_segments = [(offset, (matter / f'lighthouse-matter-{name}.bin').read_bytes()) for name, offset, _ in SEGMENTS]
-    validate_segments(matter_segments)
-    if unpack((matter / f'lighthouse-bridge-{MATTER_VERSION}.lhota').read_bytes()) != matter_segments[-1][1]:
-        raise ValueError('Matter OTA payload differs from application')
-    if matter_segments[1][1] != (ROOT / 'dist/lighthouse-bridge-partitions.bin').read_bytes():
-        raise ValueError('Matter prototype changes the stable partition table')
-    expected_parts = [{'offset': offset, 'path': f'firmware/matter/lighthouse-matter-{name}.bin?sha=' +
-                      hashlib.sha256(data).hexdigest()} for (name, offset, _), (_, data) in zip(SEGMENTS, matter_segments)]
-    if matter_manifest['builds'][0]['parts'] != expected_parts:
-        raise ValueError('Unsafe Matter manifest or image checksum mismatch')
-    matter_output = firmware / 'matter'
-    matter_output.mkdir(exist_ok=True)
-    for file in matter.iterdir():
-        if file.is_file() and file.suffix != '.tmp' and file.name != 'manifest.json':
-            shutil.copy2(file, matter_output / file.name)
-    shutil.copy2(matter / 'manifest.json', output / 'matter-manifest.json')
-    rs_matter = ROOT / 'dist/rs-matter'
-    rs_manifest = json.loads((rs_matter / 'manifest.json').read_text())
-    if rs_manifest['version'] != RS_MATTER_VERSION or len(rs_manifest['builds']) != 1 or rs_manifest['builds'][0]['chipFamily'] != 'ESP32':
-        raise ValueError('Unexpected rs-matter prototype identity')
-    rs_segments = [(offset,(rs_matter / f'lighthouse-rs-matter-{name}.bin').read_bytes()) for name,offset,_ in SEGMENTS]
-    validate_segments(rs_segments)
-    if rs_segments[1][1] != (ROOT/'dist/lighthouse-bridge-partitions.bin').read_bytes():
-        raise ValueError('rs-matter changes the complete partition table')
-    if unpack((rs_matter / f'lighthouse-bridge-{RS_MATTER_VERSION}.lhota').read_bytes()) != rs_segments[-1][1]:
-        raise ValueError('rs-matter OTA payload differs from application')
-    expected_parts = [{'offset':offset,'path':f'firmware/rs-matter/lighthouse-rs-matter-{name}.bin?sha='+hashlib.sha256(data).hexdigest()}
-                      for (name,offset,_),(_,data) in zip(SEGMENTS,rs_segments)]
-    if rs_manifest['builds'][0]['parts'] != expected_parts:
-        raise ValueError('Unsafe rs-matter manifest or checksum mismatch')
-    for line in (rs_matter/'SHA256SUMS').read_text().splitlines():
-        digest,name=line.split()
-        if Path(name).name!=name or hashlib.sha256((rs_matter/name).read_bytes()).hexdigest()!=digest:
-            raise ValueError('rs-matter checksum mismatch')
-    rs_output = firmware/'rs-matter'; rs_output.mkdir(exist_ok=True)
-    for file in rs_matter.iterdir():
-        if file.is_file() and file.suffix!='.tmp' and file.name!='manifest.json': shutil.copy2(file,rs_output/file.name)
-    shutil.copy2(rs_matter/'manifest.json',output/'rs-matter-manifest.json')
-    for board_id,board in BOARDS.items():
-        if board_id=='esp32': continue
-        source=rs_matter/board_id
-        manifest=json.loads((source/'manifest.json').read_text())
-        if manifest['version']!=RS_MATTER_VERSION or len(manifest['builds'])!=1 or manifest['builds'][0]['chipFamily']!=board['family']:
-            raise ValueError('Invalid board manifest: '+board_id)
-        segments=[(board['boot'] if name=='bootloader' else offset,(source/f'lighthouse-rs-matter-{name}.bin').read_bytes()) for name,offset,_ in SEGMENTS]
-        validate_segments(segments,board['chip'],board['boot'])
-        if segments[1][1]!=rs_segments[1][1]: raise ValueError('Board partition table differs')
-        if unpack((source/f'lighthouse-bridge-{RS_MATTER_VERSION}.lhota').read_bytes(),board['chip'])!=segments[-1][1]: raise ValueError('Board OTA differs')
-        expected=[{'offset':offset,'path':f'firmware/rs-matter/{board_id}/lighthouse-rs-matter-{name}.bin?sha='+hashlib.sha256(data).hexdigest()} for (name,_,_),(offset,data) in zip(SEGMENTS,segments)]
-        if manifest['builds'][0]['parts']!=expected: raise ValueError('Board manifest parts differ')
-        for line in (source/'SHA256SUMS').read_text().splitlines():
-            digest,name=line.split()
-            if Path(name).name!=name or hashlib.sha256((source/name).read_bytes()).hexdigest()!=digest: raise ValueError('Board checksum differs')
-        shutil.copytree(source,rs_output/board_id,dirs_exist_ok=True)
-        shutil.copy2(source/'manifest.json',output/f'rs-matter-{board_id}-manifest.json')
-    # Retired experiment artifacts must also disappear on incremental builds.
-    for name in ['tasmota.html','tasmota-manifest.json']:
-        (output/name).unlink(missing_ok=True)
-    shutil.rmtree(firmware/'tasmota',ignore_errors=True)
-    (output / '.nojekyll').touch()
-    print(f'GitHub Pages ready: {output}; stable {VERSION} and experiments {MATTER_VERSION} / {RS_MATTER_VERSION}; unchanged slots/NVS; SHA256 {checksum}')
+    names = []
+    for (name, _, _), (offset, data) in zip(SEGMENTS, segments):
+        filename = f'lighthouse-rs-matter-{name}.bin'
+        names.append(filename)
+        digest = hashlib.sha256(data).hexdigest()
+        parts.append({'offset': offset, 'path': f'firmware/{folder.as_posix()}/{filename}?sha={digest}'})
+    if manifest['version'] != VERSION or manifest['builds'] != [{'chipFamily': board['family'], 'parts': parts}]:
+        raise ValueError(f'Invalid manifest for {board_id}')
+
+    ota = f'lighthouse-bridge-{VERSION}.lhota'
+    if unpack((source / ota).read_bytes(), board['chip']) != segments[-1][1]:
+        raise ValueError(f'OTA payload differs for {board_id}')
+    names.append(ota)
+    checksums = ''.join(f'{hashlib.sha256((source / name).read_bytes()).hexdigest()}  {name}\n'
+                        for name in names)
+    if checksums != (source / 'SHA256SUMS').read_text():
+        raise ValueError(f'Invalid SHA256SUMS for {board_id}')
+
+    for name in (*names, 'SHA256SUMS', 'build-info.json', f'lighthouse-bridge-{VERSION}.zip'):
+        shutil.copy2(source / name, destination)
+    manifest_name = 'manifest.json' if board_id == 'esp32' else f'rs-matter-{board_id}-manifest.json'
+    shutil.copy2(source / 'manifest.json', output / manifest_name)
+    return segments[1][1]
+
+
+def build():
+    verify_vendor()
+    with TemporaryDirectory(prefix='.pages-', dir=ROOT) as workspace:
+        output = Path(workspace) / 'site'
+        shutil.copytree(ROOT / 'site', output)
+        partitions = [publish_board(output, board_id, board) for board_id, board in BOARDS.items()]
+        if any(table != partitions[0] for table in partitions[1:]):
+            raise ValueError('Board partition tables differ')
+        published = ROOT / '_site'
+        if published.exists():
+            shutil.rmtree(published)
+        output.rename(published)
+    print(f'GitHub Pages ready: {VERSION} for {len(BOARDS)} board profiles')
 
 
 if __name__ == '__main__':

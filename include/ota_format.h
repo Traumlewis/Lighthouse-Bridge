@@ -16,9 +16,9 @@ inline bool parseOtaHeader(const uint8_t* header, uint32_t capacity, uint32_t& l
   std::memcpy(digest, header + 28, 32);
   return true;
 }
-#if defined(LH_RS_MATTER_BUILD) && defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
 constexpr uint16_t kOtaChipId = 5;
-#elif defined(LH_RS_MATTER_BUILD) && defined(CONFIG_IDF_TARGET_ESP32S3)
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
 constexpr uint16_t kOtaChipId = 9;
 #else
 constexpr uint16_t kOtaChipId = 0;

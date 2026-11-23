@@ -1,10 +1,3 @@
-// The merged factory image must never be used by the settings-preserving updater.
-export function validUpdateParts(parts) {
-  return validParts(parts, 'firmware/lighthouse-bridge-');
-}
-export function validMatterParts(parts) {
-  return validParts(parts, 'firmware/matter/lighthouse-matter-');
-}
 export function validRsMatterParts(parts, board='esp32') {
   if(!['esp32','weact-c3','c3-supermini','s3-supermini'].includes(board))return false;
   const directory=board==='esp32'?'':board+'/';

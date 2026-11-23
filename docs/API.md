@@ -1,16 +1,7 @@
-# Local API — 0.3.9
+# Lighthouse Bridge local API
 
-The same production HTTP services are also included in experimental
-**0.3.9-matter** and **0.1.27-rs-matter**, with the Matter-only private endpoints below. The separate
-[prototype guide](../experimental/matter/README.md) covers installation and
-hardware-test limits. Stable firmware remains 0.3.9.
-
-The rs-matter variant uses the same API/auth/state semantics and additionally
-reports `engine: "rs-matter"` in personal-session Matter information. Its own
-protocol state is saved in `lhrsmatter`; station endpoints remain in `lhmatter`.
-Fabric formats are not imported between engines, so switching requires a new
-pairing. Wi-Fi, own password, API key and station assignments are retained. See
-the [rs-matter guide](../experimental/rs-matter/README.md).
+The active firmware is rs-matter. See the [setup guide](WEBFLASHER.md) for
+installation and board selection.
 
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
@@ -167,7 +158,7 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 
 ### rs-matter 0.1.12 account and OFF preferences
 
-These additions apply only to rs-matter; stable/SDK behavior remains as above.
+These options apply to the personal web login.
 
 - Public `GET /api/login` returns boolean `username_enabled` and, since 0.1.26,
   boolean `password_set`. First setup and migrated accounts default to having
@@ -225,7 +216,7 @@ When the worker/driver is unavailable, radio mutations (`/api/power`, `/api/scan
 web login and personal-session OTA recovery remain available. Failure to start
 the worker does not grant API-key access to private setup/OTA endpoints.
 
-## Experimental Matter setup (personal-password session only)
+## Matter setup (personal-password session only)
 
 - `GET /api/matter`: returns `bridge_name`, `version`, `ready`, `paired`,
   `pairing_code` (null until ready), `error`, `commissioning_open`,
@@ -245,21 +236,19 @@ the worker does not grant API-key access to private setup/OTA endpoints.
 - Matter status adds `alexa_protocol:"matter"`, `matter_ready`, `matter_paired`
   and `matter_error`. General status never includes the setup code;
   `alexa_started` denotes Matter readiness in this build. The API's measured
-  station fields retain their production meaning; Matter has no Hue target view
-  and returns `alexa_target_pending:false`.
-- In the experimental build, station configuration saves checkpoint persistent
+  station fields retain their production meaning; The legacy field `alexa_target_pending` is false.
+- Station configuration saves checkpoint persistent
   Matter identities, save assignments, pause new BLE work and restart 1.5 seconds
   after responding. Refresh integrations and sign in again after the restart.
   Existing station endpoints survive reordering. Replacing a physical station
   receives a fresh endpoint; no automatic power command is sent on restart.
-- The same OTA security/container checks apply. Download the separate Matter
-  `.lhota` from the Matter WebFlasher for Matter updates. Boot/fabric persistence
-  and actual device uploads still require hardware tests.
+- The same OTA security/container checks apply. Download the board-specific
+  `.lhota` from the main WebFlasher.
 
 ## GET /api/status
 
-Returns version, IP/hostname, Wi-Fi/SSDP initialization, uptime, free heap, a dynamic list of up to 16
-entries, discovery state and results. `alexa_started` confirms only SSDP startup.
+Returns version, IP/hostname, Wi-Fi and Matter readiness, uptime, free heap, a dynamic list of up to 16
+entries, discovery state and results. `alexa_started` reports Matter readiness.
 Top-level fields include `max_stations:16`, `maintenance`, `setup_ssid`,
 `ota_supported` and `ota_product`. Station IDs are fixed local slots 1–16. New entries receive the lowest free ID.
 Deletion/reordering never renumbers survivors; IDs may have gaps. Responses are
@@ -278,7 +267,7 @@ A station entry looks like this:
 ```
 
 `requested` is only a target and is `null` after reboot. `requested_ms` is its
-acceptance time. `alexa_target_pending` indicates the bounded Hue target view;
+acceptance time. The legacy field `alexa_target_pending` is always false;
 it never changes the local API's `observed`/`observed_raw` measurement.
 `observed` is the last BLE measurement. Reads run at startup, after commands and periodically: target 15 s,
 starting state 2 s, unreachable state 30 s, subject to the BLE queue.
@@ -336,7 +325,7 @@ measurement still updates physical state, but does not rewrite the expired
 command's result. A confirmed result is historical and remains confirmed if an
 external controller later changes the station; use `observed` for current state.
 New commands reset their confirmation record. Failed writes do not enter this
-window. This verification does not prolong the separate Hue accepted-target view.
+window.
 
 ## POST /api/refresh
 
@@ -383,21 +372,16 @@ regardless of request order. Leave an entry out to remove it and free its slot;
 reordering does not change IDs. Responses are sorted by ID and can contain gaps.
 Use `id:0`/omit ID for creation, then read the assigned ID from the response.
 An ID stays with that entry until removal; a later new entry can reuse it.
-A separate server-managed Hue identity preserves Alexa devices through renumbering;
-clients cannot assign it. Only that Hue identity space reserves 5 for the retired
+The firmware retains server-managed migration identities in stored configuration.
+Clients cannot assign them. ID 5 is reserved in that legacy space for the retired
 group. Old IDs 6–9 automatically become local 1–4 without changing Alexa keys.
 Leave an entry out to remove it. Empty MAC disables an explicitly added entry;
 it still counts toward capacity and is not advertised to Alexa. Save returns
 `200 {"saved":true,"stations":[{"id":…, "name":…, "mac":…},…]}` with assigned IDs.
 
-`alexa_compat` selects an experimental Alexa LWB010/Dimmable-light profile for
-that station only. It defaults to false for old/new records. Omitting it on an
-existing entry preserves the current setting; explicit false restores standard.
-It cannot change IDs or send power. Non-boolean values return CONFIG_PROFILE.
-The flag is included in station status/config responses and stored in NVS.
-After changing it, Alexa may need that one device removed/re-discovered to reload
-capabilities; its groups/routines may need reassigning. No synchronization fix is
-claimed without a successful hardware retest.
+`alexa_compat` is a migrated configuration field. It remains a boolean and is
+retained when omitted from an existing entry. It has no effect on Matter light
+behavior or commissioning. Non-boolean input returns `CONFIG_PROFILE`.
 
 All connections use Random (1); `address_type` input is ignored and status returns
 1 for compatibility. Names must be unique, 1–40 UTF-8 bytes, without control
@@ -434,7 +418,7 @@ Default legacy names remain until a custom name is saved. Credentials/key unchan
 
 ## Firmware upload — web session only
 
-Requires firmware >=0.3.0, a personal-password browser session and a second app
+Requires a personal-password browser session and a second app
 partition. API keys/bootstrap sessions cannot prepare, inspect or upload updates.
 The partition table and NVS locations do not change.
 
@@ -455,7 +439,7 @@ The partition table and NVS locations do not change.
 
 The 64-byte container header uses magic `LHBRIDGE-ESP32-OTA1` zero-padded to
 24 bytes, uint32 little-endian app length at 24, raw SHA-256 digest at 28, and
-four zero bytes at 60. The payload must be a classic ESP32 app with app descriptor
+four zero bytes at 60. The payload must match the board chip and contain the ESP app descriptor
 and Lighthouse Bridge product marker. Length, slot capacity, digest, chip/product
 and ESP image validity are checked before selecting the inactive slot for boot.
 Wrong chip, truncated/corrupt/trailing data, raw/merged BINs and multiple files are
@@ -466,83 +450,6 @@ post-install crash rollback is promised. Wi-Fi/stations/passwords/keys stay in N
 Errors: `OTA_INVALID`, `OTA_WRITE_FAILED`, `OTA_ABORTED`, `OTA_UNAVAILABLE`,
 `LOGIN_REQUIRED`, `PASSWORD_REQUIRED`, `BLE_BUSY`. A rejected multipart upload is
 still consumed by the HTTP library; it cannot write firmware without authorization.
-
-## Alexa / Hue queries
-
-`/description.xml`, `/api` and `/api/<username>/lights[/<id>[/state]]` are available
-to the local Echo without login. GET `on` normally comes from BLE measurements.
-While an accepted power command is pending or running, it reports that target
-for at most 30000 ms from acceptance. Completion, final error or expiry restores
-the measured value; duplicates do not extend the deadline. `reachable` always
-uses measured health, including failed cycles and measurement age. Dashboard and
-local API measurements are unchanged. This policy was explicitly chosen by the
-owner after Echo queried the opposite old value immediately after accepting PUT.
-Discovery uses stable Hue identities independent of local/API numbering.
-`uniqueid` uses the pinned Espalexa two-digit uppercase hexadecimal
-endpoint for Hue identities 1–255, e.g. `AA:BB:CC:11:22:33-06-00:11`. This restores the
-format accidentally changed for new IDs in 0.3.0/0.3.1. Larger monotonic IDs use
-`02:<bridge MAC last three octets>:<four station-ID octets>-01`, a fixed EUI-64
-and endpoint representation; the numeric light key does not change. Metadata
-changes do not assign stations, enqueue commands or modify measurements.
-
-Only individual configured stations appear in the Hue collection. Existing first
-four light IDs/unique IDs are preserved. The old virtual group (Hue identity 5) is
-unavailable (Hue error 3), never reused; delete its cached Alexa app entry once.
-Use Alexa groups or the local API `station:"all"` for collective control.
-Raw starting values 1/8/9 count as active, while the dashboard still says Starting.
-There is no state push into the Alexa app: Alexa decides when to query again.
-
-Since 0.3.8 all Hue GET shapes (collection, light and `/state`) also contain
-`bri:0` when the returned `on` is false, otherwise `bri:254`, and
-`mode:"homeautomation"`. This read-only binary compatibility hint is not a
-physical brightness measurement; ON/Starting share 254. It follows exactly the
-same measured/temporarily accepted-target view as `on`, never altering observed
-state, measurement age or reachability. Type remains `On/off light` / HASS321.
-Standard-profile brightness-only PUTs remain unsupported and cannot send power writes. This is an
-experimental client compatibility change; Alexa app synchronization is unverified.
-
-The optional per-station `alexa_compat:true` profile advertises `Dimmable light`
-with model `LWB010`, keeping the same unique ID/numeric key. This profile accepts
-integer `bri` 0..254: 0 maps to SLEEP; any positive value maps to ON. A valid
-explicit boolean `on` takes precedence, including `{on:false,bri:254}`. Queue at
-most one power job per request. Success for bri reports the effective binary
-0/254 value, not a requested intermediate brightness. Invalid values receive Hue
-error 7; unsupported fields error 6. Valid on/bri properties can succeed separately
-from invalid/unsupported properties. There is no physical dimming or local-API
-brightness endpoint. Standard profile remains strict boolean-on control.
-
-### Hue light writes
-
-`PUT /api/<username>/lights/<id>/state`, body `{"on":true}` or `{"on":false}`,
-uses the encoded ID returned by GET, for an individual configured station.
-The HTTP handler validates and queues without waiting for BLE. Its HTTP 200
-response has the Hue shape (replace `<id>` with the actual requested ID):
-
-```json
-[{"success":{"/lights/<id>/state/on":false}}]
-```
-
-`false` acknowledges an accepted SLEEP target; `true` acknowledges ON. This is
-queue acceptance, not a measured result. Read local status for measurements.
-Hue GETs can temporarily project the accepted target as described above; no
-measurement or reachability is fabricated. The old generic
-`/lights/1/state/` response is no longer used for light state writes.
-
-Malformed JSON, non-boolean `on`, unavailable IDs and unsupported methods return
-Hue error arrays, without enqueuing invalid commands. Unsupported properties get
-error type 6; a valid `on` in the same body can still succeed independently.
-Physical dimming/color/transition operations are not implemented. Bodies are limited
-to 512 bytes/eight properties. Existing API-key/web-session endpoint rules remain.
-
-USB logs include `Hue PUT` (accepted target, unsupported count, handler_ms) and
-`Hue GET` (reported on, measured reachability, pending work; collection
-configured/fresh counts). `source=accepted_target` identifies the bounded target
-view; `source=measurement` identifies the measured value.
-`station` identifies the current local station ID; collections log configured/fresh
-counts. The retired virtual group is never controlled. These diagnostics
-omit usernames, raw request paths/bodies and credentials. Handler time excludes
-network transfer/request parsing before dispatch. A correct ACK cannot guarantee
-that Alexa will not warn about a later unavailable or unchanged measurement.
 
 ## USB information protocol
 
@@ -587,4 +494,3 @@ personal-session `GET /api/matter` until `commissioning_pending` is false and
 for an unknown enhanced window. The temporary PIN is never persisted. Existing
 bootstrap credentials, fabrics and endpoints stay intact. Nonempty/non-object
 JSON is rejected; API keys/bootstrap sessions do not authorize this route.
-The SDK prototype retains its existing coalescing open-window behavior.

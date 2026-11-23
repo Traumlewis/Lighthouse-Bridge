@@ -86,14 +86,12 @@ inline bool parseStationList(JsonVariantConst input, StationConfig* out,
       if (!item["alexa_compat"].is<bool>()) { error = "CONFIG_PROFILE"; return false; }
       value.alexaCompat = item["alexa_compat"].as<bool>();
     } else if (!restoring && inputId) value.alexaCompat = current[stationIndex(current,inputId)].alexaCompat;
-#ifdef LH_RS_MATTER_BUILD
     if (item.containsKey("off_state")) {
       Target off;
       if (!item["off_state"].is<const char*>() ||
           !parseTarget(item["off_state"],off,true) || off == Target::On) { error = "CONFIG_OFF_STATE"; return false; }
       value.offState = off;
     } else if (!restoring && inputId) value.offState = current[stationIndex(current,inputId)].offState;
-#endif
     for (unsigned j = 0; j < count; ++j) {
       if ((inputId && seenIds[j] == inputId) || out[j].hueId == hueId) { error = "CONFIG_IDS"; return false; }
       if (*mac && !std::strcmp(out[j].mac, value.mac)) { error = "CONFIG_MAC"; return false; }
@@ -120,9 +118,7 @@ inline void writeStationConfig(JsonObject item, const StationConfig& station, bo
   if (storage) item["hue_id"] = station.hueId;
   item["name"] = station.name; item["mac"] = station.mac;
   item["alexa_compat"] = station.alexaCompat;
-#ifdef LH_RS_MATTER_BUILD
   item["off_state"] = targetName(station.offState);
-#endif
 }
 inline void writeStationList(JsonArray array, const StationConfig* stations, bool storage = false) {
   for (unsigned i = 0; i < kStations; ++i) {

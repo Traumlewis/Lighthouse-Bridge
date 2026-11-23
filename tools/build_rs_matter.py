@@ -1,39 +1,40 @@
 #!/usr/bin/env python3
-"""Build/package the isolated classic-ESP32 Matter prototype, preserving slots/NVS."""
+"""Build Lighthouse Bridge for one of the supported ESP32 boards."""
 import argparse
-import gzip
 import hashlib
 import json
 from pathlib import Path
-import re
 import shutil
-import struct
 import subprocess
 import zipfile
 from ota_package import package
+from firmware_assets import APP_LIMIT, ROOT, render_dashboard, validate_segments
 from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
-ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.27-rs-matter'
+VERSION = '0.1.28-rs-matter'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
-from matter_dashboard import rotation_dashboard
 CORE = '3.3.12'
-FQBN = 'esp32:esp32:esp32:PartitionScheme=min_spiffs'
-APP_LIMIT = 0x1e0000
 SEGMENTS = [('bootloader', 0x1000, 'RsMatter.ino.bootloader.bin'),
             ('partitions', 0x8000, 'RsMatter.ino.partitions.bin'),
             ('boot-app0', 0xe000, 'boot_app0.bin'),
             ('app', 0x10000, 'RsMatter.ino.bin')]
 
 
-from build_matter import validate_segments, render_dashboard
+
+BUILD_SOURCES = (
+    'tools/build_rs_matter.py', 'tools/firmware_assets.py', 'tools/ota_package.py',
+    'tools/rs_matter_link.py', 'tools/rs_boards.py', 'tools/requirements-matter-build.txt',
+)
+
 
 def source_fingerprint():
-    paths=[ROOT/'src/main.cpp',ROOT/'include/web_ui.h',ROOT/'partitions.csv',
-           ROOT/'tools/build_rs_matter.py',ROOT/'tools/build_matter.py',ROOT/'tools/matter_dashboard.py',ROOT/'tools/rs_dashboard.py',ROOT/'tools/rs_local_dashboard.py',ROOT/'tools/rs_matter_link.py',ROOT/'tools/rs_boards.py',ROOT/'tools/rs_buttons_dashboard.py',ROOT/'tools/rs_owner_dashboard.py']
-    for directory,patterns in [('include',['*.h']),('experimental/matter/MatterBridge',['*.h']),('experimental/rs-matter',['*.h','*.cpp','*.ino']),('experimental/rs-matter/rust',['Cargo.toml','Cargo.lock']),('experimental/rs-matter/rust/src',['*.rs'])]:
-        for pattern in patterns:paths.extend((ROOT/directory).glob(pattern))
+    paths = [ROOT / name for name in ('src/main.cpp', 'src/dashboard.html', 'partitions.csv')]
+    paths += [ROOT / name for name in BUILD_SOURCES]
+    for directory, patterns in [('include', ['*.h']), ('firmware', ['*.h', '*.cpp', '*.ino']),
+                                ('firmware/rust', ['Cargo.toml', 'Cargo.lock']), ('firmware/rust/src', ['*.rs'])]:
+        for pattern in patterns:
+            paths.extend((ROOT / directory).glob(pattern))
     digest=hashlib.sha256()
     for path in sorted(set(paths)):
         digest.update(str(path.relative_to(ROOT)).encode());digest.update(path.read_bytes())
@@ -58,17 +59,17 @@ def main():
             raise SystemExit(f'Install {name}@{version} using Arduino CLI first')
     sketch = ROOT / ('.pio/rs-matter-sketch' if args.board=='esp32' else '.pio/rs-matter-sketch-'+args.board) / 'RsMatter'
     sketch.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / 'experimental/rs-matter/RsMatter.ino', sketch)
+    shutil.copy2(ROOT / 'firmware/RsMatter.ino', sketch)
     shutil.copy2(ROOT / 'partitions.csv', sketch)
-    (sketch / 'web_ui_gzip.h').write_text(render_dashboard(VERSION,sketch / 'matter-ui.html',rotation_dashboard))
-    shutil.copy2(ROOT/'experimental/rs-matter/rs_platform.cpp',sketch/'rs_platform.cpp')
-    crate=ROOT/'experimental/rs-matter/rust'
+    (sketch / 'web_ui_gzip.h').write_text(render_dashboard(VERSION, sketch / 'matter-ui.html'))
+    shutil.copy2(ROOT/'firmware/rs_platform.cpp',sketch/'rs_platform.cpp')
+    crate=ROOT/'firmware/rust'
     rustlib=crate/'target'/board['target']/'release/liblighthouse_rs_matter.a'
     fingerprint=hashlib.sha256((source_fingerprint()+args.board).encode()).hexdigest()
     stamp=args.build_dir/'lighthouse-source-sha256'
     if args.skip_compile and (not stamp.exists() or stamp.read_text().strip()!=fingerprint):
         raise ValueError('Compiled rs-matter source fingerprint does not match; rebuild required')
-    host_config='-include '+str(ROOT/'experimental/rs-matter/rs_nimble_config.h')+' '
+    host_config='-include '+str(ROOT/'firmware/rs_nimble_config.h')+' '
     if not args.skip_compile:
         version=subprocess.check_output(['rustc','+esp','--version'],text=True)
         if not version.startswith('rustc 1.97.0'): raise ValueError('Espressif Rust 1.97.0.0 required')
@@ -82,7 +83,7 @@ def main():
         # compiler_builtins and crashes during flash initialization.
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', fqbn, '--build-property',
                         'compiler.cpp.extra_flags='+host_config+'-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
-                          [ROOT / 'include', ROOT / 'src', ROOT / 'experimental/matter/MatterBridge', ROOT/'experimental/rs-matter', sketch]),
+                          [ROOT / 'include', ROOT / 'src', ROOT/'firmware', sketch]),
                         '--build-property', 'compiler.c.extra_flags='+host_config+'-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
                         '--build-property', 'compiler.c.elf.extra_flags=-Oz -flto -flto-partition=one -Wl,--wrap=esp_wifi_init',
                         '--build-property', 'compiler.libraries.ldflags=-Wl,--undefined=memcpy,--undefined=memmove,--undefined=memset,--undefined=memcmp,--undefined=strlen -lc '+str(rustlib),
@@ -104,11 +105,10 @@ def main():
     validate_segments(segments,board['chip'],board['boot'])
     if (b'LHBRIDGE-RUNTIME-V1-ESP32' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]
             or b'Lighthouse-Bridge' not in segments[-1][1]):
-        raise ValueError('Application is not this Matter prototype')
+        raise ValueError('Application is not the expected Lighthouse Bridge build')
     output = ROOT / 'dist/rs-matter'
     if args.board!='esp32': output=output/args.board
     output.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(ROOT/'dist/tasmota',ignore_errors=True)
     parts, checksums = [], []
     for (name, offset, _), (_, payload) in zip(segments_spec, segments):
         filename = f'lighthouse-rs-matter-{name}.bin'
@@ -122,7 +122,7 @@ def main():
     checksums.append(f'{hashlib.sha256(ota).hexdigest()}  {ota_name}\n')
     (output / 'SHA256SUMS').write_text(''.join(checksums))
     (output / 'manifest.json').write_text(json.dumps({
-        'name': 'Lighthouse Bridge — rs-matter prototype', 'version': VERSION,
+        'name': 'Lighthouse Bridge', 'version': VERSION,
         'new_install_prompt_erase': True, 'new_install_improv_wait_time': 0,
         'builds': [{'chipFamily': board['family'], 'parts': parts}],
     }, indent=2) + '\n')
@@ -140,14 +140,14 @@ def main():
         bundle.write(output / ota_name, ota_name)
         for name in ['SHA256SUMS', 'build-info.json']:
             bundle.write(output / name, name)
-        bundle.write(ROOT / 'experimental/rs-matter/README.md', 'READ-ME-FIRST.md')
+        bundle.write(ROOT / 'firmware/README.md', 'READ-ME-FIRST.md')
         bundle.write(ROOT / 'VERSION.md', 'VERSION.md')
         bundle.write(ROOT / 'LICENSE', 'LICENSE')
-        for path in ['experimental/rs-matter/RsMatter.ino', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter').glob('*.h')], 'experimental/rs-matter/rs_platform.cpp', 'experimental/rs-matter/rust/Cargo.toml', 'experimental/rs-matter/rust/Cargo.lock', *[str(p.relative_to(ROOT)) for p in (ROOT/'experimental/rs-matter/rust/src').glob('*.rs')],
-                     *[str(p.relative_to(ROOT)) for p in (ROOT / 'experimental/matter/MatterBridge').glob('*.h')], 'partitions.csv',
+        for path in ['firmware/RsMatter.ino', *[str(p.relative_to(ROOT)) for p in (ROOT/'firmware').glob('*.h')], 'firmware/rs_platform.cpp', 'firmware/rust/Cargo.toml', 'firmware/rust/Cargo.lock', *[str(p.relative_to(ROOT)) for p in (ROOT/'firmware/rust/src').glob('*.rs')],
+                     'partitions.csv',
                      *[str(p.relative_to(ROOT)) for p in (ROOT / 'include').glob('*.h')],
-                     'src/main.cpp', 'tools/build_rs_matter.py', 'tools/build_matter.py', 'tools/matter_dashboard.py', 'tools/rs_dashboard.py', 'tools/rs_local_dashboard.py', 'tools/ota_package.py', 'tools/rs_matter_link.py', 'tools/rs_boards.py', 'tools/rs_buttons_dashboard.py', 'tools/rs_owner_dashboard.py', 'tools/requirements-matter-build.txt',
-                     'experimental/rs-matter/README.md', 'VERSION.md', 'LICENSE']:
+                     'src/main.cpp', 'src/dashboard.html', *BUILD_SOURCES,
+                     'firmware/README.md', 'VERSION.md', 'LICENSE']:
             bundle.write(ROOT / path, 'source/' + path)
         for file in (ROOT / 'third_party').iterdir():
             if file.is_file():
@@ -169,9 +169,9 @@ def main():
                     bundle.write(file, Path('third-party-licenses') / name / file.relative_to(directory))
     with zipfile.ZipFile(temporary) as bundle:
         if bundle.testzip() is not None:
-            raise ValueError('Corrupt prototype ZIP')
+            raise ValueError('Corrupt firmware ZIP')
     temporary.replace(archive)
-    print(f'Matter prototype {VERSION}: {info["app_bytes"]}/{APP_LIMIT} bytes; unchanged slots/NVS; no hardware validation.')
+    print(f'Lighthouse Bridge {VERSION}: {info["app_bytes"]}/{APP_LIMIT} bytes; unchanged slots/NVS; no hardware validation.')
 
 
 if __name__ == '__main__':

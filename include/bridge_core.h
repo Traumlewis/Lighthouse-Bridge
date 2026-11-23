@@ -79,16 +79,10 @@ struct StationConfig {
   char mac[18] = {};
   uint8_t addressType = 1;
   bool alexaCompat = false;
-#ifdef LH_RS_MATTER_BUILD
   Target offState = Target::Sleep;
-#endif
 };
 inline Target offTarget(const StationConfig& config) {
-#ifdef LH_RS_MATTER_BUILD
   return config.offState;
-#else
-  (void)config; return Target::Sleep;
-#endif
 }
 struct StationState {
   Target requested = Target::Sleep;

@@ -24,9 +24,7 @@ void matterStatusRoute() {
   header["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
   header["ota_product"] = kOtaProduct; header["setup_ssid"] = apName;
   header["maintenance"] = view.maintenance; header["ip"] = bridgeAddress().toString();
-#ifdef LH_RS_MATTER_BUILD
   header["network_mode"] = usingLocalWifi() ? "local" : "home";
-#endif
   header["hostname"] = hostname; header["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   header["alexa_started"] = matterReady.load() && bleWorkerAvailable.load(); header["free_heap"] = ESP.getFreeHeap();
   header["largest_free_block"] = ESP.getMaxAllocHeap(); header["min_free_heap"] = ESP.getMinFreeHeap();

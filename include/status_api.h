@@ -108,9 +108,7 @@ inline void writeStatusStation(JsonObject item, const StationConfig& config,
                                const StationState& state, bool queued, uint32_t now, bool matter) {
   item["id"] = config.id; item["name"] = config.name; item["mac"] = config.mac;
   item["address_type"] = config.addressType; item["alexa_compat"] = config.alexaCompat;
-#ifdef LH_RS_MATTER_BUILD
   item["off_state"] = targetName(config.offState);
-#endif
   item["configured"] = config.mac[0] != '\0';
   if (state.hasRequest) item["requested"] = targetName(state.requested);
   else item["requested"] = nullptr;

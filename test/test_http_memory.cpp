@@ -12,6 +12,7 @@ bool drain = true;
 unsigned pausesBeforeDrain = 20;
 char received[40000]; size_t receivedSize = 0;
 uint32_t millis() { return clockMs; }
+extern "C" int lh_rs_pump() { return 0; }
 void delay(unsigned ms) {
   clockMs += ms;
   if (pausesBeforeDrain) { --pausesBeforeDrain; return; }

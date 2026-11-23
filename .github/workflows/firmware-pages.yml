@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -25,35 +25,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - uses: actions/cache@v4
-        with:
-          path: ~/.platformio
-          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini') }}
-      - name: Install PlatformIO
-        run: python -m pip install platformio==6.2.0
-      - name: Check command handling
-        run: |
-          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lighthouse-test
-          /tmp/lighthouse-test
-      - name: Build ESP32 firmware
-        run: pio run
-      - name: Check Hue write acknowledgements
-        run: |
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_hue.cpp -o /tmp/lighthouse-hue-test
-          /tmp/lighthouse-hue-test
-      - name: Check station migration and OTA format
-        run: |
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_config.cpp -o /tmp/lighthouse-config-test
-          /tmp/lighthouse-config-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_matter_config.cpp -o /tmp/lighthouse-matter-config-test
-          /tmp/lighthouse-matter-config-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota.cpp -o /tmp/lighthouse-ota-test
-          /tmp/lighthouse-ota-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota_receiver.cpp -o /tmp/lighthouse-ota-receiver-test
-          /tmp/lighthouse-ota-receiver-test
-          python -m unittest discover -s test -p 'test_ota_package.py' -v
-      - name: Package flash image and source
-        run: python tools/package_release.py
       - uses: arduino/setup-arduino-cli@v2
         with:
           version: '1.6.0'
@@ -63,9 +34,29 @@ jobs:
             ~/.arduino15
             ~/Arduino/libraries
           key: ${{ runner.os }}-matter-arduino-3.3.12-nimble-2.5.2-json-6.21.5-wm-2.0.17
+      - name: Install firmware build dependencies
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
+      - name: Check command handling
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_core.cpp -o /tmp/lighthouse-test
+          /tmp/lighthouse-test
+      - name: Check station migration and OTA format
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_config.cpp -o /tmp/lighthouse-config-test
+          /tmp/lighthouse-config-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_matter_config.cpp -o /tmp/lighthouse-matter-config-test
+          /tmp/lighthouse-matter-config-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota.cpp -o /tmp/lighthouse-ota-test
+          /tmp/lighthouse-ota-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_ota_receiver.cpp -o /tmp/lighthouse-ota-receiver-test
+          /tmp/lighthouse-ota-receiver-test
+          python -m unittest discover -s test -p 'test_ota_package.py' -v
       - name: Check bounded Matter status serialization
         run: |
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_status.cpp -o /tmp/lighthouse-status-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_status.cpp -o /tmp/lighthouse-status-test
           /tmp/lighthouse-status-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_matter_endpoint.cpp -o /tmp/lighthouse-matter-endpoint-test
           /tmp/lighthouse-matter-endpoint-test
@@ -75,26 +66,18 @@ jobs:
           /tmp/lighthouse-model-startup-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_http_body.cpp -o /tmp/lighthouse-http-body-test
           /tmp/lighthouse-http-body-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I experimental/matter/MatterBridge -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_scan.cpp -o /tmp/lighthouse-scan-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_scan.cpp -o /tmp/lighthouse-scan-test
           /tmp/lighthouse-scan-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I experimental/matter/MatterBridge -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_http_memory.cpp -o /tmp/lighthouse-http-memory-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I test/fakes -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_http_memory.cpp -o /tmp/lighthouse-http-memory-test
           /tmp/lighthouse-http-memory-test
-      - name: Install isolated Matter prototype dependencies
-        run: |
-          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-          arduino-cli lib install 'NimBLE-Arduino@2.5.2' 'ArduinoJson@6.21.5' 'WiFiManager@2.0.17'
-      - name: Build experimental Matter prototype with existing partition layout
-        run: |
-          python -m pip install -r tools/requirements-matter-build.txt
-          python tools/build_matter.py
+      - run: python -m pip install -r tools/requirements-matter-build.txt
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.rustup/toolchains/esp
-          key: ${{ runner.os }}-rs-matter-esp-1.97.0.0-${{ hashFiles('experimental/rs-matter/rust/Cargo.lock') }}
+          key: ${{ runner.os }}-rs-matter-esp-1.97.0.0-${{ hashFiles('firmware/rust/Cargo.lock') }}
       - name: Install pinned ESP32 Rust toolchain
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -103,7 +86,7 @@ jobs:
           curl -fsSL https://github.com/esp-rs/espup/releases/download/v0.19.0/espup-x86_64-unknown-linux-gnu -o .tools/espup
           chmod +x .tools/espup
           .tools/espup install --targets esp32,esp32c3,esp32s3 --toolchain-version 1.97.0.0 --export-file .tools/rs-export.sh
-      - name: Build complete rs-matter prototype
+      - name: Build Lighthouse Bridge for all four boards
         run: |
           . .tools/rs-export.sh
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py
@@ -113,22 +96,22 @@ jobs:
           for target in ESP32 ESP32C3 ESP32S3; do
             g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_$target -I include test/test_gpio_buttons.cpp -o /tmp/lighthouse-gpio-$target
             /tmp/lighthouse-gpio-$target
-            g++ -std=c++11 -Wall -Wextra -Werror -DLH_RS_MATTER_BUILD -DCONFIG_IDF_TARGET_$target -I include test/test_ota_targets.cpp -o /tmp/lighthouse-ota-$target
+            g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_$target -I include test/test_ota_targets.cpp -o /tmp/lighthouse-ota-$target
             /tmp/lighthouse-ota-$target
           done
-          CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path experimental/rs-matter/rust/Cargo.toml
-          CARGO_BUILD_JOBS=2 cargo +esp test --locked --release --manifest-path experimental/rs-matter/rust/Cargo.toml
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test
+          CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path firmware/rust/Cargo.toml
+          CARGO_BUILD_JOBS=2 cargo +esp test --locked --release --manifest-path firmware/rust/Cargo.toml
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test
           /tmp/lighthouse-rs-matter-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_rs_preferences.cpp -o /tmp/lighthouse-rs-preferences-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_rs_preferences.cpp -o /tmp/lighthouse-rs-preferences-test
           /tmp/lighthouse-rs-preferences-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I include -I .pio/libdeps/esp32dev/ArduinoJson/src test/test_device_maintenance.cpp -o /tmp/lighthouse-maintenance-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_device_maintenance.cpp -o /tmp/lighthouse-maintenance-test
           /tmp/lighthouse-maintenance-test
           g++ -std=c++11 -Wall -Wextra -Werror -I include test/test_network_mode.cpp -o /tmp/lighthouse-network-mode-test
           /tmp/lighthouse-network-mode-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I firmware test/test_rs_diagnostics.cpp -o /tmp/lighthouse-rs-diagnostics-test
           /tmp/lighthouse-rs-diagnostics-test
-          g++ -std=c++11 -Wall -Wextra -Werror -I experimental/rs-matter test/test_rs_network.cpp -o /tmp/lighthouse-rs-network-test
+          g++ -std=c++11 -Wall -Wextra -Werror -I firmware test/test_rs_network.cpp -o /tmp/lighthouse-rs-network-test
           /tmp/lighthouse-rs-network-test
       - name: Build WebFlasher site
         run: python tools/build_pages.py
@@ -139,14 +122,19 @@ jobs:
           node test/serial_info.cjs
           node test/matter_info.cjs
       - name: Test simulated browser and USB flows
+        timeout-minutes: 12
         run: |
           npm install --no-package-lock
-          npx playwright install --with-deps chromium
-          CHROMIUM_PATH="$(node -p "require('playwright').chromium.executablePath()")" npm test
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          if [ -z "$browser" ]; then
+            npx playwright install --with-deps chromium
+            browser="$(node -p "require('playwright').chromium.executablePath()")"
+          fi
+          CHROMIUM_PATH="$browser" npm test
       - uses: actions/upload-artifact@v4
         with:
           name: lighthouse-bridge-firmware
-          path: dist/
+          path: dist/rs-matter/
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:
@@ -157,10 +145,6 @@ jobs:
           name: lighthouse-bridge-debug
           include-hidden-files: true
           path: |
-            .pio/build/esp32dev/firmware.elf
-            .pio/build/esp32dev/firmware.map
-            .pio/matter-build/MatterBridge.ino.elf
-            .pio/matter-build/MatterBridge.ino.map
             .pio/rs-matter-build/RsMatter.ino.elf
             .pio/rs-matter-build/RsMatter.ino.map
             .pio/rs-matter-build-*/RsMatter.ino.elf

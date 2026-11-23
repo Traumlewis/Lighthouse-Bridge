@@ -21,7 +21,7 @@ class Links(HTMLParser):
 
 class PagesTests(unittest.TestCase):
     def test_embedded_dashboard_translations(self):
-        text = (ROOT / 'include/web_ui.h').read_text()
+        text = (ROOT / 'src/dashboard.html').read_text()
         source = text.split('const T=', 1)[1].split(';\n', 1)[0]
         translations = json.loads(source)
         self.assertEqual(set(translations), {'en', 'de'})
@@ -40,7 +40,7 @@ class PagesTests(unittest.TestCase):
         self.assertIn('<html lang="en">', html)
         keys = re.findall(r'data-i18n(?:-content|-aria-label)?="([^"]+)"', html)
         for language, entries in translations.items():
-            for key in keys + ['ready', 'unavailable', 'unavailable_version', 'build']:
+            for key in keys + ['ready', 'unavailable']:
                 with self.subTest(language=language, key=key):
                     self.assertTrue(entries.get(key), 'Every displayed key needs a translation')
 
@@ -72,10 +72,6 @@ class PagesTests(unittest.TestCase):
             memory[sector_start:sector_end] = b'\xff' * (sector_end - sector_start)
             memory[offset:offset + len(payload)] = payload
         self.assertEqual(memory[0x9000:0xe000], saved_nvs)
-        # Reproduces why the previous merged-at-zero update lost credentials.
-        merged = (SITE / 'firmware/lighthouse-bridge-esp32-merged.bin').read_bytes()
-        self.assertEqual(merged[0x9000:0xe000], b'\xff' * 0x5000)
-
     def test_all_page_assets_resolve_below_project_subpath(self):
         parser = Links()
         parser.feed((SITE / 'index.html').read_text())
@@ -92,13 +88,10 @@ class PagesTests(unittest.TestCase):
                 self.assertTrue((file.parent / relative).is_file(), relative)
 
     def test_published_checksum_matches_image(self):
-        info = json.loads((SITE / 'build-info.json').read_text())
-        digest = hashlib.sha256((SITE / 'firmware/lighthouse-bridge-esp32-merged.bin').read_bytes()).hexdigest()
-        self.assertEqual(info['sha256'], digest)
-        self.assertEqual((SITE / 'firmware/SHA256SUMS').read_text().split()[0], digest)
-        for line in (SITE / 'firmware/SHA256SUMS').read_text().splitlines():
-            checksum, filename = line.split()
-            self.assertEqual(hashlib.sha256((SITE / 'firmware' / filename).read_bytes()).hexdigest(), checksum)
+        for directory in (SITE / 'firmware/rs-matter').glob('**/SHA256SUMS'):
+            for line in directory.read_text().splitlines():
+                checksum, filename = line.split()
+                self.assertEqual(hashlib.sha256((directory.parent / filename).read_bytes()).hexdigest(), checksum)
 
 
 if __name__ == '__main__':

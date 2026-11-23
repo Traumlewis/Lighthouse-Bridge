@@ -9,4 +9,4 @@ _site/
 node_modules/
 .codex-attachments/
 
-experimental/rs-matter/rust/target/
+firmware/rust/target/

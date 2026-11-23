@@ -5,14 +5,14 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 from rs_boards import BOARDS
-from build_matter import validate_segments
+from firmware_assets import validate_segments
 from rs_matter_link import validate_cache_safe_symbols
 
 class BoardTests(unittest.TestCase):
  def test_profiles_and_complete_layout(self):
   self.assertEqual(set(BOARDS),{'esp32','weact-c3','c3-supermini','s3-supermini'})
   folder=ROOT/'dist'
-  table=(folder/'lighthouse-bridge-partitions.bin').read_bytes()
+  table=(folder/'rs-matter/lighthouse-rs-matter-partitions.bin').read_bytes()
   for name,board in BOARDS.items():
    image=bytearray(288);image[0]=0xe9;image[12:14]=board['chip'].to_bytes(2,'little')
    segments=[(board['boot'],bytes(image)),(0x8000,table),(0xe000,b'\xff'*8192),(0x10000,bytes(image))]

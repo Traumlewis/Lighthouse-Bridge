@@ -44,7 +44,8 @@ template<size_t Chunk> void check() {
   assert(parsed["uptime_ms"] == 90000);
   for (unsigned i = 0; i < kStations; ++i) {
     const auto item = parsed["stations"][i];
-    assert(item.size() == 26); // Preserve the existing station status contract.
+    assert(item.size() == 27); // Preserve the existing station status contract.
+    assert(item["off_state"] == "sleep");
     assert(item["id"] == i+1 && item["observed_ms"] == 89000);
     assert(item["observed_raw"] == (i%2 ? 0 : 11));
     assert(item["alexa_target_pending"] == false);

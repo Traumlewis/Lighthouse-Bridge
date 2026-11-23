@@ -1,13 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#ifdef LH_RS_MATTER_BUILD
 #include "rs_runtime.h"
-#endif
-#if defined(LH_MATTER_BUILD) && !defined(LH_RS_MATTER_BUILD)
-#include <Matter.h>
-#elif !defined(LH_MATTER_BUILD)
-#include <Espalexa.h>
-#endif
 #include <ESPmDNS.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
@@ -23,10 +16,6 @@
 #include "station_config.h"
 #include "ota_receiver.h"
 #include "bridge_core.h"
-#ifndef LH_MATTER_BUILD
-#include "hue_api.h"
-#include "web_ui.h"
-#else
 #include "web_ui_gzip.h"
 #include "status_api.h"
 #include "startup_sequence.h"
@@ -36,9 +25,7 @@
 #include <esp_mac.h>
 #include <esp_heap_caps.h>
 #include <atomic>
-#endif
 #include "password_hash.h"
-#ifdef LH_RS_MATTER_BUILD
 #include "web_account.h"
 #include "local_wifi_page.h"
 #include "rs_wifi_portal.h"
@@ -59,11 +46,7 @@ int identifySlot = -1;
 bool stationInfoJob = false;
 uint32_t identifyJob = 0;
 const char* identifyResult = nullptr;
-#endif
 
-#ifndef LH_FIRMWARE_VERSION
-#define LH_FIRMWARE_VERSION "0.3.9"
-#endif
 #if MBEDTLS_VERSION_MAJOR >= 3
 #define LH_SHA_START mbedtls_sha256_starts
 #define LH_SHA_UPDATE mbedtls_sha256_update
@@ -80,26 +63,16 @@ const char* identifyResult = nullptr;
 #define LH_BOOT_PIN 0
 #endif
 using namespace bridge;
-#ifdef LH_MATTER_BUILD
 MatterWebServer server(80);
 static_assert(CONFIG_BT_NIMBLE_MAX_CONNECTIONS == 1,"The sequential Matter worker needs one BLE connection");
 static_assert(!CONFIG_BT_NIMBLE_ROLE_PERIPHERAL && !CONFIG_BT_NIMBLE_ROLE_BROADCASTER &&
               CONFIG_BT_NIMBLE_ROLE_CENTRAL && CONFIG_BT_NIMBLE_ROLE_OBSERVER,"Use only the Lighthouse client/scanner roles");
-#else
-WebServer server(80);
-#endif
-#ifndef LH_MATTER_BUILD
-Espalexa alexa;
-#endif
 Preferences prefs;
 SemaphoreHandle_t stateMutex;
 StationConfig configs[kStations];
 StationState states[kStations];
-#ifdef LH_MATTER_BUILD
 std::atomic<bool> bleWorkerAvailable{false};
 std::atomic<const char*> bleStartupError{"BLE_STARTING"};
-#endif
-#ifdef LH_RS_MATTER_BUILD
 ButtonBinding gpioButtons[2];
 ButtonDebouncer gpioDebounce[2];
 void applyButtonPins() {
@@ -124,7 +97,6 @@ bool parseButtons(JsonVariantConst value, ButtonBinding (&out)[2]) {
   }
   return validButtonBindings(out);
 }
-#endif
 uint32_t nextHueId = 1;
 String customDeviceName;
 bool otaPrepared = false, otaUploading = false, otaSucceeded = false, otaCandidateReady = false, otaRequestAuthorized = false;
@@ -135,11 +107,7 @@ bool restartPending = false;
 String accessKey, apName, hostname;
 String webSalt, webHash;
 bool usingLocalWifi() {
-#ifdef LH_RS_MATTER_BUILD
   return localWifiMode;
-#else
-  return false;
-#endif
 }
 IPAddress bridgeAddress() { return usingLocalWifi() ? WiFi.softAPIP() : WiFi.localIP(); }
 struct WebSession { String token; uint32_t seen = 0; bool bootstrap = false; };
@@ -147,11 +115,7 @@ WebSession sessions[4];
 unsigned loginFailures = 0;
 uint32_t loginBlockedAt = 0;
 bool loginBlocked = false;
-#ifdef LH_RS_MATTER_BUILD
 PortalWifiManager wifiManager;
-#else
-WiFiManager wifiManager;
-#endif
 bool servicesStarted = false, manualPortal = false;
 bool blePaused = false;
 bool bleActive = false;
@@ -160,15 +124,9 @@ bool alexaReady = false;
 bool scanPending = false, scanning = false;
 bool refreshRequested[kStations]{};
 uint32_t scanFinishedMs = 0;
-#ifdef LH_MATTER_BUILD
 using FoundStation = StatusDiscovery;
-#else
-struct FoundStation { char name[48]; char mac[18]; uint8_t type; int rssi; };
-#endif
 FoundStation found[16]{};
-#ifdef LH_MATTER_BUILD
 #include "matter_scan.h"
-#endif
 unsigned foundCount = 0;
 bool foundTruncated = false;
 
@@ -177,7 +135,6 @@ struct Lock {
   ~Lock() { xSemaphoreGive(stateMutex); }
 };
 
-#ifdef LH_MATTER_BUILD
 uint32_t matterDataFree() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
 uint32_t matterDataLargest() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
 struct JsonHttpSink {
@@ -185,11 +142,8 @@ struct JsonHttpSink {
     return server.writeBytes(data,size);
   }
 };
-#endif
 void restartBridge() {
-#ifdef LH_RS_MATTER_BUILD
   // rs-matter commits every persistence mutation before acknowledging it.
-#endif
   ESP.restart();
 }
 void sendJson(int code, const JsonDocument& doc) {
@@ -199,16 +153,11 @@ void sendJson(int code, const JsonDocument& doc) {
     return;
   }
   server.sendHeader("Cache-Control", "no-store");
-#ifdef LH_MATTER_BUILD
   server.setContentLength(measureJson(doc));
   server.send(code,"application/json; charset=utf-8","");
   JsonHttpSink sink; JsonStreamWriter writer(sink);
   serializeJson(doc,writer);
   if (!writer.flush()) server.client().stop();
-#else
-  String body; serializeJson(doc,body);
-  server.send(code,"application/json; charset=utf-8",body);
-#endif
 }
 void fail(int code, const char* message) {
   StaticJsonDocument<256> doc;
@@ -275,18 +224,14 @@ bool readBody(JsonDocument& doc) {
   return true;
 }
 bool occupied(bool includeRead = true) { // Caller holds stateMutex.
-#ifdef LH_RS_MATTER_BUILD
   if (identifySlot >= 0) return true;
-#endif
   if (scanning || scanPending) return true;
   if (includeRead && bleActive) return true;
   for (auto& state : states) if (state.busy || state.pending || (includeRead && state.reading)) return true;
   return false;
 }
 bool queueTarget(int slot, Target target, bool configuredOff = false) {
-#ifdef LH_MATTER_BUILD
   if (!bleWorkerAvailable.load()) return false;
-#endif
   Lock lock;
   bool accepted = false;
   if (blePaused || portalRequested || otaPrepared || restartPending) return false;
@@ -299,15 +244,9 @@ bool queueTarget(int slot, Target target, bool configuredOff = false) {
   return accepted;
 }
 
-#ifndef LH_MATTER_BUILD
-bool queueHueTarget(int hueId, Target target) {
-  const int stationId = stationIdForHue(configs, static_cast<uint32_t>(hueId));
-  return stationId && queueTarget(stationId, target);
-}
-#endif
 
 // BLE is confined to this worker: scan, connect, write and disconnect never
-// block the HTTP/SSDP loop. One connection at a time for up to 16 stations.
+// block the HTTP and Matter loop. One connection at a time for up to 16 stations.
 void waitForBleCleanup() {
   // In NimBLE 2.x deleteClient() can defer destruction until disconnection.
   // Never dereference that client again, or start another scan/connection yet.
@@ -324,7 +263,6 @@ void waitForBleCleanup() {
 
 void refreshRetryAddress(StationConfig& config) {
   waitForBleCleanup();
-#ifdef LH_MATTER_BUILD
   MatterScanCapture capture; capture.assigned = config.mac;
   const int code = runMatterScan(capture,false,2000);
   const auto& result = capture.recovery;
@@ -338,45 +276,6 @@ void refreshRetryAddress(StationConfig& config) {
       config.id,result.rssi,result.type,result.addressType);
   } else Serial.printf("Station %u: retry scan: assigned address not seen within 2 seconds; reports_seen=%u\n",
       config.id,result.reports);
-#else
-  // A failed establishment (HCI 0x3e) needs a new radio opportunity, not a
-  // longer GATT read timeout. Passive scanning avoids extra scan requests.
-  auto* scan = NimBLEDevice::getScan();
-  scan->setActiveScan(false);
-  scan->setInterval(97);
-  scan->setWindow(67);
-  auto results = scan->getResults(2000, false); // NimBLE 2.x durations are milliseconds.
-  bool seen = false;
-  bool matched = false;
-  for (int i = 0; i < results.getCount(); ++i) {
-    const auto* device = results.getDevice(i);
-    char mac[18]{};
-    normalizeMac(device->getAddress().toString().c_str(), mac);
-    if (strcmp(mac, config.mac)) continue;
-    matched = true;
-    const uint8_t eventType = device->getAdvType();
-    // NimBLE 1.4.3 isConnectable() treats legacy enum 0 (ADV_IND) as a
-    // zero bitmask on classic ESP32, incorrectly rejecting normal advertising.
-    static_assert(BLE_HCI_ADV_RPT_EVTYPE_ADV_IND == 0 && BLE_HCI_ADV_RPT_EVTYPE_DIR_IND == 1,
-                  "Legacy advertising classification must match HCI constants");
-    if (!isConnectableLegacyAdvertisement(eventType)) {
-      Serial.printf("Station %u: retry scan: address seen, RSSI=%d dBm, adv_type=%u (not connectable)\n",
-                    config.id, device->getRSSI(), eventType);
-      continue;
-    }
-    // Random (1) is fixed for Lighthouse V2. Advertising confirms visibility;
-    // never substitute another device based on its name.
-    config.addressType = 1;
-    Serial.printf("Station %u: retry scan: advertisement seen, RSSI=%d dBm, address_type=%u, advertised_address_type=%u, adv_type=%u\n",
-                  config.id, device->getRSSI(), config.addressType, device->getAddress().getType(), eventType);
-    seen = true;
-    break;
-  }
-  if (!seen) Serial.printf("Station %u: retry scan: %s within 2 seconds; devices_seen=%d\n", config.id,
-                          matched ? "address seen without connectable advertisement" : "assigned address not seen",
-                          results.getCount());
-  scan->clearResults();
-#endif
 }
 
 void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt, uint8_t addressType) {
@@ -387,21 +286,15 @@ void logBleFailure(unsigned slot, const char* error, int code, unsigned attempt,
                   : code == BLE_HS_ETIMEOUT ? " (connection timeout)" : "");
 }
 
-#ifdef LH_RS_MATTER_BUILD
 #include "rs_station_info.h"
-#endif
 bool accessPower(const StationConfig& config, const Target* target, int& observed, char* error, int& bleError
-#ifdef LH_RS_MATTER_BUILD
                  , bool identify = false, bool info = false
-#endif
                  ) {
   waitForBleCleanup();
   bleError = 0;
-#ifdef LH_MATTER_BUILD
   if (matterDataFree() < 4096 || matterDataLargest() < sizeof(NimBLEClient)+128) {
     strcpy(error,"BLE_NO_MEMORY"); bleError = BLE_HS_ENOMEM; return false;
   }
-#endif
   NimBLEClient* client = NimBLEDevice::createClient();
   if (!client) { strcpy(error, "BLE_NO_CLIENT"); return false; }
   // The host retries HCI 0x3e before exposing a failed connection to the worker.
@@ -413,7 +306,6 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
     strcpy(error, "BLE_CONNECT_FAILED");
   } else {
     auto* service = client->getService(kService);
-#ifdef LH_RS_MATTER_BUILD
     if (info) {
       ok = readStationInfo(client, service);
       NimBLEDevice::deleteClient(client);
@@ -430,7 +322,6 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
       NimBLEDevice::deleteClient(client);
       return ok;
     }
-#endif
     auto* power = service ? service->getCharacteristic(kPower) : nullptr;
     if (!power || (target && !power->canWriteNoResponse() && !power->canWrite())) {
       strcpy(error, "POWER_CHARACTERISTIC_MISSING");
@@ -460,7 +351,6 @@ bool accessPower(const StationConfig& config, const Target* target, int& observe
 void discoverStations() {
   waitForBleCleanup();
   Serial.println("BLE discovery: started (read-only, 5000 ms scan).");
-#ifdef LH_MATTER_BUILD
   FoundStation next[16]{};
   MatterScanCapture capture; capture.entries = next;
   const int code = runMatterScan(capture,true,5000);
@@ -471,28 +361,6 @@ void discoverStations() {
     Serial.printf("BLE discovery: failed, BLE code=%d\n",code);
     return; // Retain earlier discovery results/timestamp on an incomplete scan.
   }
-#else
-  auto* scan = NimBLEDevice::getScan();
-  scan->setActiveScan(true);
-  scan->setInterval(97);
-  scan->setWindow(67);
-  auto results = scan->getResults(5000, false);
-  FoundStation next[16]{};
-  unsigned count = 0;
-  bool truncated = false;
-  for (int i = 0; i < results.getCount(); ++i) {
-    const auto* device = results.getDevice(i);
-    const std::string name = device->getName();
-    if (name.compare(0, 4, "LHB-") != 0) continue;
-    if (count == 16) { truncated = true; continue; }
-    auto& item = next[count++];
-    strncpy(item.name, name.c_str(), sizeof(item.name) - 1);
-    normalizeMac(device->getAddress().toString().c_str(), item.mac);
-    item.type = device->getAddress().getType();
-    item.rssi = device->getRSSI();
-  }
-  scan->clearResults();
-#endif
   {
     Lock lock;
     memcpy(found, next, sizeof(found));
@@ -505,9 +373,7 @@ void discoverStations() {
 }
 
 void bleWorker(void*) {
-#ifdef LH_MATTER_BUILD
   while (!bleWorkerAvailable.load()) vTaskDelay(pdMS_TO_TICKS(20));
-#endif
   unsigned cursor = 0;
   for (;;) {
     waitForBleCleanup();
@@ -517,9 +383,7 @@ void bleWorker(void*) {
     uint32_t generation = 0;
     bool doScan = false;
     bool readOnly = false;
-#ifdef LH_RS_MATTER_BUILD
     bool identify = false, info = false;
-#endif
     {
       Lock lock;
       if (blePaused) { /* Portal owns the radio; do not schedule new BLE work. */ }
@@ -535,14 +399,12 @@ void bleWorker(void*) {
         states[i].busy = true;
         break;
       }
-#ifdef LH_RS_MATTER_BUILD
       if (selected < 0 && identifySlot >= 0) {
         selected = identifySlot;
         config = configs[selected];
         identify = true;
         info = stationInfoJob;
       }
-#endif
       if (selected < 0 && scanPending) {
         scanPending = false;
         scanning = doScan = true;
@@ -551,9 +413,7 @@ void bleWorker(void*) {
         for (unsigned offset = 0; offset < kStations; ++offset) {
           const unsigned i = (cursor + offset) % kStations;
           const auto& state = states[i];
-#ifdef LH_RS_MATTER_BUILD
           if (remoteOnly && !awaitingConfirmation(state, millis())) continue;
-#endif
           const uint32_t interval = readInterval(state, millis());
           if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
               millis() - state.lastReadAttemptMs < interval)) continue;
@@ -572,7 +432,6 @@ void bleWorker(void*) {
       int observed = -1;
       bool sent = false;
       int bleError = 0;
-#ifdef LH_RS_MATTER_BUILD
       if (identify) {
         const bool completed = accessPower(config, nullptr, observed, error, bleError, !info, info);
         waitForBleCleanup();
@@ -589,7 +448,6 @@ void bleWorker(void*) {
                          ? "IDENTIFY_UNSUPPORTED" : "IDENTIFY_FAILED";
         identifySlot = -1;
       } else
-#endif
       if (readOnly) {
         // Retry one failed read without changing power. Yield to pending user
         // commands between attempts, and let the device finish disconnecting.
@@ -650,177 +508,29 @@ void bleWorker(void*) {
       }
       cursor = (selected + 1) % kStations;
     }
-#ifdef LH_RS_MATTER_BUILD
     bool stopRemoteWorker;
-#endif
     {
       Lock lock;
       bleActive = NimBLEDevice::getCreatedClientCount() != 0;
-#ifdef LH_RS_MATTER_BUILD
       stopRemoteWorker = remoteOnly && blePaused && !bleActive;
-#endif
     }
-#ifdef LH_RS_MATTER_BUILD
     if (stopRemoteWorker) {
       bleWorkerAvailable = false;
       vTaskDelete(nullptr);
     }
-#endif
     vTaskDelay(pdMS_TO_TICKS(selected >= 0 ? 150 : 20));
   }
 }
 
-#ifdef LH_MATTER_BUILD
 #include "matter_config_io.h"
-#ifdef LH_RS_MATTER_BUILD
 #include "rs_matter_adapter.h"
-#else
-#include "matter_adapter.h"
-#endif
 #include "matter_status.h"
 #include "matter_config_route.h"
-#endif
 
 void statusRoute() {
-#ifdef LH_MATTER_BUILD
   matterStatusRoute();
-#else
-  if (!authenticated()) return;
-  DynamicJsonDocument doc(32768);
-  doc["version"] = LH_FIRMWARE_VERSION;
-
-  doc["poll_interval_ms"] = 15000;
-  doc["max_stations"] = kStations;
-  doc["ota_supported"] = esp_ota_get_next_update_partition(nullptr) != nullptr;
-  doc["ota_product"] = kOtaProduct;
-  doc["setup_ssid"] = apName;
-  doc["maintenance"] = blePaused || portalRequested || otaPrepared;
-  doc["ip"] = WiFi.localIP().toString();
-  doc["hostname"] = hostname;
-  doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
-  doc["alexa_started"] = alexaReady;
-  doc["free_heap"] = ESP.getFreeHeap();
-  {
-    Lock lock;
-    const uint32_t now = millis();
-    doc["uptime_ms"] = now;
-    doc["scanning"] = scanning || scanPending;
-    doc["scan_finished_ms"] = scanFinishedMs;
-    doc["scan_truncated"] = foundTruncated;
-    auto stations = doc.createNestedArray("stations");
-    for (unsigned i = 0; i < kStations; ++i) {
-      if (!configs[i].id) continue;
-      auto item = stations.createNestedObject();
-      item["id"] = configs[i].id;
-      item["name"] = configs[i].name;
-      item["mac"] = configs[i].mac;
-      item["address_type"] = configs[i].addressType;
-      item["alexa_compat"] = configs[i].alexaCompat;
-      item["configured"] = configs[i].mac[0] != '\0';
-      const auto& state = states[i];
-      if (state.hasRequest) item["requested"] = targetName(state.requested);
-      else item["requested"] = nullptr;
-      item["pending"] = state.pending;
-      item["busy"] = state.busy;
-      item["reading"] = state.reading || refreshRequested[i];
-      item["read_active"] = state.reading;
-      item["read_queued"] = refreshRequested[i];
-      item["reachable"] = freshMeasurement(state, now);
-      item["read_failures"] = state.readFailures;
-      item["ble_error"] = state.bleError;
-      item["last_read_attempt_ms"] = state.lastReadAttemptMs;
-      item["requested_ms"] = state.requestedMs;
-      item["alexa_target_pending"] = hueTargetPending(state, now);
-      item["command_sent"] = state.sent;
-      item["command_confirmed"] = state.commandConfirmed;
-      item["command_status"] = commandStatus(state, now);
-      item["last_sent_ms"] = state.lastSentMs;
-      item["observed"] = observedName(state.observed);
-      item["observed_raw"] = state.observed;
-      item["observed_ms"] = state.observedMs;
-      item["error"] = state.error;
-    }
-    auto devices = doc.createNestedArray("discovered");
-    for (unsigned i = 0; i < foundCount; ++i) {
-      auto item = devices.createNestedObject();
-      item["name"] = found[i].name;
-      item["mac"] = found[i].mac;
-      item["address_type"] = found[i].type;
-      item["rssi"] = found[i].rssi;
-    }
-  }
-  sendJson(200, doc);
-#endif
 }
 
-#ifndef LH_MATTER_BUILD
-// Hue ACK means queued. GET ON temporarily follows an active accepted target;
-// measurements and reachability remain separate and never become optimistic.
-// Espalexa still owns SSDP, description and username registration.
-bool serveHueLights(const String& uri) {
-  const uint32_t started = millis();
-  String mac = WiFi.macAddress(), suffix = mac; suffix.replace(":", "");
-  const uint32_t mac24 = strtoul(suffix.substring(6).c_str(), nullptr, 16);
-  const auto route = parseHueLightRoute(uri.c_str(), mac24);
-  if (!route.matched) return false;
-  if (server.method() == HTTP_PUT) {
-    const int selected = route.slot < 0 ? -1 : stationHueIndex(configs,route.slot);
-    const bool compat = selected >= 0 && configs[selected].alexaCompat;
-    const auto reply = handleHueWrite(route, server.arg("plain").c_str(), queueHueTarget, compat);
-    server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "application/json", reply.json.c_str());
-    Serial.printf("Hue PUT: station=%d, on=%s, queued=%s, unsupported=%u, handler_ms=%u\n",
-                  stationIdForHue(configs, route.slot),
-                  reply.on ? "true" : "false", reply.accepted ? "true" : "false", reply.unsupported,
-                  millis() - started);
-    return true;
-  }
-  if (server.method() != HTTP_GET || !route.valid) {
-    const auto error = hueError(route.valid ? 4 : 3, "/lights",
-                               route.valid ? "method not available" : "resource not available");
-    server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "application/json", error.c_str());
-    return true;
-  }
-  const int selected = route.slot < 0 ? -1 : stationHueIndex(configs, route.slot);
-  if (route.slot >= 0 && (selected < 0 || !configs[selected].mac[0])) {
-    const auto error = hueError(3, "/lights", "resource not available");
-    server.send(200, "application/json", error.c_str()); return true;
-  }
-  const bool stateOnly = route.stateOnly;
-  unsigned configured = 0, fresh = 0;
-  unsigned traceBri = 0;
-  bool traceOn = false, traceReachable = false, tracePending = false, traceTarget = false;
-  DynamicJsonDocument doc(16384);
-  JsonObject root = doc.to<JsonObject>();
-  {
-    Lock lock;
-    const uint32_t now = millis();
-    for (unsigned i = 0; i < kStations; ++i) {
-      if (!configs[i].id || !configs[i].mac[0]) continue;
-      ++configured;
-      if (freshMeasurement(states[i], now)) ++fresh;
-      if (!states[i].reading && !states[i].busy &&
-          now - states[i].lastReadAttemptMs >= readInterval(states[i], now)) refreshRequested[i] = true;
-      if (selected >= 0 && selected != static_cast<int>(i)) continue;
-      JsonObject light = selected < 0 ? root.createNestedObject(String(hueKey(mac24, configs[i].hueId))) : root;
-      writeHueLight(light, configs[i], states[i], now, mac.c_str(), "lighthouse-bridge-0.3.9", stateOnly);
-      JsonObject state = stateOnly ? light : light["state"].as<JsonObject>();
-      traceOn = state["on"].as<bool>(); traceBri = state["bri"].as<unsigned>(); traceReachable = state["reachable"].as<bool>();
-      tracePending |= states[i].pending || states[i].busy;
-      traceTarget |= hueTargetPending(states[i], now);
-    }
-  }
-  sendJson(200, doc);
-  if (selected < 0) Serial.printf("Hue GET lights: configured=%u, fresh=%u, pending=%s, source=%s\n",
-      configured, fresh, tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
-  else Serial.printf("Hue GET: station=%d, profile=%s, on=%s, bri=%u, reachable=%s, pending=%s, source=%s\n",
-      configs[selected].id, configs[selected].alexaCompat ? "compat" : "standard", traceOn ? "true" : "false", traceBri, traceReachable ? "true" : "false",
-      tracePending ? "true" : "false", traceTarget ? "accepted_target" : "measurement");
-  return true;
-}
-
-#endif
 
 struct FirmwareOtaIO {
   mbedtls_sha256_context sha;
@@ -869,9 +579,7 @@ void acceptOtaBytes(uint8_t* bytes, size_t count) {
   if (error) cancelOta(error);
 }
 void otaUpload() {
-#ifdef LH_RS_MATTER_BUILD
   lh_rs_pump();
-#endif
   auto& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     otaRequestAuthorized = false;
@@ -892,17 +600,13 @@ void otaUpload() {
   }
 }
 
-#ifdef LH_RS_MATTER_BUILD
 #include "rs_maintenance.h"
 void configureRemoteRoutes();
-#endif
 void configureMaintenanceRoutes() {
   server.on("/api/device", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
     if (otaPrepared || blePaused) { fail(409, "BLE_BUSY"); return; }
-#ifdef LH_RS_MATTER_BUILD
     if (localWifiMode) { Lock lock; if (occupied(false) || restartPending) { fail(409,"BLE_BUSY"); return; } }
-#endif
     StaticJsonDocument<256> doc;
     if (!readBody(doc)) return;
     if (!doc["name"].is<const char*>() || !validDeviceName(doc["name"])) { fail(400, "DEVICE_NAME_INVALID"); return; }
@@ -910,20 +614,12 @@ void configureMaintenanceRoutes() {
     if (prefs.putString("dev_name", name) != name.length()) { fail(500, "SAVE_FAILED"); return; }
     customDeviceName = hostname = apName = name;
     WiFi.setHostname(hostname.c_str()); wifiManager.setHostname(hostname);
-#ifdef LH_MATTER_BUILD
     matterSetHostname(hostname);
-#else
-    MDNS.end(); MDNS.begin(hostname.c_str()); MDNS.addService("http", "tcp", 80);
-#endif
     doc.clear(); doc["saved"] = true; doc["hostname"] = hostname; doc["setup_ssid"] = apName;
     doc["url"] = "http://" + hostname + ".local/";
-#ifdef LH_RS_MATTER_BUILD
     if (localWifiMode) { { Lock lock; blePaused = true; } doc["restarting"] = true; restartPending = true; restartAt = millis(); }
-#endif
     sendJson(200, doc);
-#ifdef LH_RS_MATTER_BUILD
     if (localWifiMode) restartAt = millis();
-#endif
     emitDeviceInfo();
   });
   server.on("/api/ota/prepare", HTTP_POST, [] {
@@ -969,15 +665,12 @@ void configureRoutes() {
   const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie", "X-OTA-Token"};
   server.collectHeaders(headers, 5);
   configureMaintenanceRoutes();
-#ifdef LH_RS_MATTER_BUILD
   configureRsMaintenanceRoutes();
   configureRemoteRoutes();
-#endif
   server.on("/", HTTP_GET, [] {
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("X-Content-Type-Options", "nosniff");
     server.sendHeader("X-Frame-Options", "DENY");
-#ifdef LH_MATTER_BUILD
     server.sendHeader("Content-Encoding", "gzip");
     const uint32_t started = millis();
     Serial.printf("Web UI begin: bytes=%u, free_8bit=%u, largest_8bit=%u\n",
@@ -988,11 +681,7 @@ void configureRoutes() {
     Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free_8bit=%u, largest_8bit=%u\n",
                   unsigned(sent), unsigned(sizeof(WEB_UI_GZIP)), sent == sizeof(WEB_UI_GZIP) ? "true" : "false",
                   unsigned(millis() - started), matterDataFree(), matterDataLargest());
-#else
-    server.send_P(200, "text/html; charset=utf-8", WEB_UI);
-#endif
   });
-#ifdef LH_RS_MATTER_BUILD
   // Public capability only: no account name, key, hash or salt is returned.
   server.on("/api/login", HTTP_GET, [] {
     StaticJsonDocument<64> doc;
@@ -1051,7 +740,6 @@ void configureRoutes() {
     sendJson(200,doc);
     if (localWifiMode) restartAt = millis();
   });
-#endif
   server.on("/api/login", HTTP_POST, [] {
     if (!sameOriginJson()) return;
     StaticJsonDocument<512> doc;
@@ -1060,12 +748,8 @@ void configureRoutes() {
     if (loginBlocked) { loginBlocked = false; loginFailures = 0; }
     const String password = doc["password"].as<String>();
     const bool bootstrap = !webHash.length();
-#ifdef LH_RS_MATTER_BUILD
     const bool usernameValid = bootstrap || !webUsernameEnabled ||
       (doc["username"].is<const char*>() && equalSecret(doc["username"].as<String>(),webUsername));
-#else
-    const bool usernameValid = true;
-#endif
     const bool valid = usernameValid && doc["password"].is<const char*>() && password.length() <= 128 &&
       (bootstrap ? equalSecret(password, accessKey) : equalSecret(passwordHash(password, webSalt), webHash));
     if (!valid) {
@@ -1076,7 +760,6 @@ void configureRoutes() {
     issueSession(bootstrap);
     doc.clear(); doc["password_required"] = bootstrap; sendJson(200, doc);
   });
-#ifdef LH_RS_MATTER_BUILD
   server.on("/api/buttons", HTTP_GET, [] {
     if (!authenticated(true)) return;
     StaticJsonDocument<1024> doc;
@@ -1111,26 +794,19 @@ void configureRoutes() {
     for(unsigned i=0;i<2;++i) gpioButtons[i]=proposed[i];
     applyButtonPins();doc.clear();doc["saved"]=true;sendJson(200,doc);
   });
-#endif
   server.on("/api/account", HTTP_GET, [] {
     if (!authenticated(true, true)) return;
     StaticJsonDocument<512> doc;
-#ifdef LH_MATTER_BUILD
     doc["alexa_protocol"] = "matter"; doc["matter_ready"] = matterReady.load() && bleWorkerAvailable.load();
-#endif
     doc["password_required"] = !webHash.length();
     doc["setup_ssid"] = apName; doc["hostname"] = hostname;
     doc["device_name"] = customDeviceName;
-#ifdef LH_RS_MATTER_BUILD
     doc["username_enabled"] = webUsernameEnabled;
     doc["username"] = webUsername;
     doc["network_mode"] = usingLocalWifi() ? "local" : "home";
-#endif
     if (webHash.length()) {
       doc["api_key"] = accessKey;
-#ifdef LH_RS_MATTER_BUILD
       doc["room_name"] = roomName;
-#endif
     }
     sendJson(200, doc);
   });
@@ -1145,9 +821,7 @@ void configureRoutes() {
     const String salt = randomHex(16), hash = passwordHash(password, salt);
     if (hash.length() != 64) { fail(500, "PASSWORD_HASH_FAILED"); return; }
     doc.clear(); doc["salt"] = salt; doc["hash"] = hash;
-#ifdef LH_RS_MATTER_BUILD
     doc["username_enabled"] = webUsernameEnabled; doc["username"] = webUsername;
-#endif
     String record; serializeJson(doc, record);
     if (prefs.putString("web_auth", record) != record.length()) { fail(500, "SAVE_FAILED"); return; }
     webSalt = salt; webHash = hash;
@@ -1163,29 +837,20 @@ void configureRoutes() {
   });
   server.on("/api/refresh", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-#ifdef LH_MATTER_BUILD
     if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
-#endif
     { Lock lock; for (unsigned i = 0; i < kStations; ++i) if (configs[i].mac[0]) refreshRequested[i] = true; }
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/status", HTTP_GET, statusRoute);
   server.on("/api/power", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-#ifdef LH_MATTER_BUILD
     if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
-#endif
     StaticJsonDocument<256> doc;
     if (!readBody(doc)) return;
     Target target;
-#ifdef LH_RS_MATTER_BUILD
     const bool configuredOff = doc["state"].is<const char*>() && !strcmp(doc["state"],"off");
     const bool targetValid = configuredOff ? (target = Target::Sleep,true) :
       (doc["state"].is<const char*>() && parseTarget(doc["state"],target,true));
-#else
-    const bool configuredOff = false;
-    const bool targetValid = doc["state"].is<const char*>() && parseTarget(doc["state"],target);
-#endif
     if (!targetValid) { fail(400, "STATE_INVALID"); return; }
     int slot = -1;
     if (doc["station"].is<int>() && doc["station"].as<int>() >= 1 && doc["station"].as<int>() <= static_cast<int>(kStations))
@@ -1199,112 +864,42 @@ void configureRoutes() {
   });
   server.on("/api/scan", HTTP_POST, [] {
     if (!mutationAllowed()) return;
-#ifdef LH_MATTER_BUILD
     if (!bleWorkerAvailable.load()) { fail(503,bleStartupError.load()); return; }
-#endif
     bool queued = false;
     { Lock lock; if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; } if (!scanning) { queued = !scanPending; scanPending = true; } }
     if (queued) Serial.println("BLE discovery: queued (read-only).");
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
   server.on("/api/config", HTTP_POST, [] {
-#ifdef LH_MATTER_BUILD
     matterSaveConfiguration();
-#else
-    if (!mutationAllowed()) return;
-    if (blePaused || otaPrepared) { fail(409, "BLE_BUSY"); return; }
-#ifdef LH_MATTER_BUILD
-    DynamicJsonDocument doc(kStationJsonCapacity);
-#else
-    DynamicJsonDocument doc(16384);
-#endif
-    if (!readBody(doc)) return;
-    std::unique_ptr<StationConfig[]> next(new (std::nothrow) StationConfig[kStations]);
-    std::unique_ptr<StationState[]> restored(new (std::nothrow) StationState[kStations]);
-    if (!next || !restored) { fail(500, "SAVE_FAILED"); return; }
-    uint32_t counter = nextHueId;
-    std::string error;
-    if (!parseStationList(doc["stations"], next.get(), configs, counter, false, false, error)) {
-      fail(400, error.c_str()); return;
-    }
-    doc.clear(); doc["next_id"] = counter;
-    writeStationList(doc.createNestedArray("stations"), next.get(), true);
-    if (doc.overflowed()) { fail(503,"OUT_OF_MEMORY"); return; }
-    String saved; serializeJson(doc, saved);
-    bool busy = false, persisted = false;
-#ifdef LH_MATTER_BUILD
-    std::string matterConfigError;
-#endif
-    {
-      Lock lock;
-      busy = occupied(false);
-      if (!busy) {
-#ifdef LH_MATTER_BUILD
-        if (matterPrepareConfiguration(next.get(), matterConfigError))
-#endif
-        persisted = prefs.putString("stations", saved) == saved.length();
-        if (persisted) {
-#ifdef LH_MATTER_BUILD
-          blePaused = true; matterReady = false;
-#endif
-          reconcileStationStates(next.get(), configs, states, restored.get());
-          for (unsigned i = 0; i < kStations; ++i) {
-            configs[i] = next[i]; states[i] = restored[i]; refreshRequested[i] = false;
-          }
-          nextHueId = counter;
-        }
-      }
-    }
-    if (busy) { fail(409, "BLE_BUSY"); return; }
-    if (!persisted) {
-#ifdef LH_MATTER_BUILD
-      if (!matterConfigError.empty()) { fail(409, matterConfigError.c_str()); return; }
-#endif
-      fail(500, "SAVE_FAILED"); return;
-    }
-#ifdef LH_MATTER_BUILD
-    matterConfigurationChanged();
-#endif
-    doc.clear(); doc["saved"] = true; writeStationList(doc.createNestedArray("stations"), configs);
-    sendJson(200, doc);
-#endif
   });
   server.on("/api/wifi", HTTP_POST, [] {
     if (!mutationAllowed()) return;
     { Lock lock; if (occupied(false) || otaPrepared) { fail(409, "BLE_BUSY"); return; }
-#ifdef LH_RS_MATTER_BUILD
       if (restartPending || portalRequested) { fail(409,"BLE_BUSY"); return; }
       if (!requestWifiSetup(prefs)) { fail(500,"SAVE_FAILED"); return; }
-#endif
       blePaused = true; portalRequested = true;
     }
     StaticJsonDocument<96> doc; doc["setup_ssid"] = apName; doc["accepted"] = true;
     sendJson(202, doc);
   });
-  // Espalexa needs its Hue-compatible endpoints without our admin login.
-#ifdef LH_MATTER_BUILD
   server.on("/api/matter", HTTP_GET, [] {
     if (!authenticated(true)) return;
     StaticJsonDocument<1024> doc; matterPrivateInfo(doc, true); sendJson(200, doc);
   });
   server.on("/api/matter/commissioning", HTTP_POST, [] {
     if (!authenticated(true) || !sameOriginJson()) return;
-#ifdef LH_RS_MATTER_BUILD
     StaticJsonDocument<64> request;
     if (!readBody(request)) return;
     if (!request.is<JsonObject>() || request.size()) { fail(400, "JSON_INVALID"); return; }
-#endif
     if (!matterOpenCommissioning()) { fail(409, "MATTER_NOT_READY"); return; }
     StaticJsonDocument<64> doc; doc["accepted"] = true; sendJson(202, doc);
   });
-#endif
   server.onNotFound([] {
     const String uri = server.uri();
-#ifdef LH_RS_MATTER_BUILD
     if(uri=="/api/room"||uri=="/api/maintenance"){
       if(authenticated(true))fail(404,"NOT_FOUND");return;
     }
-#endif
     if (uri == "/api/status" || uri == "/api/power" || uri == "/api/config" ||
         uri == "/api/scan" || uri == "/api/wifi" || uri == "/api/refresh" ||
         uri == "/api/buttons" || uri == "/api/network" || uri == "/api/key" || uri == "/api/username" || uri == "/api/login" || uri == "/api/logout" || uri == "/api/password" || uri == "/api/account" ||
@@ -1313,18 +908,6 @@ void configureRoutes() {
       if (authenticated()) fail(404, "NOT_FOUND");
       return;
     }
-#ifndef LH_MATTER_BUILD
-    // Hue also uses /api/<username>/lights. Do not intercept it as our API.
-    if (uri == "/api" || uri.startsWith("/api/")) {
-      if (server.header("Origin").length()) { fail(403, "ORIGIN_DENIED"); return; }
-      if (serveHueLights(uri)) return;
-      // Only username registration may reach the vendor's write parser.
-      // Its substring matching must never bypass strict light validation.
-      if (uri == "/api" && server.method() == HTTP_POST &&
-          alexa.handleAlexaApiCall(uri, server.arg("plain"))) return;
-      if (server.method() == HTTP_GET && alexa.handleAlexaApiCall(uri, "")) return;
-    }
-#endif
     fail(404, "NOT_FOUND");
   });
 }
@@ -1345,18 +928,13 @@ void emitDeviceInfo() {
   doc["api_key"] = accessKey; doc["setup_ssid"] = apName;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["password_set"] = webHash.length() > 0;
-#ifdef LH_RS_MATTER_BUILD
   doc["network_mode"] = localWifiMode ? "local" : "home";
   const bool networkAvailable = localWifiMode ? localApReady : WiFi.status() == WL_CONNECTED;
-#else
-  const bool networkAvailable = WiFi.status() == WL_CONNECTED;
-#endif
   if (networkAvailable) doc["url"] = "http://" + bridgeAddress().toString() + "/";
   else doc["url"] = nullptr;
   Serial.print("LH_INFO "); serializeJson(doc, Serial); Serial.println();
 }
 
-#ifdef LH_RS_MATTER_BUILD
 void emitWifiInfo() {
   wifi_config_t config{};
   const esp_err_t code = esp_wifi_get_config(WIFI_IF_AP,&config);
@@ -1380,7 +958,6 @@ void emitWifiInfo() {
   memset(&config,0,sizeof(config));
   Serial.print("LH_WIFI_INFO "); serializeJson(doc,Serial); Serial.println();
 }
-#endif
 void processSerial() {
   static char line[80]; static unsigned length = 0; static bool overflow = false;
   while (Serial.available()) {
@@ -1389,17 +966,11 @@ void processSerial() {
     if (c == '\n') {
       line[length] = 0;
       if (!overflow && strcmp(line, "LH_INFO") == 0) emitDeviceInfo();
-#ifdef LH_RS_MATTER_BUILD
       if (!overflow && strcmp(line, "LH_WIFI_INFO") == 0) emitWifiInfo();
-#endif
-#ifdef LH_MATTER_BUILD
       if (!overflow && strcmp(line, "LH_MATTER_INFO") == 0) emitMatterInfo();
-#endif
       if (!overflow && strcmp(line, "LH_RESET_WEB_PASSWORD") == 0) {
         prefs.remove("web_auth"); webSalt = ""; webHash = "";
-#ifdef LH_RS_MATTER_BUILD
         webUsernameEnabled = false; webUsername = "";
-#endif
         for (auto& session : sessions) session.token = "";
         Serial.println("LH_PASSWORD_RESET");
       }
@@ -1415,11 +986,7 @@ bool loadStations() {
   String saved = prefs.getString("stations", "");
   bool validSavedConfig = !saved.length() && !prefs.isKey("stations");
   if (saved.length()) {
-#ifdef LH_MATTER_BUILD
     DynamicJsonDocument doc(kStationJsonCapacity);
-#else
-    DynamicJsonDocument doc(16384);
-#endif
     std::unique_ptr<StationConfig[]> restored(new (std::nothrow) StationConfig[kStations]);
     if (!restored || !doc.capacity()) return false;
     std::string error;
@@ -1437,9 +1004,7 @@ bool loadStations() {
   return validSavedConfig;
 }
 
-#ifdef LH_RS_MATTER_BUILD
 #include "rs_remote.h"
-#endif
 
 void startServices() {
   WiFi.setAutoReconnect(!usingLocalWifi());
@@ -1451,13 +1016,9 @@ void startServices() {
   if (powerSaveResult != ESP_OK) {
     Serial.printf("Wi-Fi modem sleep failed: %s; BLE will not start.\n",
                   esp_err_to_name(powerSaveResult));
-#ifndef LH_MATTER_BUILD
-    while (true) delay(1000);
-#endif
   }
   if (powerSaveResult == ESP_OK) Serial.println("Wi-Fi ready; modem sleep policy enabled for Wi-Fi/BLE coexistence.");
   const bool validSavedConfig = loadStations();
-#ifdef LH_MATTER_BUILD
   struct Services {
     bool validConfig, coexReady;
     bool reserveWorker() {
@@ -1470,9 +1031,7 @@ void startServices() {
     void startWeb() { configureRoutes(); server.begin(); matterServicesReady = true; }
     bool startMatter() {
       if (!validConfig) { matterError = "SAVED_CONFIG_INVALID"; return false; }
-#ifdef LH_RS_MATTER_BUILD
       if (localWifiMode) return matterLocalBegin();
-#endif
       if (!matterBeginResources()) return false;
       if (!matterBridgeBegin()) { matterEndResources(); return false; }
       const uint32_t started = millis();
@@ -1500,49 +1059,24 @@ void startServices() {
   startMatterServices(services);
   alexaReady = matterReady.load() && bleWorkerAvailable.load();
   matterSetHostname(hostname);
-#else
-  Serial.println("Initializing BLE ...");
-  if (!NimBLEDevice::init("Lighthouse Bridge")) {
-    Serial.println("BLE initialization failed.");
-    while (true) delay(1000);
-  }
-  Serial.println("BLE ready (NimBLE 2.5.2, connect_timeout_ms=3000, establishment_retry_limit=1).");
-  if (xTaskCreatePinnedToCore(bleWorker, "lighthouse-ble", 8192, nullptr, 1, nullptr, 0) != pdPASS) {
-    Serial.println("Could not start BLE task"); while (true) delay(1000);
-  }
-  configureRoutes();
-  alexaReady = alexa.begin(&server);
-  if (!alexaReady) { Serial.println("SSDP startup failed; the web interface remains available."); server.begin(); }
-  if (MDNS.begin(hostname.c_str())) MDNS.addService("http", "tcp", 80);
-#endif
   Serial.printf("Web interface: http://%s/ or http://%s.local/\n", bridgeAddress().toString().c_str(), hostname.c_str());
   servicesStarted = true;
-#ifdef LH_MATTER_BUILD
   Serial.println(bleWorkerAvailable.load() ? "Lighthouse Bridge ready." : "HTTP recovery ready; Bluetooth unavailable.");
   Serial.printf("Memory ready: free_8bit=%u, largest_8bit=%u, minimum_8bit=%u, status_entry_bytes=%u\n",
     matterDataFree(),matterDataLargest(),heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
     static_cast<unsigned>(sizeof(StatusStation)));
-#else
-  Serial.println("Lighthouse Bridge ready.");
-#endif
   emitDeviceInfo();
 }
 
 void setup() {
   Serial.begin(115200);
-#ifdef LH_RS_MATTER_BUILD
   FactoryResetStorage resetStorage;
   if(!applyFactoryResetAtBoot(resetStorage)){
     Serial.println("FACTORY_RESET_STORAGE_FAILED");while(true)delay(1000);
   }
   if (!lh_rs_init_diagnostics()) Serial.println("RS_DIAGNOSTICS_INIT_FAILED");
-#endif
   pinMode(LH_BOOT_PIN, INPUT_PULLUP);
-#ifndef LH_RS_MATTER_BUILD
-  delay(500);
-#endif
   prefs.begin("lhbridge", false);
-#ifdef LH_RS_MATTER_BUILD
   roomName=prefs.getString("room_name","");
   if(roomName.length()&&!validRoomName(roomName.c_str()))roomName="";
   {
@@ -1555,14 +1089,10 @@ void setup() {
     }
     applyButtonPins();
   }
-#endif
-#ifdef LH_RS_MATTER_BUILD
   if (prefs.getBool("remote_mode", false)) runRemoteMode();
   delay(500);
-#endif
   WiFi.setSleep(WIFI_PS_MIN_MODEM);
   WiFi.persistent(true);
-#ifdef LH_RS_MATTER_BUILD
   localWifiMode = storedNetworkMode(prefs.getString("wifi_mode","home").c_str()) == NetworkMode::Local;
   if (!consumeWifiSetup(prefs,wifiSetupBoot)) Serial.println("WIFI_SETUP_FLAG_SAVE_FAILED");
   WiFi.onEvent([](arduino_event_id_t event,arduino_event_info_t info) {
@@ -1577,16 +1107,7 @@ void setup() {
     if (kind) wifiApEvent.store(kind);
   });
   WiFi.mode(localWifiMode || wifiSetupBoot ? WIFI_AP : WIFI_STA);
-#else
-  WiFi.mode(WIFI_STA);
-#endif
-#ifdef LH_MATTER_BUILD
-#ifdef LH_RS_MATTER_BUILD
   if (!localWifiMode && !wifiSetupBoot) WiFi.enableIPv6();
-#else
-  WiFi.enableIPv6();
-#endif
-#endif
   accessKey = prefs.getString("access_key", "");
   if (accessKey.length() != 24) {
     accessKey = randomHex(12);
@@ -1596,21 +1117,14 @@ void setup() {
   }
   const String authentication = prefs.getString("web_auth", "");
   if (authentication.length()) {
-#ifdef LH_RS_MATTER_BUILD
     StaticJsonDocument<512> doc;
-#else
-    StaticJsonDocument<256> doc;
-#endif
     if (!deserializeJson(doc, authentication)) {
       webSalt = doc["salt"].as<String>(); webHash = doc["hash"].as<String>();
-#ifdef LH_RS_MATTER_BUILD
       webUsernameEnabled = doc["username_enabled"].as<bool>();
       webUsername = storedWebUsername(doc.as<JsonVariantConst>());
-#endif
       if (webSalt.length() != 32 || webHash.length() != 64) { webSalt = ""; webHash = ""; }
     }
   }
-#ifdef LH_MATTER_BUILD
   // NetworkInterface::macAddress can return zeros before its netif exists.
   // Derive the same STA suffix independently of asynchronous Wi-Fi startup.
   uint8_t stationMac[6]{};
@@ -1622,16 +1136,8 @@ void setup() {
   }
   snprintf(suffixBytes, sizeof(suffixBytes), "%02X%02X%02X", stationMac[3], stationMac[4], stationMac[5]);
   String suffix = suffixBytes;
-#else
-  String suffix = WiFi.macAddress(); suffix.replace(":", ""); suffix = suffix.substring(6);
-#endif
-#ifdef LH_RS_MATTER_BUILD
   apName = "Lighthouse-Bridge-Setup-" + suffix;
   hostname = "lighthouse-bridge-" + suffix;
-#else
-  apName = "Lighthouse-Setup-" + suffix;
-  hostname = "lighthouse-" + suffix;
-#endif
   hostname.toLowerCase();
   customDeviceName = prefs.getString("dev_name", "");
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
@@ -1639,11 +1145,7 @@ void setup() {
   WiFi.setHostname(hostname.c_str());
   Serial.printf("\nLighthouse Bridge %s\n", LH_FIRMWARE_VERSION);
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
-#ifdef LH_RS_MATTER_BUILD
   Serial.println("Web login: first use the key, then your own password; username is optional.");
-#else
-  Serial.println("Web user: admin; first login uses the key, then choose your own password.");
-#endif
   emitDeviceInfo();
   wifiManager.setDebugOutput(false);
   wifiManager.setTitle("Lighthouse Bridge");
@@ -1654,7 +1156,6 @@ void setup() {
     auto denied = [] { wifiManager.server->send(403, "text/plain", "Use the signed-in Bridge firmware update page."); };
     wifiManager.server->on("/update", HTTP_ANY, denied, [] {});
     wifiManager.server->on("/u", HTTP_ANY, denied, [] {});
-#ifdef LH_RS_MATTER_BUILD
     wifiManager.server->on("/",HTTP_GET,[] {
       if (!wifiManager.beginCustomRoot()) return;
       String page = kRsWifiPortalPage;
@@ -1689,13 +1190,10 @@ void setup() {
       portal.send(200,"text/html; charset=utf-8",page);
       restartAt = millis(); restartPending = true;
     });
-#endif
   });
-#ifdef LH_RS_MATTER_BUILD
   const char* portalMenu[] = {"wifi","custom","info","exit"};
   wifiManager.setMenu(portalMenu,4);
   wifiManager.setCustomMenuHTML(kLocalWifiMenu);
-#endif
   wifiManager.setHostname(hostname);
   wifiManager.setCustomHeadElement("<meta name='color-scheme' content='dark'><style>"
     "body{margin:0;background:#101817;color:#edf5ef;font:16px/1.5 system-ui,sans-serif}"
@@ -1704,23 +1202,16 @@ void setup() {
     "button{background:#c2f78c;color:#15210f;border:1px solid #c2f78c;font-weight:600}"
     "input,select{background:#101817;color:#edf5ef;border:1px solid #33433f}.msg{background:#1b2624;border-radius:10px}"
     "input:focus,button:focus{outline:2px solid #c2f78c;outline-offset:2px}</style>");
-#ifdef LH_RS_MATTER_BUILD
   wifiManager.setCustomHeadElement(kRsWifiPortalHead);
-#endif
   wifiManager.setConfigPortalBlocking(false);
   wifiManager.setConnectTimeout(20);
   wifiManager.setConfigPortalTimeout(0);
-#ifdef LH_RS_MATTER_BUILD
   wifiManager.setAPCallback([](WiFiManager*) { emitWifiInfo(); });
-#endif
   wifiManager.setSaveConfigCallback([] {
     persistWifiCredentials();
-#ifdef LH_RS_MATTER_BUILD
     if (WiFi.status() == WL_CONNECTED && !saveNetworkMode(prefs,NetworkMode::Home))
       Serial.println("WIFI_MODE_SAVE_FAILED");
-#endif
   });
-#ifdef LH_RS_MATTER_BUILD
   if (wifiSetupBoot) {
     // No Matter/BLE services have been initialized on this fresh boot.
     WiFi.setAutoReconnect(false); manualPortal = true;
@@ -1740,25 +1231,20 @@ void setup() {
     wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
     return;
   }
-#endif
   wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
   // The main loop services USB info while the setup portal waits for Wi-Fi.
 }
 
 void loop() {
   processSerial();
-#ifdef LH_RS_MATTER_BUILD
   const unsigned apEvent = wifiApEvent.exchange(0);
   if (apEvent) {
     Serial.printf("Wi-Fi AP event: kind=%u, joins=%u, leaves=%u, last_reason=%u\n",
       apEvent,wifiApJoins.load(),wifiApLeaves.load(),wifiApReason.load());
   }
-#endif
   wifiManager.process();
   if (restartPending && millis() - restartAt >= 1500
-#ifdef LH_RS_MATTER_BUILD
       && maintenanceRestartReady(millis(),restartAt,maintenanceWaitIdle,bleActive)
-#endif
      ) restartBridge();
   if (otaPrepared && !otaUploading && !otaSucceeded && millis() - otaPreparedAt >= 60000) cancelOta("OTA_ABORTED");
   if (manualPortal) {
@@ -1775,14 +1261,9 @@ void loop() {
     }
     delay(2); return;
   }
-#ifdef LH_MATTER_BUILD
   server.handleClient();
   matterBridgeLoop();
   alexaReady = matterReady.load() && bleWorkerAvailable.load();
-#else
-  alexa.loop();
-#endif
-#ifdef LH_RS_MATTER_BUILD
   for (unsigned i=0;i<2;++i) {
     const auto& binding=gpioButtons[i];
     if (binding.pin>=0 && gpioDebounce[i].poll(digitalRead(binding.pin)!=LOW,millis())) {
@@ -1791,39 +1272,21 @@ void loop() {
       Serial.printf("GPIO button: index=%u, accepted=%s\n",i+1,accepted?"true":"false");
     }
   }
-#endif
   static uint32_t pressedAt = 0;
   if (digitalRead(LH_BOOT_PIN) == LOW) {
     if (!pressedAt) pressedAt = millis();
     if (millis() - pressedAt >= 5000) {
       Lock lock;
       if (!otaPrepared && !occupied()) {
-#ifdef LH_RS_MATTER_BUILD
         if (!portalRequested && !restartPending && requestWifiSetup(prefs)) { blePaused = true; portalRequested = true; }
         else if (!portalRequested && !restartPending) Serial.println("WIFI_SETUP_FLAG_SAVE_FAILED");
-#else
-        blePaused = true; portalRequested = true;
-#endif
       }
     }
   } else pressedAt = 0;
   if (portalRequested && !bleActive) {
     portalRequested = false;
-#ifdef LH_RS_MATTER_BUILD
     // Reboot frees the initialized radio/protocol heaps before opening setup.
     restartAt = millis(); restartPending = true;
-#else
-    server.stop();
-#ifndef LH_MATTER_BUILD
-    MDNS.end();
-#endif
-#ifdef LH_RS_MATTER_BUILD
-    if (localWifiMode) MDNS.end(); // No Matter responder is running in local mode.
-#endif
-    manualPortal = true;
-    wifiManager.setConfigPortalTimeout(180);
-    wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());
-#endif
   }
   delay(2);
 }
