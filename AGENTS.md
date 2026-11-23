@@ -41,6 +41,8 @@ change. Keep current facts. User instructions win.
   and EN/DE WebFlasher checks at 1040, 390 and 320 px passed.
 - The owner requested a complete return to 0.1.29. Use the original source
   and four board profiles from 1b4c5cd. Later versions remain in Git history.
+  Actions run 45289105332 redeployed the original Pages artifact. All four
+  live manifests, USB segment hashes, OTA files and ZIPs match the original.
 - Pin Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2, WiFiManager 2.0.17,
   ArduinoJson 6.21.5, Espressif Rust 1.97.0.0, espup 0.19.0 and rs-matter rev
   `43f61585a439f1a1e90924b696a6280850ef0145`. Keep Cargo resolution locked.

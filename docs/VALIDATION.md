@@ -5,6 +5,11 @@
 The owner requested a complete return to the original firmware source,
 build profiles, and WebFlasher. The source and four packages are taken from
 commit 1b4c5cd and the original release workflow artifact 45140983557.
+Actions run 45289105332 republished the original artifact. Live checks
+matched the root HTML and all four manifests, USB segment hashes, OTA files,
+ZIP downloads and checksums. The two later XIAO manifests were unavailable.
+The C3 SuperMini could not be reached over HTTP and no USB device was
+present, so the physical firmware was not changed during this rollback.
 
 ## LH-Bridge 0.1.29: unified version label
 
