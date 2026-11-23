@@ -167,7 +167,10 @@ change. Keep current facts. User instructions win.
 - In 0.1.33 the setup AP explicitly advertises its DNS address via DHCP.
   Bind the portal HTTP listener to the AP address and expose its URL as
   `setup_url` in USB `LH_INFO`. The WebFlasher displays this separately
-  from the home or local dashboard URL. Physical setup verification is pending.
+  from the home or local dashboard URL. Actions run 45243859636 published
+  all six profiles and passed the simulated browser and USB tests. The live
+  WebFlasher and all six packages passed verification. Physical setup
+  verification is pending.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

@@ -9,6 +9,14 @@ The browser page and Android Wi-Fi settings prompt remain unavailable.
 address and reports it over USB while the portal is active. The physical
 result is pending.
 
+[Actions run 45243859636](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45243859636)
+published all six 0.1.33 profiles. Simulated browser and USB checks cover the
+setup link while the dashboard URL is null, and its removal when the bridge
+reports the home Wi-Fi address. Live checks verified the root WebFlasher,
+setup link assets, six manifests, firmware chip and flash headers, offsets,
+exact partition equality, OTA payloads, checksums and source ZIPs. The
+largest published apps are 1,965,760 bytes in 1,966,080-byte slots.
+
 ## LH-Bridge 0.1.32: setup portal HTTP
 
 The owner reports the setup connection reset persists on 0.1.31. This
