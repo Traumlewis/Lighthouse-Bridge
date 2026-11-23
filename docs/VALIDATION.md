@@ -21,6 +21,16 @@ returned `OTA_WRITE_FAILED`. A rate-limited retry after BLE drained and
 with a 7668-byte largest free block also failed at the HTTP transport.
 The bridge remained on 0.1.34 with all four stations reachable.
 
+The owner subsequently ran 0.1.35 and reported recovery of most functions.
+USB logs show ongoing station reads and an explicitly opened Matter
+commissioning window. All observed UDP traffic was mDNS, with no logged
+PASE session or fabric. During that attempt the largest internal heap block
+fell to 2292 bytes and repeated 2312-byte allocations failed. These logs
+place the failure before session establishment without establishing why the
+controller's Matter traffic failed to arrive. A follow-up LAN check could
+not reach the last reported bridge address and received no targeted mDNS
+response. Commissioning on C3 remains unverified.
+
 ## LH-Bridge 0.1.34: ESP32-C3 heap headroom
 
 On the owner's C3, 0.1.30 reports repeated runtime allocation failures at
