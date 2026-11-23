@@ -160,7 +160,9 @@ change. Keep current facts. User instructions win.
   the dashboard, with a new write window for each request. WiFiManager keeps
   its routes, captive handling and credential flow. The redacted USB
   `LH_WIFI_INFO` distinguishes an active portal, a listening port, and HTTP
-  responses attempted since startup. Physical setup behavior is pending.
+  responses attempted since startup. Actions run 45234468473 published all six
+  profiles. Live manifest, chip, flash, partition, OTA, checksum and ZIP checks
+  passed. Physical setup behavior is pending.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

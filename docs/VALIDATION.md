@@ -8,6 +8,13 @@ reports setup listener state and attempted response count via USB. The added
 fields are redacted and distinguish TCP listen from response attempts. The
 cause of the physical reset remains unverified.
 
+[Actions run 45234468473](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45234468473)
+published all six 0.1.32 profiles. Live checks verified the main WebFlasher,
+manifests, chip and flash headers, USB offsets, exact partition tables, app-only
+OTA payloads, SHA-256 and source ZIPs. Both new USB diagnostic fields are
+present in all six apps. The largest published apps are 1,965,632 bytes in
+1,966,080-byte slots.
+
 ## LH-Bridge 0.1.31: first-setup portal candidate
 
 The owner observed `ERR_CONNECTION_RESET` on both the setup root and the
