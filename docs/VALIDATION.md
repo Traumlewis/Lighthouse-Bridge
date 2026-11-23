@@ -10,6 +10,12 @@ candidate avoids that transition when there is no saved Wi-Fi configuration
 and reports portal/AP readiness over USB. The cause of the reset and the
 candidate's effect on physical devices remain unverified.
 
+[Actions run 45226038063](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45226038063)
+published all six 0.1.31 USB/OTA profiles. Live manifest, chip, flash size,
+offsets, exact partition equality, OTA payload, checksum and ZIP checks
+passed. All apps retain both OTA slots. The new diagnostic fields are
+present in all six published apps.
+
 ## LH-Bridge 0.1.30: Seeed Studio XIAO profiles
 
 The Seeed XIAO C3 and S3 images preserve the complete partition table and both

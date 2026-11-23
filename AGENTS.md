@@ -153,7 +153,9 @@ change. Keep current facts. User instructions win.
   the auto-connect path. USB `LH_WIFI_INFO` includes `portal_active` and
   `ap_ipv4_ready`; report portal state again after startup. The owner reported
   connection resets on fresh C3 and S3 setup with 0.1.30. The 0.1.31
-  candidate has yet to be tested on those boards.
+  candidate was published by Actions run 45226038063. All six live
+  manifest, chip, flash, partition, checksum, OTA and ZIP checks passed.
+  The candidate has yet to be tested on those boards.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,
