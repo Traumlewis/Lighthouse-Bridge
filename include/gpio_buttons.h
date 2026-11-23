@@ -5,7 +5,11 @@ enum class ButtonAction : uint8_t { Disabled, AllOn, AllOff };
 struct ButtonBinding { int8_t pin = -1; ButtonAction action = ButtonAction::Disabled; };
 // Conservative exposed GPIOs: exclude boot straps, flash/PSRAM, USB, UART and LEDs.
 inline bool buttonPinAllowed(int pin) {
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(ARDUINO_XIAO_ESP32C3)
+  return (pin >= 3 && pin <= 7) || pin == 10;
+#elif defined(ARDUINO_XIAO_ESP32S3)
+  return pin == 1 || pin == 2 || (pin >= 4 && pin <= 9);
+#elif defined(CONFIG_IDF_TARGET_ESP32C3)
   return pin == 0 || pin == 1 || (pin >= 3 && pin <= 7) || pin == 10;
 #elif defined(CONFIG_IDF_TARGET_ESP32S3)
   return pin == 1 || pin == 2 || (pin >= 4 && pin <= 18) || pin == 21;

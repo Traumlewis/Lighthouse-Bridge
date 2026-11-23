@@ -1,10 +1,9 @@
 import { translations } from './translations.js?v=webflasher-2';
-import { validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.28';
+import { boardFamilies, validRsMatterParts } from './flash-layout.mjs?v=0.1.30';
 import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
 import { parseMatterInfo } from './matter-info.mjs?v=0.1.29';
 
 const $ = id => document.getElementById(id);
-const boardFamilies={'esp32':'ESP32','weact-c3':'ESP32-C3','c3-supermini':'ESP32-C3','s3-supermini':'ESP32-S3'};
 let selectedBoard='esp32',checkEpoch=0;
 const boardManifest=()=>selectedBoard==='esp32'?'manifest.json':`rs-matter-${selectedBoard}-manifest.json`;
 const supported = value => value === 'en' || value === 'de';

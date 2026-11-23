@@ -11,6 +11,13 @@ int main() {
 #else
   const int pin=25, second=26; assert(!buttonPinAllowed(0)); assert(!buttonPinAllowed(6)); assert(!buttonPinAllowed(34));
 #endif
+#if defined(ARDUINO_XIAO_ESP32C3)
+  assert(!buttonPinAllowed(0) && !buttonPinAllowed(1) && !buttonPinAllowed(2));
+  assert(buttonPinAllowed(10) && !remoteWakePin(10) && !buttonPinAllowed(21));
+#elif defined(ARDUINO_XIAO_ESP32S3)
+  assert(!buttonPinAllowed(3) && !buttonPinAllowed(10) && !buttonPinAllowed(21));
+  assert(buttonPinAllowed(9) && remoteWakePin(9) && !buttonPinAllowed(43));
+#endif
   bindings[0].pin=pin;bindings[0].action=ButtonAction::AllOn;
   bindings[1].pin=second;bindings[1].action=ButtonAction::AllOff;assert(validButtonBindings(bindings));
   assert(validRemoteButtons(bindings));

@@ -86,19 +86,27 @@ jobs:
           curl -fsSL https://github.com/esp-rs/espup/releases/download/v0.19.0/espup-x86_64-unknown-linux-gnu -o .tools/espup
           chmod +x .tools/espup
           .tools/espup install --targets esp32,esp32c3,esp32s3 --toolchain-version 1.97.0.0 --export-file .tools/rs-export.sh
-      - name: Build Lighthouse Bridge for all four boards
+      - name: Build all supported boards
         run: |
           . .tools/rs-export.sh
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py --board weact-c3
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py --board c3-supermini
           CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py --board s3-supermini
+          CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py --board xiao-c3
+          CARGO_BUILD_JOBS=2 python tools/build_rs_matter.py --board xiao-s3
           for target in ESP32 ESP32C3 ESP32S3; do
             g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_$target -I include test/test_gpio_buttons.cpp -o /tmp/lighthouse-gpio-$target
             /tmp/lighthouse-gpio-$target
             g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_$target -I include test/test_ota_targets.cpp -o /tmp/lighthouse-ota-$target
             /tmp/lighthouse-ota-$target
           done
+          for target in ESP32C3 ESP32S3; do
+            g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_$target -DARDUINO_XIAO_$target -I include test/test_gpio_buttons.cpp -o /tmp/lighthouse-xiao-gpio-$target
+            /tmp/lighthouse-xiao-gpio-$target
+          done
+          g++ -std=c++11 -Wall -Wextra -Werror -DCONFIG_IDF_TARGET_ESP32S3 -DARDUINO_XIAO_ESP32S3 -I include test/test_ota_targets.cpp -o /tmp/lighthouse-xiao-ota
+          /tmp/lighthouse-xiao-ota
           CARGO_BUILD_JOBS=2 cargo +esp test --locked --manifest-path firmware/rust/Cargo.toml
           CARGO_BUILD_JOBS=2 cargo +esp test --locked --release --manifest-path firmware/rust/Cargo.toml
           g++ -std=c++11 -Wall -Wextra -Werror -I include -I "$HOME/Arduino/libraries/ArduinoJson/src" test/test_rs_matter.cpp -o /tmp/lighthouse-rs-matter-test

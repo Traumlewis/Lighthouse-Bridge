@@ -1,5 +1,15 @@
 # Firmware validation
 
+## LH-Bridge 0.1.30: Seeed Studio XIAO profiles
+
+The Seeed XIAO C3 and S3 images preserve the complete partition table and both
+1,966,080-byte app slots. The local apps are 1,947,344 bytes for XIAO C3 and
+1,870,528 bytes for XIAO S3. Both images contain the expected chip and flash
+headers, and the OTA payloads match the USB app images. The Arduino properties
+confirm native USB serial on boot and 8 MB flash with OPI PSRAM for XIAO S3.
+Native checks cover the XIAO GPIO allowlists and both directions of the 4 MB/8 MB
+S3 OTA guard. Physical USB, Wi-Fi, BLE, GPIO, OTA and Matter checks are pending.
+
 ## LH-Bridge 0.1.29: unified version label
 
 All four firmware packages fit the existing app slots. The asset checks

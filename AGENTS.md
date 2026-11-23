@@ -13,10 +13,14 @@ change. Keep current facts. User instructions win.
   factory reset and commissioning. Previous approvals cover only the specified
   actions, including the 0.1.29 OTA. Credentials do not grant standing approval.
   Read-only checks may proceed.
-- One firmware family, rs-matter, with four WebFlasher profiles. Classic
+- One firmware family, rs-matter, with six WebFlasher profiles. Classic
   ESP-WROOM-32 / ESP-32S with at least 4 MB flash and CH340 USB-C is the owner’s
-  board. Also build WeAct ESP32-C3FH4, C3 SuperMini and S3 SuperMini. The S3
-  profile is 4 MB flash and 2 MB QSPI PSRAM. No C3/S3 hardware verification.
+  board. Also build WeAct ESP32-C3FH4, C3 SuperMini, S3 SuperMini, and Seeed
+  Studio XIAO ESP32-C3 and ESP32-S3. The SuperMini S3 uses 4 MB flash and 2 MB
+  QSPI PSRAM. The standard XIAO S3 uses 8 MB flash and 8 MB OPI PSRAM; the
+  same partition table uses its first 4 MB. Keep the chip and S3 flash
+  capacity checks in OTA. The XIAO builds have board-specific GPIO allowlists
+  for exposed pins and USB CDC on boot. No C3/S3 hardware verification.
 - The owner’s classic ESP32 runs 0.1.29 with four reachable stations and
   persistent Alexa Matter pairing. Owner-approved OTA from the observed
   0.1.28-rs-matter baseline succeeded with one upload. A live browser check
@@ -58,7 +62,7 @@ change. Keep current facts. User instructions win.
   memset, memcmp and strlen, diagnostic symbol guards, Wi-Fi init wrapper,
   pinned stack and arena sizes, host-only NimBLE configuration, and C3
   critical-section portable atomics. Fast paths must fit both OTA slots.
-- `tools/build_pages.py` assembles a clean site with the four boards and the
+- `tools/build_pages.py` assembles a clean site with the six boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
   Retire the old installer URLs. The default classic manifest is
   `manifest.json`; board-specific manifests keep their separate names.

@@ -6,7 +6,7 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
 for(const lang of ['en','de']){const context=await browser.newContext({viewport:{width:390,height:1100},isMobile:true,hasTouch:true});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 let signed=false,bootstrap=true,enabled=false,name='',key='111111111111111111111111',password='bootstrap key',failName=false,failKey=false;const calls=[];
 const stations=[1,2].map(id=>({id,name:'Alexa name '+id,mac:'02:00:00:00:00:0'+id,configured:true,off_state:'sleep',observed:'sleep',observed_raw:0,observed_ms:89000,reachable:true,command_status:'none'}));
-const status={version:'0.1.29',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,uptime_ms:90000,stations,discovered:[]};
+const status={version:'0.1.30',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,uptime_ms:90000,stations,discovered:[]};
 await page.route('http://bridge.test/**',async route=>{const r=route.request(),p=new URL(r.url()).pathname,body=r.method()==='POST'?r.postDataJSON():null;calls.push({p,method:r.method(),body});if(p==='/')return route.fulfill({contentType:'text/html',body:html});
 if(p==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:!bootstrap&&enabled,password_set:!bootstrap}});
 if(p==='/api/login'){if(body.password!==password||(!bootstrap&&enabled&&body.username!==name))return route.fulfill({status:401,json:{error:'LOGIN_FAILED'}});signed=true;return route.fulfill({json:{password_required:bootstrap}});}

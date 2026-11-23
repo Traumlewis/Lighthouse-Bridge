@@ -9,15 +9,15 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
  try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   let signedIn=false,installed=false,invalid=true,rootReads=0,reconnects=0,uploads=0,mutations=[];
-  let servedVersion='0.1.29';
+  let servedVersion='0.1.30';
   const stations=['on','unknown','sleep','standby'].map((observed,i)=>({id:i+1,name:'Station '+(i+1),mac:'02:00:00:00:00:0'+(i+1),configured:true,
    observed,observed_raw:[11,-1,0,2][i],reachable:i!==1,observed_ms:89000,command_status:'none',requested:null,pending:false,busy:false}));
-  const status={version:'0.1.29',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
+  const status={version:'0.1.30',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
    ip:'192.0.2.1',hostname:'lighthouse-bridge-a1b2c3',uptime_ms:90000,stations,discovered:[]};
   const account={setup_ssid:'Lighthouse-Bridge-Setup-A1B2C3',password_required:false,api_key:'1234567890abcdef12345678',hostname:'lighthouse-bridge-a1b2c3',alexa_protocol:'matter',matter_ready:true};
   await page.route('http://bridge.test/**',async route=>{
    const r=route.request(),uri=new URL(r.url()).pathname;
-   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.29',servedVersion)});}
+   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.30',servedVersion)});}
    if(r.method()==='POST')mutations.push(uri);
    if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});
     if(uri==='/api/login'){signedIn=true;return route.fulfill({json:{password_required:false}});}

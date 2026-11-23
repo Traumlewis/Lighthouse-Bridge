@@ -446,6 +446,7 @@ The 64-byte container header uses magic `LHBRIDGE-ESP32-OTA1` zero-padded to
 four zero bytes at 60. The payload must match the board chip and contain the ESP app descriptor
 and Lighthouse Bridge product marker. Length, slot capacity, digest, chip/product
 and ESP image validity are checked before selecting the inactive slot for boot.
+On ESP32-S3, the flash-size field must also match the board profile.
 Wrong chip, truncated/corrupt/trailing data, raw/merged BINs and multiple files are
 rejected. Package branding/integrity is not a digital signature; use trusted files.
 Interrupted uploads leave the previous boot selection intact. No automatic

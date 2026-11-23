@@ -1,5 +1,12 @@
 # Version history
 
+## Seeed Studio XIAO boards — LH-Bridge 0.1.30
+
+- Add WebFlasher and OTA profiles for Seeed Studio XIAO ESP32-C3 and
+  XIAO ESP32-S3, with the same partition table and board-specific GPIO options.
+- Use 8 MB flash and OPI PSRAM for the standard XIAO ESP32-S3. Check the
+  flash-size header when accepting S3 OTA packages.
+
 ## Unified version label — LH-Bridge 0.1.29
 
 - Show `LH-Bridge 0.1.29` in the WebFlasher, dashboard, boot banner and Matter
