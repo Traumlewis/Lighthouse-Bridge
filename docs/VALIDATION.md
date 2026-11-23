@@ -1,5 +1,13 @@
 # Firmware validation
 
+## LH-Bridge 0.1.29: unified version label
+
+All four firmware packages fit the existing app slots. The asset checks
+confirm numeric manifest and download versions. Dashboard regressions
+cover the visible `LH-Bridge 0.1.29` label and reload on firmware changes
+without a reload on ordinary session expiry. The USB reader accepts both
+the new version format and older Matter version strings.
+
 ## rs-matter 0.1.28: main build and WebFlasher
 
 The active release path builds rs-matter for four boards and validates their

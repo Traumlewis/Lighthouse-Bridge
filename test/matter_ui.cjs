@@ -40,7 +40,7 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'manifest.json'),'utf8')
    return route.fulfill({contentType:type,body:fs.readFileSync(file)});
   });
   await page.goto('https://flasher.test/Lighthouse-Bridge/');
-  await page.waitForFunction(version=>document.querySelector('#matter-load').textContent.includes(version),version);
+  await page.waitForFunction(version=>document.querySelector('#matter-load').textContent.endsWith('LH-Bridge '+version),version);
   await page.waitForFunction(()=>customElements.get('esp-web-install-button'));
   assert.equal(await page.locator('html').getAttribute('lang'),'en');
   assert.equal(await page.evaluate(()=>window.serialRequests),0);

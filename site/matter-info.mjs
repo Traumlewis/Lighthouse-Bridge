@@ -1,9 +1,9 @@
-// Experimental protocol: pairing codes stay in page memory and on physical USB.
+// USB protocol: pairing codes stay in page memory and on physical USB.
 export function parseMatterInfo(line) {
   if (!line.startsWith('LH_MATTER_INFO ')) return null;
   try {
     const value = JSON.parse(line.slice(15));
-    if (value.protocol !== 1 || !/^\d+\.\d+\.\d+-(?:matter|rs-matter)$/.test(value.version) ||
+    if (value.protocol !== 1 || typeof value.version !== 'string' || !/^\d+\.\d+\.\d+(?:-(?:matter|rs-matter))?$/.test(value.version) ||
         !Number.isInteger(value.station_id) || value.station_id < 0 || value.station_id > 16 ||
         typeof value.station_name !== 'string' || value.station_name.length > 40 ||
         !['wifi_connected','ready','paired','reachable'].every(key => typeof value[key] === 'boolean') ||

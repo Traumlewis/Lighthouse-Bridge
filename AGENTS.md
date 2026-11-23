@@ -32,6 +32,10 @@ change. Keep current facts. User instructions win.
   `src/main.cpp` owns the worker and HTTP workflow. `src/dashboard.html` is the
   dashboard source, with its firmware version substituted at build time and
   embedded as gzip. `include/` contains shared firmware headers.
+- Starting with 0.1.29, the WebFlasher, dashboard, boot banner and Matter
+  software version string show `LH-Bridge <version>`. Manifest, API and USB
+  protocol version fields use the numeric version without a product suffix.
+  The USB reader also accepts the previous suffixed Matter versions.
 - Pin Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2, WiFiManager 2.0.17,
   ArduinoJson 6.21.5, Espressif Rust 1.97.0.0, espup 0.19.0 and rs-matter rev
   `43f61585a439f1a1e90924b696a6280850ef0145`. Keep Cargo resolution locked.

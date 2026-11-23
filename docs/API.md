@@ -3,6 +3,10 @@
 The active firmware is rs-matter. See the [setup guide](WEBFLASHER.md) for
 installation and board selection.
 
+Starting with LH-Bridge 0.1.29, the `version` field is a numeric version
+string such as `"0.1.29"`. Earlier rs-matter versions included the
+`-rs-matter` suffix.
+
 Base address: `http://<ESP32-IP>`. Integrations use `X-API-Key: <key>` as before.
 The web dashboard uses an HttpOnly session instead. HTTP Basic has been replaced
 by the web login. Mutations require `Content-Type: application/json`. CORS is not enabled.
@@ -457,7 +461,7 @@ Send `LH_INFO\n` over the physical serial port at 115200 baud. The reply is a
 single line beginning `LH_INFO `, followed by JSON:
 
 ```json
-{"protocol":1,"version":"0.3.9","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
+{"protocol":1,"version":"0.1.29","api_key":"<24 hex characters>","setup_ssid":"Lighthouse-Bridge-Setup-XXXXXX","wifi_connected":false,"url":null,"password_set":false}
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.

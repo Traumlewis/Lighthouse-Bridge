@@ -1,7 +1,7 @@
 import { translations } from './translations.js?v=webflasher-2';
 import { validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.28';
 import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
-import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.8';
+import { parseMatterInfo } from './matter-info.mjs?v=0.1.29';
 
 const $ = id => document.getElementById(id);
 const boardFamilies={'esp32':'ESP32','weact-c3':'ESP32-C3','c3-supermini':'ESP32-C3','s3-supermini':'ESP32-S3'};
@@ -14,7 +14,7 @@ let connection = null, starting = false, info = null, deviceInfo = null, usbStat
 const text = key => translations[language][key];
 
 function render() {
-  $('matter-load').textContent = text(loadState) + (version ? ' · v' + version : '');
+  $('matter-load').textContent = text(loadState) + (version ? ' · LH-Bridge ' + version : '');
   $('matter-load').classList.toggle('error', loadState === 'unavailable');
   $('matter-install').disabled = !ready || !$('matter-confirm').checked || Boolean(connection) || starting;
   $('rs-board').disabled=Boolean(connection)||starting;
@@ -77,7 +77,7 @@ async function check() {
     if (!response.ok) throw new Error();
     const manifest = await response.json(), parts = manifest.builds?.[0]?.parts;
     if (manifest.builds?.length !== 1 || manifest.builds[0].chipFamily !== boardFamilies[board] ||
-        !/^\d+\.\d+\.\d+-rs-matter$/.test(manifest.version) || !validRsMatterParts(parts,board)) throw new Error();
+        !/^\d+\.\d+\.\d+$/.test(manifest.version) || !validRsMatterParts(parts,board)) throw new Error();
     await Promise.all(parts.map(async part => {
       const result = await fetch(new URL(part.path,response.url),{method:'HEAD',cache:'no-store'});
       if (!result.ok) throw new Error();

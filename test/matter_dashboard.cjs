@@ -8,7 +8,7 @@ const generatedPath='.pio/rs-matter-sketch/RsMatter/web_ui_gzip.h';
 const generated=fs.readFileSync(path.join(root,generatedPath),'utf8');
 const compressed=Buffer.from(generated.split('{')[1].split('}')[0].split(',').map(Number));
 const html=zlib.gunzipSync(compressed).toString();
-assert.ok(html.includes('Bridge '+version));
+assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{

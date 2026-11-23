@@ -1,5 +1,11 @@
 # Version history
 
+## Unified version label — LH-Bridge 0.1.29
+
+- Show `LH-Bridge 0.1.29` in the WebFlasher, dashboard, boot banner and Matter
+  software version string. Use `0.1.29` in manifests, protocol version fields
+  and download filenames.
+
 ## Main Lighthouse Bridge firmware — 0.1.28-rs-matter
 
 - Publish rs-matter as the project firmware for all four board profiles.

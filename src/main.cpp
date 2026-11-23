@@ -1143,7 +1143,7 @@ void setup() {
   if (validDeviceName(customDeviceName.c_str())) hostname = apName = customDeviceName;
   else customDeviceName = "";
   WiFi.setHostname(hostname.c_str());
-  Serial.printf("\nLighthouse Bridge %s\n", LH_FIRMWARE_VERSION);
+  Serial.printf("\nLH-Bridge %s\n", LH_FIRMWARE_VERSION);
   Serial.println("Setup Wi-Fi / API key: " + accessKey);
   Serial.println("Web login: first use the key, then your own password; username is optional.");
   emitDeviceInfo();
