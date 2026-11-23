@@ -1,5 +1,22 @@
 # Firmware validation
 
+## LH-Bridge 0.1.34: ESP32-C3 heap headroom
+
+On the owner's C3, 0.1.30 reports repeated runtime allocation failures at
+2312 bytes and a largest free block as low as 1460 bytes. The dashboard
+truncates on one boot, while another boot completes discovery of four
+stations. A separate read-only HTTP login-options request yielded an empty
+response. This confirms heap pressure and an HTTP symptom. The allocating
+SDK component for the 2312-byte failures is unknown.
+
+The change branches from the restored 0.1.30 baseline. The upstream
+NimBLE host reserves both pools at initialization. For C3, use 12 instead
+of 24 blocks for MSYS2 and incoming HCI ACL, with the block sizes retained.
+The C3 ELF confirms 3840 bytes for MSYS2 and 3600 bytes for the ACL pool,
+releasing 7440 bytes of initialization-time heap reservations.
+Dashboard, discovery, GATT reads and writes, and Matter commissioning
+under real C3 load need owner verification.
+
 ## LH-Bridge 0.1.30 restored as the baseline
 
 The owner confirmed 0.1.30 worked after disabling the VPN and requested

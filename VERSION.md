@@ -1,7 +1,11 @@
 # Version history
 
-The active development and WebFlasher baseline is LH-Bridge 0.1.30.
-Versions 0.1.31 through 0.1.33 are historical setup experiments.
+## ESP32-C3 RAM headroom — LH-Bridge 0.1.34
+
+- Based on 0.1.30. Reduce the two ESP32-C3 NimBLE heap pools used by the
+  single-client worker to leave more RAM for HTTP and Wi-Fi.
+
+Versions 0.1.31 through 0.1.33 were setup experiments.
 
 ## Setup address — LH-Bridge 0.1.33
 

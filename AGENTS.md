@@ -20,7 +20,9 @@ change. Keep current facts. User instructions win.
   QSPI PSRAM. The standard XIAO S3 uses 8 MB flash and 8 MB OPI PSRAM; the
   same partition table uses its first 4 MB. Keep the chip and S3 flash
   capacity checks in OTA. The XIAO builds have board-specific GPIO allowlists
-  for exposed pins and USB CDC on boot. No C3/S3 hardware verification.
+  for exposed pins and USB CDC on boot. An owner C3 booted 0.1.30 on home Wi-Fi
+  and discovered four stations, with severe heap pressure and truncated
+  dashboard transfers. Full C3/S3 hardware verification is pending.
 - The owner’s classic ESP32 runs 0.1.29 with four reachable stations and
   persistent Alexa Matter pairing. Owner-approved OTA from the observed
   0.1.28-rs-matter baseline succeeded with one upload. A live browser check
@@ -153,8 +155,11 @@ change. Keep current facts. User instructions win.
   `lighthouse-bridge-xxxxxx` using the STA MAC suffix. Valid custom names take
   precedence. WiFiManager runs a protected nonblocking setup portal with
   USB diagnostics. BOOT is GPIO9 on C3 and GPIO0 on classic/S3.
-- The active 0.1.30 setup uses WiFiManager's normal auto-connect and portal
+- The 0.1.34 candidate uses the 0.1.30 WiFiManager auto-connect and portal
   path. The setup experiments in 0.1.31 through 0.1.33 are historical.
+- On C3, the single-client NimBLE host uses 12 MSYS2 blocks and 12 incoming
+  HCI ACL blocks. Preserve their block sizes, controller and advertising event
+  configuration. This releases fixed heap reservations for HTTP and Wi-Fi.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

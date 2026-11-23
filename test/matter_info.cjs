@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
     {...info,paired:true},{...info,ready:false},{...info,reachable:'true'},{...info,version:'../../bad'}])
     assert.equal(parseMatterInfo(frame(bad)),null);
   assert.equal(parseMatterInfo('LH_INFO {}'),null);
-  const current = {...info, version:'0.1.30'};
+  const current = {...info, version:'0.1.34'};
   assert.deepEqual(parseMatterInfo(frame(current)),current);
   assert.equal(parseMatterInfo(frame({...info,version:"0.1.8-rs-matter"})).version,"0.1.8-rs-matter");
   const stations=Array.from({length:16},(_,i)=>({id:i+1,name:'Station '+(i+1),reachable:true,observed_raw:0}));
