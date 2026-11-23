@@ -15,10 +15,14 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'manifest.json'),'utf8')
    const info={protocol:1,version,bridge_name:'Lighthouse-Bridge Matter Test',station_id:1,station_name:'Owner name',wifi_connected:true,
     ready:true,paired:false,reachable:true,observed_raw:0,pairing_code:'34970112332',error:'',
     stations:[{id:1,name:'Owner name',reachable:true,observed_raw:0},{id:4,name:'Another station',reachable:true,observed_raw:11}]};
+   const access={protocol:1,version,api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:true,url:'http://192.168.1.42/',password_set:true};
+   const sendAccess=value=>window.usbController.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify(value)+'\n'));
+   window.sendSetup=()=>sendAccess({...access,wifi_connected:false,url:null,setup_url:'http://192.168.4.1/'});
+   window.sendOnline=()=>sendAccess(access);
    const port={open:async function(){
     this.readable=new ReadableStream({start(c){window.usbController=c;}});
     this.writable=new WritableStream({write(bytes){const q=new TextDecoder().decode(bytes);window.queries.push(q);
-     if(q.includes('LH_INFO\n'))window.usbController.enqueue(new TextEncoder().encode('LH_INFO '+JSON.stringify({protocol:1,version,api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:true,url:'http://192.168.1.42/',password_set:true})+'\n'));
+     if(q.includes('LH_INFO\n'))sendAccess(access);
      if(q.includes('LH_MATTER_INFO\n'))window.usbController.enqueue(new TextEncoder().encode('LH_MATTER_INFO '+JSON.stringify(info)+'\n'));}});
    },close:async()=>{}};
    window.fakePort=port;
@@ -53,6 +57,14 @@ const version=JSON.parse(fs.readFileSync(path.join(site,'manifest.json'),'utf8')
   await page.waitForFunction(()=>document.querySelector('#matter-code').textContent==='34970112332');
   assert.equal(await page.locator('#matter-key').textContent(),'1234567890abcdef12345678');
   assert.equal(await page.locator('#matter-url').getAttribute('href'),'http://192.168.1.42/');
+  await page.evaluate(()=>window.sendSetup());
+  await page.locator('#matter-setup-url').waitFor({state:'visible'});
+  assert.equal(await page.locator('#matter-setup-url').getAttribute('href'),'http://192.168.4.1/');
+  assert.match(await page.locator('#matter-setup-address').textContent(),/Setup-WLAN öffnen/);
+  assert.equal(await page.locator('#matter-url').isHidden(),true);
+  await page.evaluate(()=>window.sendOnline());
+  await page.locator('#matter-setup-url').waitFor({state:'hidden'});
+  await page.locator('#matter-url').waitFor({state:'visible'});
   await page.locator('#matter-key').click();assert.equal(await page.evaluate(()=>window.copied),'1234567890abcdef12345678');
   assert.equal(await page.locator('#matter-install').isDisabled(),true,'reader owns the USB port');
   assert.equal(await page.locator('#matter-read').isDisabled(),true);

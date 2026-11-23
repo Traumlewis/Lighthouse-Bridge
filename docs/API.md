@@ -466,6 +466,9 @@ single line beginning `LH_INFO `, followed by JSON:
 ```
 
 Once connected, `wifi_connected=true` and `url=http://<IPv4>/`.
+Starting with 0.1.33, an active setup portal includes the optional
+`setup_url` field with its AP address, normally `http://192.168.4.1/`.
+The dashboard `url` can remain null during setup.
 The personal web password is never included. This information is USB-local; no
 unprotected HTTP endpoint exposes it. The installer queries every two seconds
 while its USB information reader is connected.

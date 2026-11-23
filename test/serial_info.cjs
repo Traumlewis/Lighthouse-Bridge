@@ -5,6 +5,10 @@ const {pathToFileURL}=require('node:url');const path=require('node:path');
  const {validRsMatterParts}=await import(pathToFileURL(path.resolve(__dirname,'../site/flash-layout.mjs')));
  const initial={protocol:1,version:'0.2.0',api_key:'1234567890abcdef12345678',setup_ssid:'Lighthouse-Setup-EXAMPLE',wifi_connected:false,url:null,password_set:false};
  assert.deepEqual(parseDeviceInfo('LH_INFO '+JSON.stringify(initial)),initial);
+ const setup={...initial,network_mode:'home',setup_url:'http://192.168.4.1/'};
+ assert.deepEqual(parseDeviceInfo('LH_INFO '+JSON.stringify(setup)),setup);
+ for(const setup_url of [null,'https://192.168.4.1/','http://user@192.168.4.1/','http://192.168.4.1/?key=secret','http://example.com/','javascript:alert(1)'])
+  assert.equal(parseDeviceInfo('LH_INFO '+JSON.stringify({...setup,setup_url})),null);
  for(const line of ['boot garbage','LH_INFO {','LH_INFO '+JSON.stringify({...initial,api_key:'<script>'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'javascript:alert(1)'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'http://example.com/'}),'LH_INFO '+JSON.stringify({...initial,wifi_connected:true,url:'http://192.168.1.42/?key=secret'})])assert.equal(parseDeviceInfo(line),null);
  const local={...initial,network_mode:'local',url:'http://192.168.4.1/'};
  assert.deepEqual(parseDeviceInfo('LH_INFO '+JSON.stringify(local)),local);

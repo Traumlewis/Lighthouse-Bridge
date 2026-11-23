@@ -1,6 +1,6 @@
-import { translations } from './translations.js?v=webflasher-2';
-import { boardFamilies, validRsMatterParts } from './flash-layout.mjs?v=0.1.32';
-import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
+import { translations } from './translations.js?v=0.1.33';
+import { boardFamilies, validRsMatterParts } from './flash-layout.mjs?v=0.1.33';
+import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=0.1.33';
 import { parseMatterInfo } from './matter-info.mjs?v=0.1.29';
 
 const $ = id => document.getElementById(id);
@@ -27,6 +27,9 @@ function render() {
   $('matter-url').hidden = !deviceInfo?.url;
   $('matter-url').href = deviceInfo?.url || '#';
   $('matter-url').textContent = deviceInfo?.url || '';
+  $('matter-setup-address').hidden = !deviceInfo?.setup_url;
+  $('matter-setup-url').href = deviceInfo?.setup_url || '#';
+  $('matter-setup-url').textContent = deviceInfo?.setup_url || '';
   $('matter-device').hidden = !info;
   if (!info) return;
   const stations = info.stations || (info.station_id ? [{id:info.station_id,name:info.station_name,
@@ -109,10 +112,10 @@ async function readInfo(knownPort) {
       clearTimeout(timeout); if(value.kind==='access')deviceInfo=value.data;else info=value.data; usbState = 'usb_ready'; render();
     }, () => {
       ended = true; clearTimeout(timeout); connection = null; starting = false;
-      if (usbState !== 'usb_timeout') usbState = info ? 'usb_disconnected' : 'usb_failed'; render();
+      if (usbState !== 'usb_timeout') usbState = deviceInfo || info ? 'usb_disconnected' : 'usb_failed'; render();
     }, {parse:line=>{const access=parseDeviceInfo(line);if(access)return {kind:'access',data:access};const matter=parseMatterInfo(line);return matter?{kind:'matter',data:matter}:null;},query:'LH_INFO\nLH_MATTER_INFO\n'});
     if (!ended) connection = watcher;
-    if (!info && !ended) timeout = setTimeout(() => { usbState = 'usb_timeout'; render(); connection?.stop(); },45000);
+    if (!deviceInfo && !info && !ended) timeout = setTimeout(() => { usbState = 'usb_timeout'; render(); connection?.stop(); },45000);
   } catch (error) { usbState = error.name === 'NotFoundError' ? 'usb_idle' : 'usb_failed'; }
   finally { starting = false; render(); }
 }

@@ -29,6 +29,7 @@ protected:
   size_t _currentClientWrite_P(PGM_P bytes,size_t size) override { return _currentClientWrite(bytes,size); }
 public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
+  MatterWebServer(IPAddress address,uint16_t port) : WebServer(address,port) {}
   void resetWriteWindow() { writing = false; }
   void handleClient() { resetWriteWindow(); WebServer::handleClient(); }
   bool listening() { return static_cast<bool>(_server); }

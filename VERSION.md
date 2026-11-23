@@ -1,5 +1,11 @@
 # Version history
 
+## Setup address — LH-Bridge 0.1.33
+
+- Show the setup portal address in the WebFlasher's USB panel.
+- Advertise the setup DNS server to Wi-Fi clients and bind the setup
+  HTTP listener to the access-point address.
+
 ## Setup portal HTTP — LH-Bridge 0.1.32
 
 - Use the bounded dashboard HTTP response writer for setup pages.

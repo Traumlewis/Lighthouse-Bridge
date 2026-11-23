@@ -1,5 +1,14 @@
 # Firmware validation
 
+## LH-Bridge 0.1.33: setup address and captive DNS
+
+In the owner's C3 and S3 logs, 0.1.32 starts the TCP listener and Android
+joins the setup AP. The response count was captured before Android joined.
+The browser page and Android Wi-Fi settings prompt remain unavailable.
+0.1.33 explicitly offers the captive DNS server via DHCP, binds HTTP to the AP
+address and reports it over USB while the portal is active. The physical
+result is pending.
+
 ## LH-Bridge 0.1.32: setup portal HTTP
 
 The owner reports the setup connection reset persists on 0.1.31. This
