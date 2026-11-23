@@ -10,6 +10,13 @@ confirm native USB serial on boot and 8 MB flash with OPI PSRAM for XIAO S3.
 Native checks cover the XIAO GPIO allowlists and both directions of the 4 MB/8 MB
 S3 OTA guard. Physical USB, Wi-Fi, BLE, GPIO, OTA and Matter checks are pending.
 
+[Actions run 45163198385](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45163198385)
+published all six 0.1.30 profiles. The live WebFlasher passed EN/DE board
+selection, download and consent checks at 1040, 390 and 320 px. All six live
+manifests and chip, flash size, offsets, partition table, OTA, SHA-256 and ZIP
+checks passed. Published app sizes for XIAO C3 and S3 are 1,947,120 and
+1,870,288 bytes respectively.
+
 ## LH-Bridge 0.1.29: unified version label
 
 All four firmware packages fit the existing app slots. The asset checks

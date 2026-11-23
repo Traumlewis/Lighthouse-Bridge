@@ -69,6 +69,10 @@ change. Keep current facts. User instructions win.
   The main-branch workflow builds, checks and deploys Pages. Verify live
   manifests, chip headers, partitions, OTA comparisons and hashes after deploy.
   Keep English/German, safe consent gating, board selection and USB single ownership.
+- Release 0.1.30 adds the two XIAO profiles and is published from commit
+  663a438 (Actions run 45163198385). All six live manifest, chip, flash,
+  partition, OTA, checksum and ZIP checks passed. Live EN/DE board selection
+  and consent passed at 1040, 390 and 320 px. XIAO hardware remains untested.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
