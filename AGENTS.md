@@ -68,6 +68,8 @@ change. Keep current facts. User instructions win.
   setup in a responsive layout. The repository README links to the main
   WebFlasher and shows a screenshot generated from it. Local EN/DE layout
   checks at 1040, 390 and 320 px and browser board-selection/USB checks pass.
+  Actions run 45133612733 published the layout. The live site passed EN/DE
+  checks at the same three widths, including board selection and consent.
 
 ## BLE and station data
 
