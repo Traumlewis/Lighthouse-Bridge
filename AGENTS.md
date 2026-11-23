@@ -171,6 +171,9 @@ change. Keep current facts. User instructions win.
   scheduling window, drain active work, and release it on every exit.
   Actions run 45267392693 published and verified all six profiles. The
   simulated save/restart flow passed. Physical C3 verification is pending.
+  An owner-approved C3 SuperMini OTA from 0.1.34 was rejected with
+  `OTA_WRITE_FAILED`; a paced retry also failed. Read-only verification
+  afterward found 0.1.34 still running and all four stations reachable.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

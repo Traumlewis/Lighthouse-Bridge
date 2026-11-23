@@ -16,6 +16,10 @@ published 0.1.35. Simulated browsers confirm that saving stations returns
 to sign-in without fetching the dashboard again, and that a changed
 firmware version still triggers a full reload. All six live manifests,
 layouts, firmware images, OTA payloads, checksums and source ZIPs passed.
+On the owner's C3 SuperMini, an authenticated OTA to the published 0.1.35
+returned `OTA_WRITE_FAILED`. A rate-limited retry after BLE drained and
+with a 7668-byte largest free block also failed at the HTTP transport.
+The bridge remained on 0.1.34 with all four stations reachable.
 
 ## LH-Bridge 0.1.34: ESP32-C3 heap headroom
 
