@@ -73,6 +73,7 @@ change. Keep current facts. User instructions win.
   The Alexa commissioning result on C3 still needs a hardware check.
   The owner reported the temporary return to 0.1.29 did not help and
   requested 0.1.36 as the active source and WebFlasher baseline again.
+  Actions run 45290565133 republished the original 0.1.36 Pages artifact.
 - `tools/build_pages.py` assembles a clean site with the six boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
   Retire the old installer URLs. The default classic manifest is

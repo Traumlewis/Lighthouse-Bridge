@@ -6,6 +6,10 @@ After the original 0.1.29 artifact was temporarily republished by run
 45289105332, the owner reported the rollback did not help and requested
 restoration of 0.1.36. The restored release uses the original 0.1.36 source
 and six board packages.
+Actions run 45290565133 republished the original Pages artifact. The live
+root page, all six manifests, USB hashes, OTA files, ZIPs and checksums
+matched the original. The C3 SuperMini was unreachable over HTTP and no
+USB device was visible during the restoration.
 
 Build the C3 with the pinned compiler's machine outliner disabled. The
 packager checks the final ELF for the absence of outlined functions.
