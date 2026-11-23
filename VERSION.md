@@ -1,5 +1,11 @@
 # Version history
 
+## C3 Matter commissioning headroom — LH-Bridge 0.1.37
+
+- Briefly defer background Bluetooth and dashboard polling around an
+  explicitly opened Matter pairing window. Keep power and confirmation work.
+- Add USB heap and stack samples before, during and after the quiet period.
+
 ## ESP32-C3 Matter commissioning — LH-Bridge 0.1.36
 
 - Disable the C3 compiler optimization responsible for the confirmed

@@ -55,6 +55,7 @@ assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
     window.setTimeout=(fn,ms,...args)=>{if(ms===2000){window.lastTwoSecondTimer=fn;return 0;}return timer(fn,ms,...args);};
    });
    let signedIn=false,windowOpen=false,statusFails=true,bridgeFails=true,windowPending=0,rotations=0,rejectWindow=false,rejectInfo=false,infoGate=null;
+   let quietMs=0;
    const key='1234567890abcdef12345678';let code='34970112332';
    const data={alexa_protocol:'matter',matter_ready:true,matter_paired:true,ip:'192.168.1.42',hostname:'lighthouse-example',wifi_connected:true,alexa_started:true,uptime_ms:90000,stations:[{id:1,name:'Owner station',mac:'AA:BB:CC:DD:EE:01',configured:true,alexa_compat:true,reachable:true,observed:'sleep',observed_raw:0,observed_ms:89000}],discovered:[]};
    await page.route('http://bridge.test/**',async route=>{
@@ -78,6 +79,7 @@ assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
     }
     else if(uri==='/api/logout'){signedIn=false;result={logged_out:true};}
     else {status=404;result={error:'NOT_FOUND'};}
+    if(uri==='/api/matter'&&quietMs)result.commissioning_quiet_ms=quietMs;
     if(uri==='/api/matter'&&windowPending)windowPending--;
     await route.fulfill({status,json:result});
    });
@@ -222,6 +224,15 @@ assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
    }
    statusFails=false;await page.evaluate(()=>refresh());
    await page.waitForFunction(()=>document.getElementById('card-1'));
+   quietMs=60000;await page.evaluate(()=>loadMatter());
+   const beforeQuietPoll=calls.filter(c=>c.uri==='/api/status').length;
+   await page.evaluate(()=>pollStatus());
+   assert.ok(await page.evaluate(()=>matterQuietUntil>Date.now()));
+   assert.equal(calls.filter(c=>c.uri==='/api/status').length,beforeQuietPoll);
+   await page.evaluate(()=>refresh());
+   assert.equal(calls.filter(c=>c.uri==='/api/status').length,beforeQuietPoll+1,'manual refresh remains available');
+   quietMs=0;await page.evaluate(()=>loadMatter());
+   assert.ok(await page.evaluate(()=>matterQuietUntil<=Date.now()));
    await page.locator('#configuration summary').click();await page.locator('#scan').click();
    await page.waitForFunction(()=>document.getElementById('scan-results').textContent.includes('LHB-test'));
    data.ble_worker_available=false;data.ble_startup_error='BLE_WORKER_FAILED';data.matter_ready=false;

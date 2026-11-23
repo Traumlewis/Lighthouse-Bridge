@@ -1,5 +1,14 @@
 # Firmware validation
 
+## LH-Bridge 0.1.37: C3 commissioning headroom
+
+Compare largest free internal and DMA-capable blocks, heap minimum,
+foreground stack watermark and failed allocations in the USB samples before,
+during and after commissioning. On C3 an explicitly requested window
+defers background reads and scans for up to 60 seconds. Power and verification
+remain scheduled. PASE and the 15-minute window use the existing Matter
+runtime. Physical pairing, OTA and stack minima under full load are pending.
+
 ## LH-Bridge 0.1.36: C3 commissioning crash workaround
 
 After the original 0.1.29 artifact was temporarily republished by run

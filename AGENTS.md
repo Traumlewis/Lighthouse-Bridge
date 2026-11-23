@@ -158,6 +158,12 @@ change. Keep current facts. User instructions win.
   after Matter/BLE readiness. Coalesce pending requests, bind the pairing code
   to the active window and clear it on close, failure, logout or restart.
   Opening the panel reads status without opening a window. Alexa is verified.
+- On C3, explicit commissioning reserves up to 60 seconds without
+  background BLE reads or scans. Finish active BLE work before opening
+  when possible, with a six-second bound. Power and command verification
+  retain priority, and reads report measured freshness. The dashboard
+  skips automatic status polling during this interval. Record redacted
+  heap, DMA block, stack and failure samples around this interval.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

@@ -101,9 +101,9 @@ let saved;try{saved=localStorage.getItem('lighthouse-bridge.language');}catch(_)
 const requested=new URL(location.href).searchParams.get('lang');
 $('language').addEventListener('change',()=>setLanguage($('language').value,true));
 let networkChanging=false;
-let loginOptionsEpoch=0;
+let loginOptionsEpoch=0,matterQuietUntil=0;
 async function loadLoginOptions(){const epoch=++loginOptionsEpoch;try{const info=await api('/api/login');if(epoch!==loginOptionsEpoch||loggedIn)return;if(info.version&&info.version!==pageFirmwareVersion){location.reload();return;}$('login-help').hidden=info.password_set!==false;$('login-username-label').hidden=!info.username_enabled;$('login-username').required=!!info.username_enabled;}catch(_){}}
-function showLogin(){$('login-help').hidden=true;$('login-username').value='';$('login-username-label').hidden=true;$('login-username').required=false;loadLoginOptions();$('matter-settings').open=false;clearTimeout(loadMatter.timer);delete loadMatter.queued;loadMatter.background=false;matterEpoch++;matterInfo=null;matterBusy=false;$('matter-code').textContent='';$('matter-code').hidden=true;$('matter-settings').hidden=true;debugEnabled=false;versionClicks=[];renderDebugMode();$('message').hidden=true;loggedIn=false;account=null;current=null;ownerEpoch++;clearResetPreview();$('room-form').hidden=true;$('room-input').value='';$('room-edit').hidden=false;$('room-label').textContent='';$('danger-settings').open=false;gpioEpoch++;wakePins=[];savedGpio=[];renderRemote();$('gpio-settings').open=false;$('gpio-bindings').replaceChildren();$('web-username').value='';$('username-enabled').checked=false;renderUsernameSetting();formInitialized=false;discoveredSignature='';$('config-fields').replaceChildren();$('stations').replaceChildren();drafts=[];$('device-name').value='';$('new-password').value=$('confirm-password').value='';$('api-key').textContent='';$('dashboard').hidden=true;$('password-panel').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;$('connection').textContent=t('login');}
+function showLogin(){matterQuietUntil=0;$('login-help').hidden=true;$('login-username').value='';$('login-username-label').hidden=true;$('login-username').required=false;loadLoginOptions();$('matter-settings').open=false;clearTimeout(loadMatter.timer);delete loadMatter.queued;loadMatter.background=false;matterEpoch++;matterInfo=null;matterBusy=false;$('matter-code').textContent='';$('matter-code').hidden=true;$('matter-settings').hidden=true;debugEnabled=false;versionClicks=[];renderDebugMode();$('message').hidden=true;loggedIn=false;account=null;current=null;ownerEpoch++;clearResetPreview();$('room-form').hidden=true;$('room-input').value='';$('room-edit').hidden=false;$('room-label').textContent='';$('danger-settings').open=false;gpioEpoch++;wakePins=[];savedGpio=[];renderRemote();$('gpio-settings').open=false;$('gpio-bindings').replaceChildren();$('web-username').value='';$('username-enabled').checked=false;renderUsernameSetting();formInitialized=false;discoveredSignature='';$('config-fields').replaceChildren();$('stations').replaceChildren();drafts=[];$('device-name').value='';$('new-password').value=$('confirm-password').value='';$('api-key').textContent='';$('dashboard').hidden=true;$('password-panel').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;$('connection').textContent=t('login');}
 const pageFirmwareVersion="@FIRMWARE_VERSION@";
 async function api(path,data){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
@@ -212,7 +212,7 @@ $('config-form').addEventListener('submit',async event=>{
  event.preventDefault();if(configSaving)return;captureDrafts();const stations=drafts.map(d=>({id:d.id,name:d.name.trim(),mac:d.mac.trim(),alexa_compat:Boolean(d.alexa_compat),off_state:d.off_state||'sleep'}));
  configSaving=true;statusNeedsReload=true;configRevision++;let saved=false;if(current)render(current);
  try{const result=await api('/api/config',{stations});saved=true;if(result.stations)initForm(result.stations);else formInitialized=false;
-  if(result.restarting){clearInterval(pollTimer);if(current){current.maintenance=true;render(current);}message(()=>t('matterSaved'));waitForBridgeRestart(()=>message(()=>t('restartReconnectFailed'),true),()=>{showLogin();pollTimer=setInterval(refresh,2500);});return;}
+  if(result.restarting){clearInterval(pollTimer);if(current){current.maintenance=true;render(current);}message(()=>t('matterSaved'));waitForBridgeRestart(()=>message(()=>t('restartReconnectFailed'),true),()=>{showLogin();pollTimer=setInterval(pollStatus,2500);});return;}
   const data=await api('/api/status');statusNeedsReload=false;render(data);message(()=>t(current?.alexa_protocol==='matter'?'matterSaved':'saved'));
  }catch(e){if(!saved&&e.status)statusNeedsReload=false;message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}
  finally{configSaving=false;if(current)render(current);}
@@ -241,8 +241,8 @@ async function loadMatter(open=false,background=false){
  if(!open&&!$('matter-settings').open)return;if(matterBusy){if(!background){loadMatter.queued=Boolean(open||loadMatter.queued);renderMatter();}return;}clearTimeout(loadMatter.timer);const epoch=matterEpoch;if(!background&&!open)matterInfo=null;matterBusy=true;loadMatter.background=background;renderMatter();
  try{
   if(open){if(matterInfo)matterInfo={...matterInfo,pairing_code:null,commissioning_pending:true};renderMatter();await api('/api/matter/commissioning',{});}
-  const info=await api('/api/matter');if(epoch!==matterEpoch||!loggedIn)return;matterInfo=$('matter-settings').open?info:null;renderMatter();
-  if(!otaBusy&&$('matter-settings').open&&(info.commissioning_pending||info.commissioning_open))loadMatter.timer=setTimeout(()=>{if(epoch===matterEpoch&&loggedIn)loadMatter(false,true);},info.commissioning_pending?750:2000);
+  const info=await api('/api/matter');if(epoch!==matterEpoch||!loggedIn)return;const quiet=Math.min(60000,Math.max(0,Number(info.commissioning_quiet_ms)||0));matterQuietUntil=Date.now()+quiet;matterInfo=$('matter-settings').open?info:null;renderMatter();
+  if(!otaBusy&&$('matter-settings').open&&(info.commissioning_pending||info.commissioning_open))loadMatter.timer=setTimeout(()=>{if(epoch===matterEpoch&&loggedIn)loadMatter(false,true);},info.commissioning_pending?750:quiet?5000:2000);
  }catch(e){if(epoch===matterEpoch){matterInfo=null;$('matter-code').textContent='';$('matter-code').hidden=true;$('matter-status').textContent='';message(()=>e.code?t(e.code):t('NETWORK_ERROR'),true);}}
  finally{if(epoch===matterEpoch){matterBusy=false;loadMatter.background=false;renderMatter();if(loadMatter.queued!==undefined){const next=loadMatter.queued;delete loadMatter.queued;loadMatter(next);}}}
 }
@@ -374,5 +374,6 @@ async function maintainBridge(action){
 $('bridge-restart').addEventListener('click',()=>maintainBridge('restart'));
 $('factory-reset').addEventListener('click',()=>maintainBridge('factory_preview'));
 $('reset-confirm').addEventListener('click',()=>maintainBridge('factory_reset'));
-loadAccount();let pollTimer=setInterval(refresh,2500);
+function pollStatus(){if(Date.now()>=matterQuietUntil)refresh();}
+loadAccount();let pollTimer=setInterval(pollStatus,2500);
 </script></body></html>

@@ -12,6 +12,25 @@ std::unique_ptr<MatterRegistry> matterRegistry;
 bool matterRegistryValid = false, rsStarted = false;
 String manualCode;
 bool windowDispatched=false;
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+constexpr uint32_t kCommissioningQuietMs = 60000;
+uint32_t commissioningQuietStarted = 0, commissioningLastSample = 0;
+bool commissioningWindowSampled = false;
+
+void commissioningHeapSample(const char* phase) {
+  Serial.printf("Matter pairing heap: phase=%s free=%u largest=%u dma_largest=%u min=%u stack_watermark=%u failures=%u\n",
+    phase, matterDataFree(), matterDataLargest(),
+    static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_8BIT)),
+    static_cast<unsigned>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+    static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)),
+    static_cast<unsigned>(lh_rs_allocation_failures()));
+}
+
+void endCommissioningQuiet() {
+  { Lock lock; commissioningQuiet = false; }
+  commissioningHeapSample("after");
+}
+#endif
 struct MatterBridgeInitializer { static bool started() { return rsStarted; } };
 bool matterBeginResources() { return true; }
 void matterEndResources() {}
@@ -142,6 +161,11 @@ void matterPrivateInfo(JsonDocument& doc, bool includeCode) {
   doc["ready"] = matterReady.load() && bleWorkerAvailable.load(); doc["paired"] = matterPaired.load();
   doc["commissioning_open"] = matterWindowOpen.load();
   doc["commissioning_pending"] = matterWindowPending.load();
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  const uint32_t elapsed = millis() - commissioningQuietStarted;
+  if (commissioningQuiet && elapsed < kCommissioningQuietMs)
+    doc["commissioning_quiet_ms"] = kCommissioningQuietMs - elapsed;
+#endif
   doc["startup_phase"] = matterStartupPhase.load();
   doc["commissioning_error"] = matterWindowError.load(); doc["error"] = bleWorkerAvailable.load() ? matterError.load() : bleStartupError.load();
   if (includeCode && !*matterWindowError.load() && !matterWindowPending && matterWindowOpen && matterReady && bleWorkerAvailable && manualCode.length()) doc["pairing_code"] = manualCode;
@@ -177,6 +201,12 @@ void emitMatterInfo() {
 bool matterOpenCommissioning() {
   if (!matterReady || !bleWorkerAvailable || restartPending) return false;
   if (matterWindowPending.exchange(true)) return true;
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  { Lock lock; commissioningQuiet = true; }
+  commissioningQuietStarted = commissioningLastSample = millis();
+  commissioningWindowSampled = false;
+  commissioningHeapSample("before");
+#endif
   windowDispatched=false; manualCode = ""; matterWindowError = ""; return true;
 }
 void matterSetHostname(const String& value) {
@@ -199,7 +229,12 @@ extern "C" uint32_t lh_rs_observed(uint16_t endpoint) {
 }
 void matterBridgeLoop() {
   if(!rsStarted) return;
-  if(lh_rs_pump()<0){matterReady=false;matterError="MATTER_RUNTIME_FAILED";return;}
+  if(lh_rs_pump()<0){
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (commissioningQuiet) endCommissioningQuiet();
+#endif
+    matterReady=false;matterError="MATTER_RUNTIME_FAILED";return;
+  }
   static uint32_t last=0;
   if(!matterReady || millis()-last<250) return;
   last=millis();
@@ -215,11 +250,31 @@ void matterBridgeLoop() {
   }
   if(matterWindowPending){
     if(!windowDispatched){
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+      bool draining;
+      { Lock lock; draining = bleActive && millis() - commissioningQuietStarted < 6000; }
+      if (draining) return;
+#endif
       windowDispatched=lh_rs_open();
       if(!windowDispatched){matterWindowError="MATTER_WINDOW_FAILED";matterWindowPending=false;}
     }else if(!lh_rs_pending()) matterWindowPending=false;
   }
   if(!matterRefreshInfo()) matterError="MATTER_STATUS_FAILED";
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  if (commissioningQuiet) {
+    const uint32_t now = millis();
+    if (now - commissioningQuietStarted >= kCommissioningQuietMs ||
+        (!matterWindowPending && !matterWindowOpen)) {
+      endCommissioningQuiet();
+    } else if ((!commissioningWindowSampled && matterWindowOpen && !matterWindowPending) ||
+               now - commissioningLastSample >= 5000) {
+      const bool opened = matterWindowOpen && !matterWindowPending;
+      commissioningHeapSample(opened && !commissioningWindowSampled ? "window_open" : "during");
+      commissioningWindowSampled |= opened;
+      commissioningLastSample = now;
+    }
+  }
+#endif
 }
 
 extern "C" void lh_rs_hostname(char* out,size_t size){if(size){strncpy(out,hostname.c_str(),size-1);out[size-1]=0;}}

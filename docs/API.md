@@ -225,7 +225,9 @@ the worker does not grant API-key access to private setup/OTA endpoints.
 
 - `GET /api/matter`: returns `bridge_name`, `version`, `ready`, `paired`,
   `pairing_code` (null until ready), `error`, `commissioning_open`,
-  `commissioning_pending`, `commissioning_error` and non-secret `startup_phase`. Use `Cache-Control: no-store`;
+  `commissioning_pending`, `commissioning_error` and non-secret `startup_phase`.
+  On C3, `commissioning_quiet_ms` is included while background work is
+  deferred and gives the remaining time. Use `Cache-Control: no-store`;
   do not save or include the returned code in URLs/logs. This route accepts
   neither API-key authentication nor bootstrap sessions.
 - `POST /api/matter/commissioning`, JSON `{}`: same personal-session restriction

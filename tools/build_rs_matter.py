@@ -13,7 +13,7 @@ from firmware_assets import APP_LIMIT, ROOT, render_dashboard, validate_segments
 from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
-VERSION = '0.1.36'
+VERSION = '0.1.37'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 CORE = '3.3.12'
 SEGMENTS = [('bootloader', 0x1000, 'RsMatter.ino.bootloader.bin'),

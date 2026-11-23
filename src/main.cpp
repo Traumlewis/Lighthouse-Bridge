@@ -121,6 +121,7 @@ bool blePaused = false;
 bool bleActive = false;
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 bool dashboardTransfer = false; // Guarded by Lock, like worker scheduling.
+bool commissioningQuiet = false; // Guarded by Lock in both tasks.
 #endif
 bool portalRequested = false;
 bool alexaReady = false;
@@ -395,6 +396,11 @@ void bleWorker(void*) {
 #endif
          ) { /* Another operation needs the radio or heap. */ }
       else {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+      const bool quiet = commissioningQuiet;
+#else
+      constexpr bool quiet = false;
+#endif
       for (unsigned offset = 0; offset < kStations; ++offset) {
         const unsigned i = (cursor + offset) % kStations;
         if (!states[i].pending) continue;
@@ -412,7 +418,7 @@ void bleWorker(void*) {
         identify = true;
         info = stationInfoJob;
       }
-      if (selected < 0 && scanPending) {
+      if (selected < 0 && scanPending && !quiet) {
         scanPending = false;
         scanning = doScan = true;
       }
@@ -420,7 +426,7 @@ void bleWorker(void*) {
         for (unsigned offset = 0; offset < kStations; ++offset) {
           const unsigned i = (cursor + offset) % kStations;
           const auto& state = states[i];
-          if (remoteOnly && !awaitingConfirmation(state, millis())) continue;
+          if ((remoteOnly || quiet) && !awaitingConfirmation(state, millis())) continue;
           const uint32_t interval = readInterval(state, millis());
           if (!configs[i].mac[0] || (!refreshRequested[i] && state.lastReadAttemptMs &&
               millis() - state.lastReadAttemptMs < interval)) continue;
