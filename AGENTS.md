@@ -155,11 +155,14 @@ change. Keep current facts. User instructions win.
   `lighthouse-bridge-xxxxxx` using the STA MAC suffix. Valid custom names take
   precedence. WiFiManager runs a protected nonblocking setup portal with
   USB diagnostics. BOOT is GPIO9 on C3 and GPIO0 on classic/S3.
-- The 0.1.34 candidate uses the 0.1.30 WiFiManager auto-connect and portal
+- Release 0.1.34 uses the 0.1.30 WiFiManager auto-connect and portal
   path. The setup experiments in 0.1.31 through 0.1.33 are historical.
 - On C3, the single-client NimBLE host uses 12 MSYS2 blocks and 12 incoming
   HCI ACL blocks. Preserve their block sizes, controller and advertising event
   configuration. This releases fixed heap reservations for HTTP and Wi-Fi.
+  Actions run 45260071299 published 0.1.34. All six live profiles and firmware
+  packages passed verification. C3 login and BLE behavior still need a
+  hardware check with 0.1.34.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

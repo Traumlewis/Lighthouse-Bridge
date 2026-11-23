@@ -17,6 +17,11 @@ releasing 7440 bytes of initialization-time heap reservations.
 Dashboard, discovery, GATT reads and writes, and Matter commissioning
 under real C3 load need owner verification.
 
+[Actions run 45260071299](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45260071299)
+published 0.1.34. All six live manifests, chip and flash headers, USB offsets,
+exact partition tables, OTA payloads, checksums and source ZIPs passed.
+Simulated browser login, dashboard and USB tests passed.
+
 ## LH-Bridge 0.1.30 restored as the baseline
 
 The owner confirmed 0.1.30 worked after disabling the VPN and requested
