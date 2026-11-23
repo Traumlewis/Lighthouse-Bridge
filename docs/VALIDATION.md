@@ -6,6 +6,10 @@ The owner confirmed 0.1.30 worked after disabling the VPN and requested
 that main development and the root WebFlasher return to this version.
 The source matches commit 663a438 apart from documentation recording later
 history. The redeployment reuses the original six verified board images.
+Actions run 45255471898 published the original site at the project root.
+The live HTML, six manifests, USB segments, OTA packages and ZIP downloads
+match the original artifact. The deployment archive excludes the temporary
+test page.
 
 ## LH-Bridge 0.1.33: setup address and captive DNS
 

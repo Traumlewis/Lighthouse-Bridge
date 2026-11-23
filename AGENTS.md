@@ -76,7 +76,9 @@ change. Keep current facts. User instructions win.
 - The owner confirmed that 0.1.30 works after disabling the VPN and chose it
   as the active development baseline. Restore the source and six WebFlasher
   profiles from 663a438. The temporary test page from Actions run 45254080953
-  is superseded by the root WebFlasher.
+  is superseded by the root WebFlasher. Actions run 45255471898 redeployed
+  the exact original 0.1.30 artifact. Live verification matched all six
+  manifests, USB segment hashes, OTA packages and ZIPs to the original.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
