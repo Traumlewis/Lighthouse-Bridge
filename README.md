@@ -4,9 +4,10 @@ Control up to 16 Valve Lighthouse V2 base stations over Bluetooth from a local
 dashboard, a local HTTP API, or a Matter controller. The bridge uses the
 Rust rs-matter stack and presents each station as an individual Matter light.
 
-[Open the WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/) ·
-[Setup guide](docs/WEBFLASHER.md) · [API](docs/API.md) ·
-[GPIO and board guide](docs/GPIO-BOARDS.md) · [Version history](VERSION.md)
+[**Open the WebFlasher →**](https://traumlewis.github.io/Lighthouse-Bridge/) ·
+[Setup guide](docs/WEBFLASHER.md) · [Version history](VERSION.md)
+
+<a href="https://traumlewis.github.io/Lighthouse-Bridge/"><img src="docs/webflasher-preview.png" width="760" alt="Lighthouse Bridge WebFlasher showing board selection, firmware downloads and USB setup"></a>
 
 ## Install and set up
 
@@ -31,14 +32,14 @@ The classic ESP32 was tested with four physical stations and Alexa. The C3 and
 S3 profiles have software build and packaging checks. Other Matter controllers
 are listed in the dashboard and have yet to be verified with this bridge.
 
-## Dashboard
+## Features
 
-- Switch stations individually or together. Choose Sleep or Standby per station.
-- See measured state and reachability. Identify a station or inspect its Bluetooth
-  device information in Debug.
-- Run in home Wi-Fi, direct Local Wi-Fi, or GPIO-driven Bluetooth Remote Mode.
-- Manage your room label, personal login, API key, Matter pairing and firmware
-  updates. Dangerzone includes restart and a separately confirmed factory reset.
+| Feature | What it provides |
+| --- | --- |
+| Station control | Switch individually or together, choose Sleep or Standby, and see measured state and reachability. |
+| Matter | Pair over home Wi-Fi. Each station appears as an individual light. |
+| Local and Remote modes | Connect directly over local Wi-Fi or use [GPIO buttons](docs/GPIO-BOARDS.md) for Bluetooth control from deep sleep. |
+| Dashboard and [local API](docs/API.md) | Manage stations and access, inspect Bluetooth diagnostics, restart, or confirm a factory reset. |
 
 For Wi-Fi updates, choose the `.lhota` that matches your board and upload it in
 the dashboard. The OTA container validates the board chip and file integrity.

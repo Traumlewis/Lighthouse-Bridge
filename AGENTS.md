@@ -64,6 +64,10 @@ change. Keep current facts. User instructions win.
 - Actions run 45127780654 published removal of the old rs-matter installer
   URL. The old page and redirect script return HTTP 404. The root installer
   and all four manifests remain available.
+- The WebFlasher groups board installation and downloads separately from USB
+  setup in a responsive layout. The repository README links to the main
+  WebFlasher and shows a screenshot generated from it. Local EN/DE layout
+  checks at 1040, 390 and 320 px and browser board-selection/USB checks pass.
 
 ## BLE and station data
 

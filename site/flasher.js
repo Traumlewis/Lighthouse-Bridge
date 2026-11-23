@@ -1,4 +1,4 @@
-import { translations } from './translations.js?v=rs-matter-0.1.28';
+import { translations } from './translations.js?v=webflasher-2';
 import { validRsMatterParts } from './flash-layout.mjs?v=rs-matter-0.1.28';
 import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
 import { parseMatterInfo } from './matter-info.mjs?v=rs-matter-0.1.8';
