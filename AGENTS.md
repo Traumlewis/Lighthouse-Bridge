@@ -36,6 +36,8 @@ change. Keep current facts. User instructions win.
   software version string show `LH-Bridge <version>`. Manifest, API and USB
   protocol version fields use the numeric version without a product suffix.
   The USB reader also accepts the previous suffixed Matter versions.
+  Actions run 45140983557 published 0.1.29. All four live artifact checks
+  and EN/DE WebFlasher checks at 1040, 390 and 320 px passed.
 - Pin Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2, WiFiManager 2.0.17,
   ArduinoJson 6.21.5, Espressif Rust 1.97.0.0, espup 0.19.0 and rs-matter rev
   `43f61585a439f1a1e90924b696a6280850ef0145`. Keep Cargo resolution locked.

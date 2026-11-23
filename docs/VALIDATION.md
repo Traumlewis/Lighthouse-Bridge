@@ -8,6 +8,12 @@ cover the visible `LH-Bridge 0.1.29` label and reload on firmware changes
 without a reload on ordinary session expiry. The USB reader accepts both
 the new version format and older Matter version strings.
 
+[Actions run 45140983557](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45140983557)
+published 0.1.29. All four live manifests, chip and partition checks, OTA
+payloads, SHA-256 values, and ZIP checks passed. The live WebFlasher showed the
+same label for all boards in EN/DE at 1040, 390, and 320 px. The compiled
+Matter software version string was verified in all four images.
+
 ## rs-matter 0.1.28: main build and WebFlasher
 
 The active release path builds rs-matter for four boards and validates their
