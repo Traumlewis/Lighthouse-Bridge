@@ -61,6 +61,9 @@ change. Keep current facts. User instructions win.
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
   for selection, downloads and consent.
+- Actions run 45127780654 published removal of the old rs-matter installer
+  URL. The old page and redirect script return HTTP 404. The root installer
+  and all four manifests remain available.
 
 ## BLE and station data
 
