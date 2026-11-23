@@ -52,7 +52,7 @@ change. Keep current facts. User instructions win.
   critical-section portable atomics. Fast paths must fit both OTA slots.
 - `tools/build_pages.py` assembles a clean site with the four boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
-  `rs-matter.html` redirects old links to it. The default classic manifest is
+  Retire the old installer URLs. The default classic manifest is
   `manifest.json`; board-specific manifests keep their separate names.
   The main-branch workflow builds, checks and deploys Pages. Verify live
   manifests, chip headers, partitions, OTA comparisons and hashes after deploy.
@@ -60,8 +60,7 @@ change. Keep current facts. User instructions win.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
-  for selection, downloads and consent. The legacy rs-matter link redirects
-  and retired installer routes are gone.
+  for selection, downloads and consent.
 
 ## BLE and station data
 

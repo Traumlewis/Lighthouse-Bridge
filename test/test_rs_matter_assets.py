@@ -46,6 +46,8 @@ class RsMatterAssetsTests(unittest.TestCase):
                 self.assertIn('source/'+name,names)
             self.assertFalse(any(any(x in name for x in ['.codex-attachments','/target/','tasmota-upstream']) for name in names))
     def test_removed_backend_not_published(self):
+        self.assertFalse((ROOT/'_site/rs-matter.html').exists())
+        self.assertFalse((ROOT/'_site/flasher-redirect.js').exists())
         self.assertFalse((ROOT/'_site/tasmota.html').exists())
         self.assertFalse((ROOT/'_site/tasmota-manifest.json').exists())
         self.assertFalse((ROOT/'_site/matter.html').exists())

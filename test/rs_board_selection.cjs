@@ -8,9 +8,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
  if(unsafe&&relative==='rs-matter-c3-supermini-manifest.json'){const m=JSON.parse(fs.readFileSync(file));m.builds[0].chipFamily='ESP32';return route.fulfill({json:m});}
  const type=/\.m?js$/.test(file)?'application/javascript':file.endsWith('.json')?'application/json':file.endsWith('.html')?'text/html':file.endsWith('.css')?'text/css':'application/octet-stream';return route.fulfill({contentType:type,body:fs.readFileSync(file)});
  });
- const initialPath=lang==='de'?'rs-matter.html':'';
- await page.goto('https://flasher.test/Lighthouse-Bridge/'+initialPath+'?lang='+lang);
- await page.waitForURL('https://flasher.test/Lighthouse-Bridge/?lang='+lang);
+ await page.goto('https://flasher.test/Lighthouse-Bridge/?lang='+lang);
  await page.waitForFunction(()=>!document.querySelector('#matter-download').hidden);
  for(const board of ['esp32','weact-c3','c3-supermini','s3-supermini']){
  await page.locator('#rs-board').selectOption(board);await page.waitForFunction(()=>!document.querySelector('#matter-download').hidden);

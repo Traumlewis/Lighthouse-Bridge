@@ -17,9 +17,8 @@ The same connection can read Matter commissioning status via
 You can also retrieve the Matter code from the dashboard after signing in with
 your own password.
 
-The old `rs-matter.html` link redirects to the main WebFlasher. The site is
-assembled in a fresh directory so obsolete installers and binaries disappear
-when the GitHub Pages workflow publishes it. ESP Web Tools is served from
+The site is assembled in a fresh directory so obsolete installers and binaries
+disappear when the GitHub Pages workflow publishes it. ESP Web Tools is served from
 the checked-in vendor bundle. Its integrity is verified at build time.
 
 See the [main guide](../README.md) for initial Wi-Fi setup and
