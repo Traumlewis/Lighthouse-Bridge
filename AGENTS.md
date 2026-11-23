@@ -147,6 +147,13 @@ change. Keep current facts. User instructions win.
   `lighthouse-bridge-xxxxxx` using the STA MAC suffix. Valid custom names take
   precedence. WiFiManager runs a protected nonblocking setup portal with
   USB diagnostics. BOOT is GPIO9 on C3 and GPIO0 on classic/S3.
+- With a successfully read empty saved Wi-Fi configuration, switch directly
+  from STA to AP before starting WiFiManager. This avoids shutting down and
+  reinitializing the radio on first setup. Saved-network connections retain
+  the auto-connect path. USB `LH_WIFI_INFO` includes `portal_active` and
+  `ap_ipv4_ready`; report portal state again after startup. The owner reported
+  connection resets on fresh C3 and S3 setup with 0.1.30. The 0.1.31
+  candidate has yet to be tested on those boards.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

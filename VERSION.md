@@ -1,5 +1,10 @@
 # Version history
 
+## Initial Wi-Fi setup — LH-Bridge 0.1.31
+
+- Switch directly to AP mode on first setup to avoid restarting the Wi-Fi
+  driver. Add redacted USB diagnostics for the portal and AP IPv4 state.
+
 ## Seeed Studio XIAO boards — LH-Bridge 0.1.30
 
 - Add WebFlasher and OTA profiles for Seeed Studio XIAO ESP32-C3 and

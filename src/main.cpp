@@ -945,6 +945,8 @@ void emitWifiInfo() {
   StaticJsonDocument<768> doc;
   doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
   doc["mode"] = static_cast<unsigned>(WiFi.getMode()); doc["setup_boot"] = wifiSetupBoot;
+  doc["portal_active"] = wifiManager.getConfigPortalActive();
+  doc["ap_ipv4_ready"] = WiFi.softAPIP() != IPAddress(0,0,0,0);
   doc["ap_config_error"] = static_cast<int>(code);
   doc["key_matches"] = keyMatches; doc["name_matches"] = nameMatches;
   doc["auth"] = code == ESP_OK ? static_cast<int>(config.ap.authmode) : -1;
@@ -1231,7 +1233,17 @@ void setup() {
     wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
     return;
   }
-  wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
+  wifi_config_t savedWifi{};
+  const bool firstSetup = esp_wifi_get_config(WIFI_IF_STA, &savedWifi) == ESP_OK && !savedWifi.sta.ssid[0];
+  memset(&savedWifi, 0, sizeof(savedWifi));
+  // With no saved network, switch directly from STA to AP. autoConnect()
+  // otherwise lets WiFiManager turn off the only active interface before
+  // starting AP, which stops and reinitializes the Wi-Fi driver.
+  if (firstSetup && WiFi.mode(WIFI_AP))
+    wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());
+  else
+    wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
+  if (wifiManager.getConfigPortalActive()) emitWifiInfo();
   // The main loop services USB info while the setup portal waits for Wi-Fi.
 }
 

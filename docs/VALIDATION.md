@@ -1,5 +1,15 @@
 # Firmware validation
 
+## LH-Bridge 0.1.31: first-setup portal candidate
+
+The owner observed `ERR_CONNECTION_RESET` on both the setup root and the
+Wi-Fi page on a C3 with firmware 0.1.30. The phone joined the protected AP
+and obtained an address. The owner reproduced the issue on a freshly set up
+S3. The C3 log shows two driver initializations before the portal. The
+candidate avoids that transition when there is no saved Wi-Fi configuration
+and reports portal/AP readiness over USB. The cause of the reset and the
+candidate's effect on physical devices remain unverified.
+
 ## LH-Bridge 0.1.30: Seeed Studio XIAO profiles
 
 The Seeed XIAO C3 and S3 images preserve the complete partition table and both
