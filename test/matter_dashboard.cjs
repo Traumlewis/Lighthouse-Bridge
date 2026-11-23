@@ -63,7 +63,7 @@ assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
     if(signedIn&&uri==='/api/matter'&&infoGate)await infoGate;
     let result={},status=200;
     if(signedIn&&uri==='/api/matter'&&rejectInfo)return route.fulfill({status:503,json:{error:'NETWORK_ERROR'}});
-    if(uri==='/api/login'&&req.method()==='GET')return route.fulfill({json:{username_enabled:false}});
+    if(uri==='/api/login'&&req.method()==='GET')return route.fulfill({json:{username_enabled:false,version}});
     if(uri==='/api/login'){signedIn=true;result={password_required:false};}
     else if(!signedIn){status=401;result={error:'LOGIN_REQUIRED'};}
     else if(uri==='/api/account')result={password_required:false,api_key:key,setup_ssid:'Lighthouse-Setup-EXAMPLE',hostname:data.hostname,alexa_protocol:'matter',matter_ready:true};
@@ -256,7 +256,20 @@ assert.ok(html.includes('>LH-Bridge '+version+'</button>'));
     'an acknowledged restart must not immediately fetch status from the rebooting board');
    assert.equal(await page.locator('#on-1').isDisabled(),true);
    assert.equal(await page.locator('#save').isDisabled(),true);
-   await page.locator('#logout').click();await page.waitForFunction(()=>!document.getElementById('login-panel').hidden);
+   const pageLoads=calls.filter(c=>c.uri==='/').length;
+   const accountReads=calls.filter(c=>c.uri==='/api/account').length;
+   await page.evaluate(()=>{
+    window.previousRestartTimer=window.lastTwoSecondTimer;
+    window.previousRestartTimer();
+   });
+   await page.waitForFunction(()=>window.lastTwoSecondTimer!==window.previousRestartTimer);
+   assert.equal(await page.locator('#login-panel').isHidden(),true);
+   assert.equal(calls.filter(c=>c.uri==='/').length,pageLoads);
+   assert.equal(calls.filter(c=>c.uri==='/api/account').length,accountReads+1);
+   signedIn=false; // The reboot invalidates the old session.
+   await page.evaluate(()=>window.lastTwoSecondTimer());
+   await page.locator('#login-panel').waitFor({state:'visible'});
+   assert.equal(calls.filter(c=>c.uri==='/').length,pageLoads,'station setup must reuse the current dashboard');
    assert.equal(await page.locator('#matter-code').textContent(),'');
    assert.equal(await page.locator('#matter-code').isHidden(),true);
    {

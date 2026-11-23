@@ -163,6 +163,12 @@ change. Keep current facts. User instructions win.
   Actions run 45260071299 published 0.1.34. All six live profiles and firmware
   packages passed verification. C3 login and BLE behavior still need a
   hardware check with 0.1.34.
+- With four stations on C3, 0.1.34 saved configuration and restarted as
+  intended. Full dashboard transfers then stalled during BLE reads.
+  From 0.1.35 the dashboard returns to sign-in in the open page after a
+  station save and uses the public login-options version to detect a
+  firmware change. On C3 full dashboard transfers reserve a brief BLE
+  scheduling window, drain active work, and release it on every exit.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

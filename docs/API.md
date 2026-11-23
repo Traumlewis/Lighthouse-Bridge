@@ -165,7 +165,8 @@ and serial diagnostics remain available and BLE behavior is unchanged.
 These options apply to the personal web login.
 
 - Public `GET /api/login` returns boolean `username_enabled` and, since 0.1.26,
-  boolean `password_set`. First setup and migrated accounts default to having
+  boolean `password_set`. Since 0.1.35 it also returns the firmware `version`.
+  First setup and migrated accounts default to having
   usernames disabled. The endpoint never returns the account name.
 - If enabled after personal-password setup, `POST /api/login` additionally needs
   `"username":"…"`. Incorrect names/passwords share the existing failure/throttle

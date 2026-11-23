@@ -1,5 +1,10 @@
 # Version history
 
+## Dashboard recovery after station setup — LH-Bridge 0.1.35
+
+- Return to sign-in in the existing page after saving stations and restarting.
+- Wait for active BLE work before streaming the full dashboard on C3.
+
 ## ESP32-C3 RAM headroom — LH-Bridge 0.1.34
 
 - Based on 0.1.30. Reduce the two ESP32-C3 NimBLE heap pools used by the

@@ -1,5 +1,16 @@
 # Firmware validation
 
+## LH-Bridge 0.1.35: dashboard reconnect after saving stations
+
+The owner's C3 on 0.1.34 found and saved four stations. The configuration
+reply completed, the bridge restarted intentionally, and all four stations
+were read afterward. During the full dashboard reloads, available heap
+fell and multiple HTTP transfers ended before sending the full body.
+The new flow waits for the old session to expire and returns to sign-in
+using the loaded page. On C3 a manual dashboard download waits for active
+BLE work and prevents another BLE job from starting during transfer.
+Physical verification is pending.
+
 ## LH-Bridge 0.1.34: ESP32-C3 heap headroom
 
 On the owner's C3, 0.1.30 reports repeated runtime allocation failures at
