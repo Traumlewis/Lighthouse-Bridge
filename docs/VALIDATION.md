@@ -1,15 +1,172 @@
 # Firmware validation
 
-## Active baseline restored to LH-Bridge 0.1.29
+## LH-Bridge 0.1.36: C3 commissioning crash workaround
 
-The owner requested a complete return to the original firmware source,
-build profiles, and WebFlasher. The source and four packages are taken from
-commit 1b4c5cd and the original release workflow artifact 45140983557.
-Actions run 45289105332 republished the original artifact. Live checks
-matched the root HTML and all four manifests, USB segment hashes, OTA files,
-ZIP downloads and checksums. The two later XIAO manifests were unavailable.
-The C3 SuperMini could not be reached over HTTP and no USB device was
-present, so the physical firmware was not changed during this rollback.
+After the original 0.1.29 artifact was temporarily republished by run
+45289105332, the owner reported the rollback did not help and requested
+restoration of 0.1.36. The restored release uses the original 0.1.36 source
+and six board packages.
+
+Build the C3 with the pinned compiler's machine outliner disabled. The
+packager checks the final ELF for the absence of outlined functions.
+The C3 release limits SDK logs to errors to fit both existing slots.
+Typed endpoint, session, heap and transport diagnostics remain available.
+After the 0.1.35 crash, an authenticated LAN check found all four stations
+reachable, Matter ready, no fabric, and the commissioning window closed.
+Pairing through Alexa with the new build requires a hardware check.
+
+[Actions run 45281600753](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45281600753)
+published 0.1.36. All six live packages passed manifest, chip, partition,
+OTA, checksum and source ZIP verification. All three published C3 ELFs
+passed the no-outliner check. The new C3 SuperMini disassembly saves the
+correct command formatter before calling the Rust formatting helper.
+
+An owner-approved C3 SuperMini OTA from 0.1.35 was attempted with the
+verified public 0.1.36 package. Both the normal upload and a paced retry
+lost the HTTP connection. The authenticated follow-up confirmed 0.1.35
+was still running, the BLE worker was available, and all four stations
+remained reachable. USB installation and Alexa commissioning on 0.1.36
+are pending.
+
+## LH-Bridge 0.1.35: dashboard reconnect after saving stations
+
+The owner's C3 on 0.1.34 found and saved four stations. The configuration
+reply completed, the bridge restarted intentionally, and all four stations
+were read afterward. During the full dashboard reloads, available heap
+fell and multiple HTTP transfers ended before sending the full body.
+The new flow waits for the old session to expire and returns to sign-in
+using the loaded page. On C3 a manual dashboard download waits for active
+BLE work and prevents another BLE job from starting during transfer.
+Physical verification is pending.
+
+[Actions run 45267392693](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45267392693)
+published 0.1.35. Simulated browsers confirm that saving stations returns
+to sign-in without fetching the dashboard again, and that a changed
+firmware version still triggers a full reload. All six live manifests,
+layouts, firmware images, OTA payloads, checksums and source ZIPs passed.
+On the owner's C3 SuperMini, an authenticated OTA to the published 0.1.35
+returned `OTA_WRITE_FAILED`. A rate-limited retry after BLE drained and
+with a 7668-byte largest free block also failed at the HTTP transport.
+The bridge remained on 0.1.34 with all four stations reachable.
+
+The owner subsequently ran 0.1.35 and reported recovery of most functions.
+USB logs show ongoing station reads and an explicitly opened Matter
+commissioning window. All observed UDP traffic was mDNS, with no logged
+PASE session or fabric. During that attempt the largest internal heap block
+fell to 2292 bytes and repeated 2312-byte allocations failed. These logs
+place the failure before session establishment without establishing why the
+controller's Matter traffic failed to arrive. A follow-up LAN check could
+not reach the last reported bridge address and received no targeted mDNS
+response. Commissioning on C3 remains unverified.
+
+A later owner Alexa attempt on C3 SuperMini 0.1.35 established one PASE
+session and armed the fail-safe, then rebooted with a Store access fault
+before creating a fabric. The panic ELF digest prefix `0b62ee12d` matches the
+published C3 SuperMini debug ELF from run 45267392693. In that image the
+`CmdPath` Debug implementation puts the command formatter address in `t1`
+and then overwrites it with an outlined tail-call target. The outlined body
+saves the overwritten register as the formatter. The resulting indirect
+call enters a different outlined function mid-instruction, matching the
+register dump and store fault. The earlier allocation failures are separate
+evidence of heap pressure.
+
+## LH-Bridge 0.1.34: ESP32-C3 heap headroom
+
+On the owner's C3, 0.1.30 reports repeated runtime allocation failures at
+2312 bytes and a largest free block as low as 1460 bytes. The dashboard
+truncates on one boot, while another boot completes discovery of four
+stations. A separate read-only HTTP login-options request yielded an empty
+response. This confirms heap pressure and an HTTP symptom. The allocating
+SDK component for the 2312-byte failures is unknown.
+
+The change branches from the restored 0.1.30 baseline. The upstream
+NimBLE host reserves both pools at initialization. For C3, use 12 instead
+of 24 blocks for MSYS2 and incoming HCI ACL, with the block sizes retained.
+The C3 ELF confirms 3840 bytes for MSYS2 and 3600 bytes for the ACL pool,
+releasing 7440 bytes of initialization-time heap reservations.
+Dashboard, discovery, GATT reads and writes, and Matter commissioning
+under real C3 load need owner verification.
+
+[Actions run 45260071299](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45260071299)
+published 0.1.34. All six live manifests, chip and flash headers, USB offsets,
+exact partition tables, OTA payloads, checksums and source ZIPs passed.
+Simulated browser login, dashboard and USB tests passed.
+
+## LH-Bridge 0.1.30 restored as the baseline
+
+The owner confirmed 0.1.30 worked after disabling the VPN and requested
+that main development and the root WebFlasher return to this version.
+The source matches commit 663a438 apart from documentation recording later
+history. The redeployment reuses the original six verified board images.
+Actions run 45255471898 published the original site at the project root.
+The live HTML, six manifests, USB segments, OTA packages and ZIP downloads
+match the original artifact. The deployment archive excludes the temporary
+test page.
+
+## LH-Bridge 0.1.33: setup address and captive DNS
+
+In the owner's C3 and S3 logs, 0.1.32 starts the TCP listener and Android
+joins the setup AP. The response count was captured before Android joined.
+The browser page and Android Wi-Fi settings prompt remain unavailable.
+0.1.33 explicitly offers the captive DNS server via DHCP, binds HTTP to the AP
+address and reports it over USB while the portal is active. The physical
+result is pending.
+
+[Actions run 45243859636](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45243859636)
+published all six 0.1.33 profiles. Simulated browser and USB checks cover the
+setup link while the dashboard URL is null, and its removal when the bridge
+reports the home Wi-Fi address. Live checks verified the root WebFlasher,
+setup link assets, six manifests, firmware chip and flash headers, offsets,
+exact partition equality, OTA payloads, checksums and source ZIPs. The
+largest published apps are 1,965,760 bytes in 1,966,080-byte slots.
+
+## LH-Bridge 0.1.32: setup portal HTTP
+
+The owner reports the setup connection reset persists on 0.1.31. This
+candidate shares the bounded HTTP writer with the main dashboard and
+reports setup listener state and attempted response count via USB. The added
+fields are redacted and distinguish TCP listen from response attempts. The
+cause of the physical reset remains unverified.
+
+[Actions run 45234468473](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45234468473)
+published all six 0.1.32 profiles. Live checks verified the main WebFlasher,
+manifests, chip and flash headers, USB offsets, exact partition tables, app-only
+OTA payloads, SHA-256 and source ZIPs. Both new USB diagnostic fields are
+present in all six apps. The largest published apps are 1,965,632 bytes in
+1,966,080-byte slots.
+
+## LH-Bridge 0.1.31: first-setup portal candidate
+
+The owner observed `ERR_CONNECTION_RESET` on both the setup root and the
+Wi-Fi page on a C3 with firmware 0.1.30. The phone joined the protected AP
+and obtained an address. The owner reproduced the issue on a freshly set up
+S3. The C3 log shows two driver initializations before the portal. The
+candidate avoids that transition when there is no saved Wi-Fi configuration
+and reports portal/AP readiness over USB. The cause of the reset and the
+candidate's effect on physical devices remain unverified.
+
+[Actions run 45226038063](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45226038063)
+published all six 0.1.31 USB/OTA profiles. Live manifest, chip, flash size,
+offsets, exact partition equality, OTA payload, checksum and ZIP checks
+passed. All apps retain both OTA slots. The new diagnostic fields are
+present in all six published apps.
+
+## LH-Bridge 0.1.30: Seeed Studio XIAO profiles
+
+The Seeed XIAO C3 and S3 images preserve the complete partition table and both
+1,966,080-byte app slots. The local apps are 1,947,344 bytes for XIAO C3 and
+1,870,528 bytes for XIAO S3. Both images contain the expected chip and flash
+headers, and the OTA payloads match the USB app images. The Arduino properties
+confirm native USB serial on boot and 8 MB flash with OPI PSRAM for XIAO S3.
+Native checks cover the XIAO GPIO allowlists and both directions of the 4 MB/8 MB
+S3 OTA guard. Physical USB, Wi-Fi, BLE, GPIO, OTA and Matter checks are pending.
+
+[Actions run 45163198385](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45163198385)
+published all six 0.1.30 profiles. The live WebFlasher passed EN/DE board
+selection, download and consent checks at 1040, 390 and 320 px. All six live
+manifests and chip, flash size, offsets, partition table, OTA, SHA-256 and ZIP
+checks passed. Published app sizes for XIAO C3 and S3 are 1,947,120 and
+1,870,288 bytes respectively.
 
 ## LH-Bridge 0.1.29: unified version label
 
@@ -24,6 +181,13 @@ published 0.1.29. All four live manifests, chip and partition checks, OTA
 payloads, SHA-256 values, and ZIP checks passed. The live WebFlasher showed the
 same label for all boards in EN/DE at 1040, 390, and 320 px. The compiled
 Matter software version string was verified in all four images.
+
+The owner-approved classic ESP32 OTA from 0.1.28-rs-matter to 0.1.29 succeeded
+with one upload. The initial verifier stopped before any upload because it
+expected 0.1.27. After checking the actual baseline, the OTA preserved the
+account, room, network, GPIO, station assignments, OFF preferences and Matter
+pairing. All four stations became reachable. The live dashboard displayed
+`LH-Bridge 0.1.29`, and both diagnostic sessions were closed.
 
 ## rs-matter 0.1.28: main build and WebFlasher
 

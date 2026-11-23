@@ -9,17 +9,17 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
  try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   let signedIn=false,installed=false,invalid=true,rootReads=0,reconnects=0,uploads=0,mutations=[];
-  let servedVersion='0.1.29';
+  let servedVersion='0.1.36';
   const stations=['on','unknown','sleep','standby'].map((observed,i)=>({id:i+1,name:'Station '+(i+1),mac:'02:00:00:00:00:0'+(i+1),configured:true,
    observed,observed_raw:[11,-1,0,2][i],reachable:i!==1,observed_ms:89000,command_status:'none',requested:null,pending:false,busy:false}));
-  const status={version:'0.1.29',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
+  const status={version:'0.1.36',alexa_protocol:'matter',matter_ready:true,matter_paired:true,wifi_connected:true,alexa_started:true,
    ip:'192.0.2.1',hostname:'lighthouse-bridge-a1b2c3',uptime_ms:90000,stations,discovered:[]};
   const account={setup_ssid:'Lighthouse-Bridge-Setup-A1B2C3',password_required:false,api_key:'1234567890abcdef12345678',hostname:'lighthouse-bridge-a1b2c3',alexa_protocol:'matter',matter_ready:true};
   await page.route('http://bridge.test/**',async route=>{
    const r=route.request(),uri=new URL(r.url()).pathname;
-   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.29',servedVersion)});}
+   if(uri==='/'){rootReads++;return route.fulfill({contentType:'text/html',body:html.replaceAll('0.1.36',servedVersion)});}
    if(r.method()==='POST')mutations.push(uri);
-   if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});
+   if(uri==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false,version:servedVersion}});
     if(uri==='/api/login'){signedIn=true;return route.fulfill({json:{password_required:false}});}
    if(uri==='/api/logout'){signedIn=false;return route.fulfill({json:{logged_out:true}});}
    if(installed&&uri==='/api/account'){
@@ -134,17 +134,17 @@ const html=zlib.gunzipSync(Buffer.from(header.split('{')[1].split('}')[0].split(
   await signIn();servedVersion='99.0.1';status.version=servedVersion;signedIn=false;
   await page.evaluate(()=>{refresh();});
   await page.waitForFunction(()=>document.getElementById('version-toggle').textContent==='LH-Bridge 99.0.1');
-  assert.equal(rootReads,4,'external update probes the public version then reloads the new HTML once');
+  assert.equal(rootReads,3,'external update probes the login options then reloads the new HTML once');
   await page.locator('#login-panel').waitFor({state:'visible'});
   await signIn();signedIn=false;
-  const unchangedPage=page.waitForResponse(r=>new URL(r.url()).pathname==='/'&&r.request().resourceType()==='fetch');
+  const unchangedPage=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/login'&&r.request().method()==='GET');
   await page.evaluate(()=>refresh());await unchangedPage;
   await page.waitForTimeout(150);
-  assert.equal(rootReads,5,'ordinary session expiry probes once without reloading unchanged firmware');
+  assert.equal(rootReads,3,'ordinary session expiry checks the version without transferring the dashboard');
   await signIn();servedVersion='99.0.2';status.version=servedVersion;
   await page.evaluate(()=>{refresh();});
   await page.waitForFunction(()=>document.getElementById('version-toggle').textContent==='LH-Bridge 99.0.2');
-  assert.equal(rootReads,6,'a version mismatch on an authenticated status also reloads the page');
+  assert.equal(rootReads,4,'a version mismatch on an authenticated status also reloads the page');
   assert.equal(uploads,2,'external firmware detection never writes another image');
 
   assert.equal(mutations.some(p=>['/api/power','/api/config','/api/matter/commissioning'].includes(p)),false);

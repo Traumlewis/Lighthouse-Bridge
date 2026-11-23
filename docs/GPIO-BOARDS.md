@@ -12,6 +12,8 @@ The two actions can be swapped. Saving does not switch any station.
 | WeAct ESP32-C3FH4 | 3 and 4 | 4 MB / none | 0x0000 |
 | ESP32 C3 SuperMini | 3 and 4 | 4 MB / none | 0x0000 |
 | ESP32 S3 SuperMini | 4 and 5 | 4 MB / 2 MB QSPI | 0x0000 |
+| Seeed Studio XIAO ESP32-C3 | 3 (D1) and 4 (D2) | 4 MB / none | 0x0000 |
+| Seeed Studio XIAO ESP32-S3 | 4 (D3) and 5 (D4) | 8 MB / 8 MB OPI | 0x0000 |
 
 Use GPIO numbers, not physical header positions. Verify the labels and exposed
 pins of your exact board. The supported selection excludes boot straps, flash,
@@ -31,11 +33,14 @@ profiles retain the complete partition table and both existing OTA app slots.
 The original ESP32 cannot run C3/S3 firmware. New physical boards need their own
 Wi-Fi/assignments/pairing; do not copy raw NVS partitions between chips.
 
-The S3 target uses 4 MB flash and enables 2 MB QSPI PSRAM, matching the owner's
-specification. Existing internal-only protocol allocation policy remains intact;
-PSRAM availability alone is not proof of additional runtime headroom. C3/S3
-startup, BLE/coexistence, GPIO wiring, OTA and Alexa pairing still require physical
-validation. Software build/browser tests are not hardware tests.
+The XIAO profiles use the Arduino core's Seeed board definitions with USB
+serial enabled at boot. The [XIAO ESP32-C3](https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/)
+uses 4 MB flash. The standard [XIAO ESP32-S3](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/)
+uses 8 MB flash and 8 MB octal PSRAM. The S3 SuperMini uses 4 MB flash and 2 MB
+quad PSRAM. Use each board's own OTA package. Both S3 profiles check the image's
+flash size during OTA. The existing partition table uses the first 4 MB of
+flash on both boards. Internal allocation policy remains intact. Physical
+C3/S3 startup, USB, BLE, GPIO, OTA and Matter checks are pending.
 
 Pin exclusions follow Espressif's [C3 GPIO reference](https://docs.espressif.com/projects/esp-idf/en/v4.4.4/esp32c3/api-reference/peripherals/gpio.html)
 and [S3 GPIO reference](https://docs.espressif.com/projects/esp-idf/en/v4.4.3/esp32s3/api-reference/peripherals/gpio.html).
@@ -52,6 +57,8 @@ The dashboard lists the available wake pins for the selected firmware:
 | ESP-WROOM-32 / ESP-32S | 25, 26, 27, 32, 33 |
 | WeAct ESP32-C3FH4 / ESP32 C3 SuperMini | 0, 1, 3, 4, 5 |
 | ESP32 S3 SuperMini | 1, 2, 4–18, 21 |
+| Seeed Studio XIAO ESP32-C3 | 3, 4, 5 |
+| Seeed Studio XIAO ESP32-S3 | 1, 2, 4–9 |
 
 In **GPIO buttons & Remote Mode**, confirm **Activate Remote Mode**. The bridge
 reboots and sleeps. A single button wakes it. Release the button to run its

@@ -1,0 +1,47 @@
+name: Restore original 0.1.36 WebFlasher
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          run-id: 45281600753
+          github-token: ${{ github.token }}
+      - name: Restore the original site at the project root
+        run: |
+          mkdir published
+          tar -xf artifact.tar -C published
+          for manifest in manifest rs-matter-weact-c3-manifest rs-matter-c3-supermini-manifest rs-matter-s3-supermini-manifest rs-matter-xiao-c3-manifest rs-matter-xiao-s3-manifest; do
+            test "$(jq -r .version "published/$manifest.json")" = "0.1.36"
+          done
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: published
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

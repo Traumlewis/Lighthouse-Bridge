@@ -10,16 +10,23 @@ change. Keep current facts. User instructions win.
   consolidation to rs-matter, cleanup of legacy builds and WebFlashers, and
   publication through GitHub Pages. Preserve Git history.
 - Ask explicitly before any device change, including firmware writes, restart,
-  factory reset and commissioning. Previous approvals cover only their
-  specified actions. Credentials do not grant standing approval.
+  factory reset and commissioning. Previous approvals cover only the specified
+  actions, including the 0.1.29 OTA. Credentials do not grant standing approval.
   Read-only checks may proceed.
-- One firmware family, rs-matter, with four WebFlasher profiles. Classic
+- One firmware family, rs-matter, with six WebFlasher profiles. Classic
   ESP-WROOM-32 / ESP-32S with at least 4 MB flash and CH340 USB-C is the owner’s
-  board. Also build WeAct ESP32-C3FH4, C3 SuperMini and S3 SuperMini. The S3
-  profile is 4 MB flash and 2 MB QSPI PSRAM. No C3/S3 hardware verification.
-- The owner's classic ESP32 was verified on 0.1.29 with four reachable
-  stations and persistent Alexa Matter pairing. It returned four serials
-  as text in 0.1.26.
+  board. Also build WeAct ESP32-C3FH4, C3 SuperMini, S3 SuperMini, and Seeed
+  Studio XIAO ESP32-C3 and ESP32-S3. The SuperMini S3 uses 4 MB flash and 2 MB
+  QSPI PSRAM. The standard XIAO S3 uses 8 MB flash and 8 MB OPI PSRAM; the
+  same partition table uses its first 4 MB. Keep the chip and S3 flash
+  capacity checks in OTA. The XIAO builds have board-specific GPIO allowlists
+  for exposed pins and USB CDC on boot. An owner C3 booted 0.1.30 on home Wi-Fi
+  and discovered four stations, with severe heap pressure and truncated
+  dashboard transfers. Full C3/S3 hardware verification is pending.
+- The owner’s classic ESP32 runs 0.1.29 with four reachable stations and
+  persistent Alexa Matter pairing. Owner-approved OTA from the observed
+  0.1.28-rs-matter baseline succeeded with one upload. A live browser check
+  verified the new label. The device returned four serials as text in 0.1.26.
   One 0.1.27 Dangerzone restart was confirmed by uptime. The served dashboard
   reloaded after a simulated reconnect. No physical reset, GPIO wake or
   Identify LED behavior is verified. Other Matter platforms are listed as
@@ -39,10 +46,6 @@ change. Keep current facts. User instructions win.
   The USB reader also accepts the previous suffixed Matter versions.
   Actions run 45140983557 published 0.1.29. All four live artifact checks
   and EN/DE WebFlasher checks at 1040, 390 and 320 px passed.
-- The owner requested a complete return to 0.1.29. Use the original source
-  and four board profiles from 1b4c5cd. Later versions remain in Git history.
-  Actions run 45289105332 redeployed the original Pages artifact. All four
-  live manifests, USB segment hashes, OTA files and ZIPs match the original.
 - Pin Arduino ESP32 3.3.12, NimBLE-Arduino 2.5.2, WiFiManager 2.0.17,
   ArduinoJson 6.21.5, Espressif Rust 1.97.0.0, espup 0.19.0 and rs-matter rev
   `43f61585a439f1a1e90924b696a6280850ef0145`. Keep Cargo resolution locked.
@@ -61,13 +64,32 @@ change. Keep current facts. User instructions win.
   memset, memcmp and strlen, diagnostic symbol guards, Wi-Fi init wrapper,
   pinned stack and arena sizes, host-only NimBLE configuration, and C3
   critical-section portable atomics. Fast paths must fit both OTA slots.
-- `tools/build_pages.py` assembles a clean site with the four boards and the
+- The C3 Rust release build disables the LLVM machine outliner. Reject
+  linked C3 images containing machine-outlined functions. Keep the C3
+  SDK log level at errors for slot capacity, with typed
+  state, endpoint, network and heap traces preserved.
+  Actions run 45281600753 published 0.1.36. All six live packages passed;
+  all three C3 release ELFs are free of machine-outlined functions.
+  The Alexa commissioning result on C3 still needs a hardware check.
+  The owner reported the temporary return to 0.1.29 did not help and
+  requested 0.1.36 as the active source and WebFlasher baseline again.
+- `tools/build_pages.py` assembles a clean site with the six boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
   Retire the old installer URLs. The default classic manifest is
   `manifest.json`; board-specific manifests keep their separate names.
   The main-branch workflow builds, checks and deploys Pages. Verify live
   manifests, chip headers, partitions, OTA comparisons and hashes after deploy.
   Keep English/German, safe consent gating, board selection and USB single ownership.
+- Release 0.1.30 adds the two XIAO profiles and is published from commit
+  663a438 (Actions run 45163198385). All six live manifest, chip, flash,
+  partition, OTA, checksum and ZIP checks passed. Live EN/DE board selection
+  and consent passed at 1040, 390 and 320 px. XIAO hardware remains untested.
+- The owner confirmed that 0.1.30 works after disabling the VPN and chose it
+  as the active development baseline. Restore the source and six WebFlasher
+  profiles from 663a438. The temporary test page from Actions run 45254080953
+  is superseded by the root WebFlasher. Actions run 45255471898 redeployed
+  the exact original 0.1.30 artifact. Live verification matched all six
+  manifests, USB segment hashes, OTA packages and ZIPs to the original.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
@@ -142,6 +164,25 @@ change. Keep current facts. User instructions win.
   `lighthouse-bridge-xxxxxx` using the STA MAC suffix. Valid custom names take
   precedence. WiFiManager runs a protected nonblocking setup portal with
   USB diagnostics. BOOT is GPIO9 on C3 and GPIO0 on classic/S3.
+- Release 0.1.34 uses the 0.1.30 WiFiManager auto-connect and portal
+  path. The setup experiments in 0.1.31 through 0.1.33 are historical.
+- On C3, the single-client NimBLE host uses 12 MSYS2 blocks and 12 incoming
+  HCI ACL blocks. Preserve their block sizes, controller and advertising event
+  configuration. This releases fixed heap reservations for HTTP and Wi-Fi.
+  Actions run 45260071299 published 0.1.34. All six live profiles and firmware
+  packages passed verification. C3 login and BLE behavior still need a
+  hardware check with 0.1.34.
+- With four stations on C3, 0.1.34 saved configuration and restarted as
+  intended. Full dashboard transfers then stalled during BLE reads.
+  From 0.1.35 the dashboard returns to sign-in in the open page after a
+  station save and uses the public login-options version to detect a
+  firmware change. On C3 full dashboard transfers reserve a brief BLE
+  scheduling window, drain active work, and release it on every exit.
+  Actions run 45267392693 published and verified all six profiles. The
+  simulated save/restart flow passed. Physical C3 verification is pending.
+  An owner-approved C3 SuperMini OTA from 0.1.34 was rejected with
+  `OTA_WRITE_FAILED`; a paced retry also failed. Read-only verification
+  afterward found 0.1.34 still running and all four stations reachable.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

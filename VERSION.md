@@ -1,5 +1,46 @@
 # Version history
 
+## ESP32-C3 Matter commissioning — LH-Bridge 0.1.36
+
+- Disable the C3 compiler optimization responsible for the confirmed
+  crash while formatting a Matter command status.
+- Keep Matter error logs and typed state diagnostics on the C3.
+
+## Dashboard recovery after station setup — LH-Bridge 0.1.35
+
+- Return to sign-in in the existing page after saving stations and restarting.
+- Wait for active BLE work before streaming the full dashboard on C3.
+
+## ESP32-C3 RAM headroom — LH-Bridge 0.1.34
+
+- Based on 0.1.30. Reduce the two ESP32-C3 NimBLE heap pools used by the
+  single-client worker to leave more RAM for HTTP and Wi-Fi.
+
+Versions 0.1.31 through 0.1.33 were setup experiments.
+
+## Setup address — LH-Bridge 0.1.33
+
+- Show the setup portal address in the WebFlasher's USB panel.
+- Advertise the setup DNS server to Wi-Fi clients and bind the setup
+  HTTP listener to the access-point address.
+
+## Setup portal HTTP — LH-Bridge 0.1.32
+
+- Use the bounded dashboard HTTP response writer for setup pages.
+- Report the setup listener and attempted-response count in `LH_WIFI_INFO`.
+
+## Initial Wi-Fi setup — LH-Bridge 0.1.31
+
+- Switch directly to AP mode on first setup to avoid restarting the Wi-Fi
+  driver. Add redacted USB diagnostics for the portal and AP IPv4 state.
+
+## Seeed Studio XIAO boards — LH-Bridge 0.1.30
+
+- Add WebFlasher and OTA profiles for Seeed Studio XIAO ESP32-C3 and
+  XIAO ESP32-S3, with the same partition table and board-specific GPIO options.
+- Use 8 MB flash and OPI PSRAM for the standard XIAO ESP32-S3. Check the
+  flash-size header when accepting S3 OTA packages.
+
 ## Unified version label — LH-Bridge 0.1.29
 
 - Show `LH-Bridge 0.1.29` in the WebFlasher, dashboard, boot banner and Matter
