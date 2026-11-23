@@ -14,6 +14,13 @@ payloads, SHA-256 values, and ZIP checks passed. The live WebFlasher showed the
 same label for all boards in EN/DE at 1040, 390, and 320 px. The compiled
 Matter software version string was verified in all four images.
 
+The owner-approved classic ESP32 OTA from 0.1.28-rs-matter to 0.1.29 succeeded
+with one upload. The initial verifier stopped before any upload because it
+expected 0.1.27. After checking the actual baseline, the OTA preserved the
+account, room, network, GPIO, station assignments, OFF preferences and Matter
+pairing. All four stations became reachable. The live dashboard displayed
+`LH-Bridge 0.1.29`, and both diagnostic sessions were closed.
+
 ## rs-matter 0.1.28: main build and WebFlasher
 
 The active release path builds rs-matter for four boards and validates their

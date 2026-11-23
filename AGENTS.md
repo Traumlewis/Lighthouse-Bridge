@@ -10,15 +10,17 @@ change. Keep current facts. User instructions win.
   consolidation to rs-matter, cleanup of legacy builds and WebFlashers, and
   publication through GitHub Pages. Preserve Git history.
 - Ask explicitly before any device change, including firmware writes, restart,
-  factory reset and commissioning. Previous approvals cover only their
-  specified actions through 0.1.27. Credentials do not grant standing approval.
-  Read-only checks may proceed. The cleanup authorizes no 0.1.28 device install.
+  factory reset and commissioning. Previous approvals cover only the specified
+  actions, including the 0.1.29 OTA. Credentials do not grant standing approval.
+  Read-only checks may proceed.
 - One firmware family, rs-matter, with four WebFlasher profiles. Classic
   ESP-WROOM-32 / ESP-32S with at least 4 MB flash and CH340 USB-C is the owner’s
   board. Also build WeAct ESP32-C3FH4, C3 SuperMini and S3 SuperMini. The S3
   profile is 4 MB flash and 2 MB QSPI PSRAM. No C3/S3 hardware verification.
-- The owner’s 0.1.27 ESP32 was verified with four reachable stations and
-  persistent Alexa Matter pairing. It returned four serials as text in 0.1.26.
+- The owner’s classic ESP32 runs 0.1.29 with four reachable stations and
+  persistent Alexa Matter pairing. Owner-approved OTA from the observed
+  0.1.28-rs-matter baseline succeeded with one upload. A live browser check
+  verified the new label. The device returned four serials as text in 0.1.26.
   One 0.1.27 Dangerzone restart was confirmed by uptime. The served dashboard
   reloaded after a simulated reconnect. No physical reset, GPIO wake or
   Identify LED behavior is verified. Other Matter platforms are listed as
