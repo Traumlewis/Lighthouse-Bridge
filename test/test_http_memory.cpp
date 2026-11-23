@@ -24,6 +24,7 @@ void delay(unsigned ms) {
 struct Server : MatterWebServer {
   RequestArgument args[1];
   Server() : MatterWebServer(80) { _currentArgs = args; _currentArgCount = 1; }
+  void listen() { _server = true; }
   void socket(int descriptor) { _currentClient.descriptor = descriptor; }
   int socket() { return _currentClient.fd(); }
   size_t header(const char* text) { return _currentClientWrite(text,std::strlen(text)); }
@@ -45,6 +46,9 @@ void transportChecks() {
   uint8_t slowPayload[200]{};
   assert(writeSocketBody(slow,slowPayload,sizeof(slowPayload),0) == 80 && slow.time == 8000);
   Server server;
+  assert(!server.listening());
+  server.listen();
+  assert(server.listening());
   server.args[0].key = "plain"; server.args[0].value.assign(4096,'x');
   const char* owned = server.args[0].value.data();
   const String body = server.takePlainBody();
@@ -58,6 +62,7 @@ void transportChecks() {
   for (size_t i = 0; i < payload.size(); ++i) payload[i] = uint8_t(i);
   assert(server.header("HTTP/1.1 200 OK\r\n\r\n") == 19);
   assert(server.writeBytes(payload.data(),payload.size()) == payload.size());
+  assert(server.responses() == 1);
   delay(1);
   assert(receivedSize == payload.size()+19);
   assert(pausesBeforeDrain == 0);
@@ -66,8 +71,9 @@ void transportChecks() {
   assert(!socketpair(AF_UNIX,SOCK_STREAM,0,sockets));
   server.socket(sockets[0]); peer = sockets[1]; drain = false;
   setsockopt(sockets[0],SOL_SOCKET,SO_SNDBUF,&small,sizeof(small));
-  server.handleClient(); const uint32_t start = clockMs;
+  server.resetWriteWindow(); const uint32_t start = clockMs;
   assert(server.writeBytes(payload.data(),payload.size()) < payload.size());
+  assert(server.responses() == 2);
   assert(clockMs-start >= 2500 && clockMs-start <= 8000 && server.socket() < 0);
   close(peer); peer = -1;
 }

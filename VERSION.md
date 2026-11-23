@@ -1,5 +1,10 @@
 # Version history
 
+## Setup portal HTTP — LH-Bridge 0.1.32
+
+- Use the bounded dashboard HTTP response writer for setup pages.
+- Report the setup listener and attempted-response count in `LH_WIFI_INFO`.
+
 ## Initial Wi-Fi setup — LH-Bridge 0.1.31
 
 - Switch directly to AP mode on first setup to avoid restarting the Wi-Fi

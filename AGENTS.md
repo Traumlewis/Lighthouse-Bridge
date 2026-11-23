@@ -155,7 +155,12 @@ change. Keep current facts. User instructions win.
   connection resets on fresh C3 and S3 setup with 0.1.30. The 0.1.31
   candidate was published by Actions run 45226038063. All six live
   manifest, chip, flash, partition, checksum, OTA and ZIP checks passed.
-  The candidate has yet to be tested on those boards.
+  The owner still reported reset connections with 0.1.31.
+- The 0.1.32 setup portal uses the same bounded HTTP response writer as
+  the dashboard, with a new write window for each request. WiFiManager keeps
+  its routes, captive handling and credential flow. The redacted USB
+  `LH_WIFI_INFO` distinguishes an active portal, a listening port, and HTTP
+  responses attempted since startup. Physical setup behavior is pending.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

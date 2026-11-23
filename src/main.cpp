@@ -945,7 +945,11 @@ void emitWifiInfo() {
   StaticJsonDocument<768> doc;
   doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
   doc["mode"] = static_cast<unsigned>(WiFi.getMode()); doc["setup_boot"] = wifiSetupBoot;
-  doc["portal_active"] = wifiManager.getConfigPortalActive();
+  const bool portalActive = wifiManager.getConfigPortalActive();
+  auto* portal = portalActive ? static_cast<MatterWebServer*>(wifiManager.server.get()) : nullptr;
+  doc["portal_active"] = portalActive;
+  doc["portal_listening"] = portal && portal->listening();
+  doc["portal_http_responses"] = portal ? portal->responses() : 0;
   doc["ap_ipv4_ready"] = WiFi.softAPIP() != IPAddress(0,0,0,0);
   doc["ap_config_error"] = static_cast<int>(code);
   doc["key_matches"] = keyMatches; doc["name_matches"] = nameMatches;
@@ -1155,6 +1159,9 @@ void setup() {
   // Keep firmware updates on the authenticated main interface. First-match
   // handlers precede WiFiManager's built-in raw-BIN updater in the pinned library.
   wifiManager.setWebServerCallback([] {
+    // WiFiManager calls this before it registers routes and starts port 80.
+    // Use the same bounded writer as the main dashboard for setup responses.
+    wifiManager.server.reset(new MatterWebServer(80));
     auto denied = [] { wifiManager.server->send(403, "text/plain", "Use the signed-in Bridge firmware update page."); };
     wifiManager.server->on("/update", HTTP_ANY, denied, [] {});
     wifiManager.server->on("/u", HTTP_ANY, denied, [] {});
@@ -1254,6 +1261,8 @@ void loop() {
     Serial.printf("Wi-Fi AP event: kind=%u, joins=%u, leaves=%u, last_reason=%u\n",
       apEvent,wifiApJoins.load(),wifiApLeaves.load(),wifiApReason.load());
   }
+  if (wifiManager.getConfigPortalActive() && wifiManager.server)
+    static_cast<MatterWebServer&>(*wifiManager.server).resetWriteWindow();
   wifiManager.process();
   if (restartPending && millis() - restartAt >= 1500
       && maintenanceRestartReady(millis(),restartAt,maintenanceWaitIdle,bleActive)

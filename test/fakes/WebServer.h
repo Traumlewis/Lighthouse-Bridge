@@ -18,6 +18,7 @@ protected:
   RequestArgument* _currentArgs = nullptr;
   int _currentArgCount = 0;
   NetworkClient _currentClient;
+  bool _server = false;
   virtual size_t _currentClientWrite(const char*,size_t) { return 0; }
   virtual size_t _currentClientWrite_P(PGM_P,size_t) { return 0; }
 public:

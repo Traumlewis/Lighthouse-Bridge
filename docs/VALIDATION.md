@@ -1,5 +1,13 @@
 # Firmware validation
 
+## LH-Bridge 0.1.32: setup portal HTTP
+
+The owner reports the setup connection reset persists on 0.1.31. This
+candidate shares the bounded HTTP writer with the main dashboard and
+reports setup listener state and attempted response count via USB. The added
+fields are redacted and distinguish TCP listen from response attempts. The
+cause of the physical reset remains unverified.
+
 ## LH-Bridge 0.1.31: first-setup portal candidate
 
 The owner observed `ERR_CONNECTION_RESET` on both the setup root and the

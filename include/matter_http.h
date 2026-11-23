@@ -6,6 +6,7 @@ extern "C" int lh_rs_pump();
 
 class MatterWebServer : public WebServer {
   uint32_t writeStarted = 0;
+  uint32_t responseCount = 0;
   bool writing = false;
   struct Transport {
     NetworkClient& client;
@@ -28,10 +29,13 @@ protected:
   size_t _currentClientWrite_P(PGM_P bytes,size_t size) override { return _currentClientWrite(bytes,size); }
 public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
-  void handleClient() { writing = false; WebServer::handleClient(); }
+  void resetWriteWindow() { writing = false; }
+  void handleClient() { resetWriteWindow(); WebServer::handleClient(); }
+  bool listening() { return static_cast<bool>(_server); }
+  uint32_t responses() const { return responseCount; }
   size_t writeBytes(const uint8_t* bytes,size_t size) {
     lh_rs_pump();
-    if (!writing) { writing = true; writeStarted = millis(); }
+    if (!writing) { writing = true; writeStarted = millis(); ++responseCount; }
     Transport transport{_currentClient};
     const size_t sent = bridge::writeSocketBody(transport,bytes,size,writeStarted);
     if (sent != size) _currentClient.stop();
