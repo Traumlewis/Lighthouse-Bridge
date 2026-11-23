@@ -73,6 +73,10 @@ change. Keep current facts. User instructions win.
   663a438 (Actions run 45163198385). All six live manifest, chip, flash,
   partition, OTA, checksum and ZIP checks passed. Live EN/DE board selection
   and consent passed at 1040, 390 and 320 px. XIAO hardware remains untested.
+- For a one-time owner rollback test, Actions run 45254080953 deployed the
+  original 0.1.30 WebFlasher at `test-0.1.30/` alongside the 0.1.33 root.
+  All six test manifests and USB segment hashes passed live verification.
+  The next standard Pages deployment removes the temporary page.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
