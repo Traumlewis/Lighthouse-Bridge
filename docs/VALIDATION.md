@@ -16,6 +16,13 @@ OTA, checksum and source ZIP verification. All three published C3 ELFs
 passed the no-outliner check. The new C3 SuperMini disassembly saves the
 correct command formatter before calling the Rust formatting helper.
 
+An owner-approved C3 SuperMini OTA from 0.1.35 was attempted with the
+verified public 0.1.36 package. Both the normal upload and a paced retry
+lost the HTTP connection. The authenticated follow-up confirmed 0.1.35
+was still running, the BLE worker was available, and all four stations
+remained reachable. USB installation and Alexa commissioning on 0.1.36
+are pending.
+
 ## LH-Bridge 0.1.35: dashboard reconnect after saving stations
 
 The owner's C3 on 0.1.34 found and saved four stations. The configuration
