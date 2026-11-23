@@ -11,6 +11,12 @@ using the loaded page. On C3 a manual dashboard download waits for active
 BLE work and prevents another BLE job from starting during transfer.
 Physical verification is pending.
 
+[Actions run 45267392693](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45267392693)
+published 0.1.35. Simulated browsers confirm that saving stations returns
+to sign-in without fetching the dashboard again, and that a changed
+firmware version still triggers a full reload. All six live manifests,
+layouts, firmware images, OTA payloads, checksums and source ZIPs passed.
+
 ## LH-Bridge 0.1.34: ESP32-C3 heap headroom
 
 On the owner's C3, 0.1.30 reports repeated runtime allocation failures at
