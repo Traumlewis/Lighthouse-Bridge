@@ -119,9 +119,6 @@ PortalWifiManager wifiManager;
 bool servicesStarted = false, manualPortal = false;
 bool blePaused = false;
 bool bleActive = false;
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-bool dashboardTransfer = false; // Guarded by Lock, like worker scheduling.
-#endif
 bool portalRequested = false;
 bool alexaReady = false;
 bool scanPending = false, scanning = false;
@@ -389,11 +386,7 @@ void bleWorker(void*) {
     bool identify = false, info = false;
     {
       Lock lock;
-      if (blePaused
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-          || dashboardTransfer
-#endif
-         ) { /* Another operation needs the radio or heap. */ }
+      if (blePaused) { /* Portal owns the radio; do not schedule new BLE work. */ }
       else {
       for (unsigned offset = 0; offset < kStations; ++offset) {
         const unsigned i = (cursor + offset) % kStations;
@@ -668,22 +661,6 @@ void configureMaintenanceRoutes() {
   }, otaUpload);
 }
 
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-struct DashboardTransfer {
-  DashboardTransfer() { Lock lock; dashboardTransfer = true; }
-  ~DashboardTransfer() { Lock lock; dashboardTransfer = false; }
-  bool waitForBle() const {
-    const uint32_t started = millis();
-    for (;;) {
-      { Lock lock; if (!bleActive) return true; }
-      if (millis() - started >= 6000 || !server.client().connected()) return false;
-      lh_rs_pump();
-      delay(10);
-    }
-  }
-};
-#endif
-
 void configureRoutes() {
   const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie", "X-OTA-Token"};
   server.collectHeaders(headers, 5);
@@ -691,14 +668,6 @@ void configureRoutes() {
   configureRsMaintenanceRoutes();
   configureRemoteRoutes();
   server.on("/", HTTP_GET, [] {
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-    // Let an in-flight BLE job finish before streaming the full dashboard.
-    const DashboardTransfer transfer;
-    if (!transfer.waitForBle()) {
-      server.sendHeader("Retry-After","2");
-      fail(503,"BLE_BUSY"); return;
-    }
-#endif
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("X-Content-Type-Options", "nosniff");
     server.sendHeader("X-Frame-Options", "DENY");
@@ -715,10 +684,9 @@ void configureRoutes() {
   });
   // Public capability only: no account name, key, hash or salt is returned.
   server.on("/api/login", HTTP_GET, [] {
-    StaticJsonDocument<JSON_OBJECT_SIZE(3)> doc;
+    StaticJsonDocument<64> doc;
     doc["username_enabled"] = webHash.length() && webUsernameEnabled;
     doc["password_set"] = webHash.length() != 0;
-    doc["version"] = LH_FIRMWARE_VERSION;
     sendJson(200,doc);
   });
   server.on("/api/network", HTTP_POST, [] {

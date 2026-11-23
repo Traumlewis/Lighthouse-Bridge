@@ -24,15 +24,6 @@ constexpr uint16_t kOtaChipId = 9;
 constexpr uint16_t kOtaChipId = 0;
 #endif
 inline bool classicEsp32Image(const uint8_t* image) {
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // The XIAO S3 uses 8 MiB flash and OPI PSRAM. Reject the 4 MiB QSPI profile
-  // on that board and the 8 MiB image on the SuperMini.
-#if defined(ARDUINO_XIAO_ESP32S3)
-  if (image[3] >> 4 != 3) return false;
-#else
-  if (image[3] >> 4 != 2) return false;
-#endif
-#endif
   return image[0] == 0xe9 && image[12] == (kOtaChipId & 255) && image[13] == (kOtaChipId >> 8) &&
          image[32] == 0x32 && image[33] == 0x54 && image[34] == 0xcd && image[35] == 0xab;
 }

@@ -40,7 +40,7 @@ def publish_board(output, board_id, board):
          (source / f'lighthouse-rs-matter-{name}.bin').read_bytes())
         for name, offset, _ in SEGMENTS
     ]
-    validate_segments(segments, board['chip'], board['boot'], board.get('flash_mib', 4))
+    validate_segments(segments, board['chip'], board['boot'])
     parts = []
     names = []
     for (name, _, _), (offset, data) in zip(SEGMENTS, segments):

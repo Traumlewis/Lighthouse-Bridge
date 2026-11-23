@@ -1,7 +1,7 @@
 # WebFlasher
 
 Open the [Lighthouse Bridge WebFlasher](https://traumlewis.github.io/Lighthouse-Bridge/)
-in Chrome or Edge on a computer. It offers the same rs-matter firmware for six
+in Chrome or Edge on a computer. It offers the same rs-matter firmware for four
 board profiles. Select the exact board before installing or downloading a
 firmware package. Leave **Erase device** unchecked to keep settings.
 

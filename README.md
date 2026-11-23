@@ -27,8 +27,6 @@ Rust rs-matter stack and presents each station as an individual Matter light.
 | WeAct ESP32-C3FH4 | 4 MB |
 | ESP32 C3 SuperMini | 4 MB |
 | ESP32 S3 SuperMini | 4 MB flash, 2 MB QSPI PSRAM |
-| Seeed Studio XIAO ESP32-C3 | 4 MB flash |
-| Seeed Studio XIAO ESP32-S3 | 8 MB flash, 8 MB OPI PSRAM |
 
 The classic ESP32 was tested with four physical stations and Alexa. The C3 and
 S3 profiles have software build and packaging checks. Other Matter controllers
@@ -50,7 +48,7 @@ Use firmware from the project WebFlasher. Keep power connected until it restarts
 ## Build
 
 See [firmware build instructions](firmware/README.md) for pinned dependencies,
-the six build commands, and local checks. GitHub Actions builds all six profiles
+the four build commands, and local checks. GitHub Actions builds all four profiles
 and deploys the verified files to the same WebFlasher.
 
 ## License

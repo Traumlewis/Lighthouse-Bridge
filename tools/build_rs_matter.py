@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,7 +12,7 @@ from firmware_assets import APP_LIMIT, ROOT, render_dashboard, validate_segments
 from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
-VERSION = '0.1.36'
+VERSION = '0.1.29'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 CORE = '3.3.12'
 SEGMENTS = [('bootloader', 0x1000, 'RsMatter.ino.bootloader.bin'),
@@ -49,7 +48,7 @@ def main():
     parser.add_argument('--skip-compile', action='store_true', help='Package a previously compiled matching sketch')
     args = parser.parse_args()
     board=BOARDS[args.board]
-    fqbn = f"esp32:esp32:{board['arduino']}:PartitionScheme={board.get('partition', 'min_spiffs')}{board['options']}"
+    fqbn='esp32:esp32:'+board['arduino']+':PartitionScheme=min_spiffs'+board['options']
     segments_spec=[(name,board['boot'] if name=='bootloader' else offset,filename) for name,offset,filename in SEGMENTS]
     if args.board!='esp32' and args.build_dir==ROOT/'.pio/rs-matter-build':
         args.build_dir=ROOT/('.pio/rs-matter-build-'+args.board)
@@ -74,12 +73,7 @@ def main():
     if not args.skip_compile:
         version=subprocess.check_output(['rustc','+esp','--version'],text=True)
         if not version.startswith('rustc 1.97.0'): raise ValueError('Espressif Rust 1.97.0.0 required')
-        rust_env = os.environ.copy()
-        if board['chip'] == 5:
-            # The pinned RISC-V outliner can clobber a live t1 in an outlined
-            # tail call. This was observed in the C3 commissioning crash.
-            rust_env['CARGO_TARGET_RISCV32IMC_UNKNOWN_NONE_ELF_RUSTFLAGS'] = '-C llvm-args=-enable-machine-outliner=never'
-        subprocess.run(['cargo','+esp','build','--locked','-Z','build-std=core,alloc','--target',board['target'],'--release','--manifest-path',str(crate/'Cargo.toml')],check=True,env=rust_env)
+        subprocess.run(['cargo','+esp','build','--locked','-Z','build-std=core,alloc','--target',board['target'],'--release','--manifest-path',str(crate/'Cargo.toml')],check=True)
         # The CLI selects the installed core; refuse silent upgrades/downgrades.
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
@@ -88,7 +82,6 @@ def main():
         # Whole-archive before the group overrides cache-safe libc with weak
         # compiler_builtins and crashes during flash initialization.
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', fqbn, '--build-property',
-                        f'upload.maximum_size={APP_LIMIT}', '--build-property',
                         'compiler.cpp.extra_flags='+host_config+'-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT/'firmware', sketch]),
                         '--build-property', 'compiler.c.extra_flags='+host_config+'-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
@@ -97,19 +90,11 @@ def main():
                         '--build-path', str(args.build_dir.resolve()), str(sketch)], check=True)
     properties = subprocess.check_output([args.arduino_cli, 'compile', '--fqbn', fqbn,
                                           '--show-properties=expanded', str(sketch)], text=True)
-    properties_by_name = dict(line.split('=', 1) for line in properties.splitlines() if '=' in line)
-    flash_mib = board.get('flash_mib', 4)
-    if properties_by_name.get('build.flash_size') != f'{flash_mib}MB':
-        raise ValueError('Arduino flash size does not match the board profile')
-    if 'psram_type' in board and properties_by_name.get('build.psram_type') != board['psram_type']:
-        raise ValueError('Arduino PSRAM mode does not match the board profile')
     compiler_path = next(line.split('=', 1)[1] for line in properties.splitlines()
                          if line.startswith('compiler.path='))
     nm = Path(compiler_path) / ('riscv32-esp-elf-nm' if board['chip']==5 else 'xtensa-esp-elf-nm')
     nm_output = subprocess.check_output(
         [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True)
-    if board['chip'] == 5 and 'OUTLINED_FUNCTION_' in nm_output:
-        raise ValueError('C3 firmware contains machine-outlined code')
     cache_symbols = validate_cache_safe_symbols(nm_output, board['family'])
     diagnostic_symbols = validate_diagnostics_symbols(nm_output, board['family'])
     wifi_wrapper = validate_wifi_wrapper(nm_output)
@@ -117,7 +102,7 @@ def main():
     if fingerprint!=hashlib.sha256((source_fingerprint()+args.board).encode()).hexdigest(): raise ValueError('Source changed during compilation; rebuild required')
     if not args.skip_compile: stamp.write_text(fingerprint+'\n')
     segments = [(offset, (args.build_dir / filename).read_bytes()) for _, offset, filename in segments_spec]
-    validate_segments(segments, board['chip'], board['boot'], flash_mib)
+    validate_segments(segments,board['chip'],board['boot'])
     if (b'LHBRIDGE-RUNTIME-V1-ESP32' not in segments[-1][1] or VERSION.encode() not in segments[-1][1]
             or b'Lighthouse-Bridge' not in segments[-1][1]):
         raise ValueError('Application is not the expected Lighthouse Bridge build')

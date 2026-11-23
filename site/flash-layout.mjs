@@ -1,14 +1,5 @@
-export const boardFamilies = Object.freeze({
-  esp32: 'ESP32',
-  'weact-c3': 'ESP32-C3',
-  'c3-supermini': 'ESP32-C3',
-  's3-supermini': 'ESP32-S3',
-  'xiao-c3': 'ESP32-C3',
-  'xiao-s3': 'ESP32-S3',
-});
-
 export function validRsMatterParts(parts, board='esp32') {
-  if (!Object.hasOwn(boardFamilies, board)) return false;
+  if(!['esp32','weact-c3','c3-supermini','s3-supermini'].includes(board))return false;
   const directory=board==='esp32'?'':board+'/';
   return validParts(parts, 'firmware/rs-matter/'+directory+'lighthouse-rs-matter-',board==='esp32'?0x1000:0);
 }

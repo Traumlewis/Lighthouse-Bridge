@@ -10,26 +10,22 @@ from rs_matter_link import validate_cache_safe_symbols
 
 class BoardTests(unittest.TestCase):
  def test_profiles_and_complete_layout(self):
-  self.assertEqual(set(BOARDS),{'esp32','weact-c3','c3-supermini','s3-supermini','xiao-c3','xiao-s3'})
+  self.assertEqual(set(BOARDS),{'esp32','weact-c3','c3-supermini','s3-supermini'})
   folder=ROOT/'dist'
   table=(folder/'rs-matter/lighthouse-rs-matter-partitions.bin').read_bytes()
   for name,board in BOARDS.items():
-   flash_mib = board.get('flash_mib', 4)
    image=bytearray(288);image[0]=0xe9;image[12:14]=board['chip'].to_bytes(2,'little')
-   image[3] = (flash_mib.bit_length() - 1) << 4
    segments=[(board['boot'],bytes(image)),(0x8000,table),(0xe000,b'\xff'*8192),(0x10000,bytes(image))]
-   validate_segments(segments,board['chip'],board['boot'],flash_mib)
-   with self.assertRaisesRegex(ValueError, 'flash size'):
-    validate_segments(segments,board['chip'],board['boot'],4 if flash_mib==8 else 8)
+   validate_segments(segments,board['chip'],board['boot'])
    for other in (0,5,9):
     if other!=board['chip']:
-     with self.assertRaises(ValueError):validate_segments(segments,other,board['boot'],flash_mib)
+     with self.assertRaises(ValueError):validate_segments(segments,other,board['boot'])
    wrong=segments.copy();wrong[0]=(0x1000 if board['boot']==0 else 0,bytes(image))
-   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'],flash_mib)
+   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'])
    wrong=segments.copy();wrong[1]=(0x9000,table)
-   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'],flash_mib)
+   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'])
    wrong=segments.copy();wrong[-1]=(0x10000,bytes(image)+b'\0'*0x1e0000)
-   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'],flash_mib)
+   with self.assertRaises(ValueError):validate_segments(wrong,board['chip'],board['boot'])
  def test_chip_specific_cache_off_symbols(self):
   symbols=('memcpy','memmove','memset','memcmp','strlen')
   for family,iram in [('ESP32',0x40081000),('ESP32-C3',0x40380000),('ESP32-S3',0x40378000)]:

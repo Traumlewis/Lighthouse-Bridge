@@ -18,15 +18,13 @@ python -m pip install -r tools/requirements-matter-build.txt
 ```
 
 From the source root, build the profiles you need. The default is the classic
-ESP32. Build all six before assembling Pages.
+ESP32. Build all four before assembling Pages.
 
 ```sh
 python tools/build_rs_matter.py --board esp32
 python tools/build_rs_matter.py --board weact-c3
 python tools/build_rs_matter.py --board c3-supermini
 python tools/build_rs_matter.py --board s3-supermini
-python tools/build_rs_matter.py --board xiao-c3
-python tools/build_rs_matter.py --board xiao-s3
 python tools/build_pages.py
 python -m unittest discover -s test -p 'test_*.py'
 npm install --no-package-lock
