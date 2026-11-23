@@ -57,6 +57,11 @@ change. Keep current facts. User instructions win.
   The main-branch workflow builds, checks and deploys Pages. Verify live
   manifests, chip headers, partitions, OTA comparisons and hashes after deploy.
   Keep English/German, safe consent gating, board selection and USB single ownership.
+- 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
+  All four live manifests, chip/offset checks, partition tables, OTA payloads,
+  hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
+  for selection, downloads and consent. The legacy rs-matter link redirects
+  and retired installer routes are gone.
 
 ## BLE and station data
 

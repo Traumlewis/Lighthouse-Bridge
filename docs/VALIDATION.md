@@ -4,7 +4,18 @@
 
 The active release path builds rs-matter for four boards and validates their
 chip headers, complete partition tables, OTA payloads, and per-segment hashes.
-No physical 0.1.28 installation was performed.
+All four local builds, 26 Python checks, 12 browser and USB programs, the
+native regression programs and eight Rust tests in both debug and release
+passed. No physical 0.1.28 installation was performed.
+
+[Actions run 45124743206](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45124743206)
+published commit 3c6c098. The live WebFlasher passed English desktop and German
+mobile browser checks for all four board options, consent gating and OTA/ZIP
+links. The old rs-matter page redirects to the root. The retired Hue and SDK
+installer paths are gone. Downloaded manifests, board chip headers, exact
+partition equality, OTA payloads, SHA-256 and ZIP files passed. Published app
+sizes are 1,963,792 bytes for classic ESP32, 1,965,168 for both C3 boards and
+1,889,760 for S3. The app slots remain 1,966,080 bytes each.
 
 ## rs-matter 0.1.27: Dangerzone restart
 
