@@ -1,5 +1,12 @@
 # Firmware validation
 
+## LH-Bridge 0.1.30 restored as the baseline
+
+The owner confirmed 0.1.30 worked after disabling the VPN and requested
+that main development and the root WebFlasher return to this version.
+The source matches commit 663a438 apart from documentation recording later
+history. The redeployment reuses the original six verified board images.
+
 ## LH-Bridge 0.1.33: setup address and captive DNS
 
 In the owner's C3 and S3 logs, 0.1.32 starts the TCP listener and Android

@@ -12,9 +12,6 @@ the dashboard. The ZIP includes USB segments, OTA, checksums, source and
 dependency license notices.
 
 Close the installer to let the USB panel read the setup key and address.
-With LH-Bridge 0.1.33 or later, the panel shows the setup portal link while it
-is active. Open it after connecting to the setup Wi-Fi. After joining the home
-network, the panel shows the bridge's dashboard address.
 The same connection can read Matter commissioning status via
 `LH_INFO` and `LH_MATTER_INFO`. Keys and pairing codes stay in page memory.
 You can also retrieve the Matter code from the dashboard after signing in with

@@ -1,5 +1,8 @@
 # Version history
 
+The active development and WebFlasher baseline is LH-Bridge 0.1.30.
+Versions 0.1.31 through 0.1.33 are historical setup experiments.
+
 ## Setup address — LH-Bridge 0.1.33
 
 - Show the setup portal address in the WebFlasher's USB panel.

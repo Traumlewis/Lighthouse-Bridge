@@ -932,8 +932,6 @@ void emitDeviceInfo() {
   const bool networkAvailable = localWifiMode ? localApReady : WiFi.status() == WL_CONNECTED;
   if (networkAvailable) doc["url"] = "http://" + bridgeAddress().toString() + "/";
   else doc["url"] = nullptr;
-  if (wifiManager.getConfigPortalActive() && WiFi.softAPIP() != IPAddress(0,0,0,0))
-    doc["setup_url"] = "http://" + WiFi.softAPIP().toString() + "/";
   Serial.print("LH_INFO "); serializeJson(doc, Serial); Serial.println();
 }
 
@@ -947,12 +945,6 @@ void emitWifiInfo() {
   StaticJsonDocument<768> doc;
   doc["protocol"] = 1; doc["version"] = LH_FIRMWARE_VERSION;
   doc["mode"] = static_cast<unsigned>(WiFi.getMode()); doc["setup_boot"] = wifiSetupBoot;
-  const bool portalActive = wifiManager.getConfigPortalActive();
-  auto* portal = portalActive ? static_cast<MatterWebServer*>(wifiManager.server.get()) : nullptr;
-  doc["portal_active"] = portalActive;
-  doc["portal_listening"] = portal && portal->listening();
-  doc["portal_http_responses"] = portal ? portal->responses() : 0;
-  doc["ap_ipv4_ready"] = WiFi.softAPIP() != IPAddress(0,0,0,0);
   doc["ap_config_error"] = static_cast<int>(code);
   doc["key_matches"] = keyMatches; doc["name_matches"] = nameMatches;
   doc["auth"] = code == ESP_OK ? static_cast<int>(config.ap.authmode) : -1;
@@ -1161,9 +1153,6 @@ void setup() {
   // Keep firmware updates on the authenticated main interface. First-match
   // handlers precede WiFiManager's built-in raw-BIN updater in the pinned library.
   wifiManager.setWebServerCallback([] {
-    // WiFiManager calls this before it registers routes and starts port 80.
-    // Use the same bounded writer as the main dashboard for setup responses.
-    wifiManager.server.reset(new MatterWebServer(WiFi.softAPIP(),80));
     auto denied = [] { wifiManager.server->send(403, "text/plain", "Use the signed-in Bridge firmware update page."); };
     wifiManager.server->on("/update", HTTP_ANY, denied, [] {});
     wifiManager.server->on("/u", HTTP_ANY, denied, [] {});
@@ -1206,16 +1195,18 @@ void setup() {
   wifiManager.setMenu(portalMenu,4);
   wifiManager.setCustomMenuHTML(kLocalWifiMenu);
   wifiManager.setHostname(hostname);
+  wifiManager.setCustomHeadElement("<meta name='color-scheme' content='dark'><style>"
+    "body{margin:0;background:#101817;color:#edf5ef;font:16px/1.5 system-ui,sans-serif}"
+    ".wrap{display:block;box-sizing:border-box;min-width:0;width:calc(100% - 32px);max-width:560px;margin:32px auto;padding:24px;background:#1b2624;border:1px solid #33433f;border-radius:16px}"
+    "h1{letter-spacing:-1px}a{color:#c2f78c}a:hover{color:#edf5ef}.q{filter:invert(1)}button,input,select{box-sizing:border-box;font:inherit;border-radius:10px;padding:12px}"
+    "button{background:#c2f78c;color:#15210f;border:1px solid #c2f78c;font-weight:600}"
+    "input,select{background:#101817;color:#edf5ef;border:1px solid #33433f}.msg{background:#1b2624;border-radius:10px}"
+    "input:focus,button:focus{outline:2px solid #c2f78c;outline-offset:2px}</style>");
   wifiManager.setCustomHeadElement(kRsWifiPortalHead);
   wifiManager.setConfigPortalBlocking(false);
   wifiManager.setConnectTimeout(20);
   wifiManager.setConfigPortalTimeout(0);
-  wifiManager.setAPCallback([](WiFiManager*) {
-    // Advertise the captive DNS resolver explicitly in the DHCP lease.
-    const IPAddress address(192,168,4,1);
-    if (!WiFi.softAPConfig(address,address,IPAddress(255,255,255,0),IPAddress(0,0,0,0),address))
-      Serial.println("SETUP_AP_IPV4_FAILED");
-  });
+  wifiManager.setAPCallback([](WiFiManager*) { emitWifiInfo(); });
   wifiManager.setSaveConfigCallback([] {
     persistWifiCredentials();
     if (WiFi.status() == WL_CONNECTED && !saveNetworkMode(prefs,NetworkMode::Home))
@@ -1227,7 +1218,6 @@ void setup() {
     wifiManager.setConfigPortalTimeout(180);
     Serial.println("Clean Wi-Fi setup: AP-only startup before Matter/BLE.");
     wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
-    emitDeviceInfo();
     return;
   }
   if (localWifiMode) {
@@ -1239,23 +1229,9 @@ void setup() {
     localWifiMode = false; // Saved choice stays intact; the setup portal remains recovery.
     manualPortal = true; // Saving/closing recovery must reboot out of the original AP-only mode.
     wifiManager.startConfigPortal(apName.c_str(),accessKey.c_str());
-    emitDeviceInfo();
     return;
   }
-  wifi_config_t savedWifi{};
-  const bool firstSetup = esp_wifi_get_config(WIFI_IF_STA, &savedWifi) == ESP_OK && !savedWifi.sta.ssid[0];
-  memset(&savedWifi, 0, sizeof(savedWifi));
-  // With no saved network, switch directly from STA to AP. autoConnect()
-  // otherwise lets WiFiManager turn off the only active interface before
-  // starting AP, which stops and reinitializes the Wi-Fi driver.
-  if (firstSetup && WiFi.mode(WIFI_AP))
-    wifiManager.startConfigPortal(apName.c_str(), accessKey.c_str());
-  else
-    wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
-  if (wifiManager.getConfigPortalActive()) {
-    emitDeviceInfo();
-    emitWifiInfo();
-  }
+  wifiManager.autoConnect(apName.c_str(), accessKey.c_str());
   // The main loop services USB info while the setup portal waits for Wi-Fi.
 }
 
@@ -1266,8 +1242,6 @@ void loop() {
     Serial.printf("Wi-Fi AP event: kind=%u, joins=%u, leaves=%u, last_reason=%u\n",
       apEvent,wifiApJoins.load(),wifiApLeaves.load(),wifiApReason.load());
   }
-  if (wifiManager.getConfigPortalActive() && wifiManager.server)
-    static_cast<MatterWebServer&>(*wifiManager.server).resetWriteWindow();
   wifiManager.process();
   if (restartPending && millis() - restartAt >= 1500
       && maintenanceRestartReady(millis(),restartAt,maintenanceWaitIdle,bleActive)

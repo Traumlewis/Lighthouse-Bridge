@@ -73,10 +73,10 @@ change. Keep current facts. User instructions win.
   663a438 (Actions run 45163198385). All six live manifest, chip, flash,
   partition, OTA, checksum and ZIP checks passed. Live EN/DE board selection
   and consent passed at 1040, 390 and 320 px. XIAO hardware remains untested.
-- For a one-time owner rollback test, Actions run 45254080953 deployed the
-  original 0.1.30 WebFlasher at `test-0.1.30/` alongside the 0.1.33 root.
-  All six test manifests and USB segment hashes passed live verification.
-  The next standard Pages deployment removes the temporary page.
+- The owner confirmed that 0.1.30 works after disabling the VPN and chose it
+  as the active development baseline. Restore the source and six WebFlasher
+  profiles from 663a438. The temporary test page from Actions run 45254080953
+  is superseded by the root WebFlasher.
 - 0.1.28-rs-matter is published from commit 3c6c098 (Actions run 45124743206).
   All four live manifests, chip/offset checks, partition tables, OTA payloads,
   hashes and source ZIPs passed. Live EN desktop and DE mobile checks passed
@@ -151,30 +151,8 @@ change. Keep current facts. User instructions win.
   `lighthouse-bridge-xxxxxx` using the STA MAC suffix. Valid custom names take
   precedence. WiFiManager runs a protected nonblocking setup portal with
   USB diagnostics. BOOT is GPIO9 on C3 and GPIO0 on classic/S3.
-- With a successfully read empty saved Wi-Fi configuration, switch directly
-  from STA to AP before starting WiFiManager. This avoids shutting down and
-  reinitializing the radio on first setup. Saved-network connections retain
-  the auto-connect path. USB `LH_WIFI_INFO` includes `portal_active` and
-  `ap_ipv4_ready`; report portal state again after startup. The owner reported
-  connection resets on fresh C3 and S3 setup with 0.1.30. The 0.1.31
-  candidate was published by Actions run 45226038063. All six live
-  manifest, chip, flash, partition, checksum, OTA and ZIP checks passed.
-  The owner still reported reset connections with 0.1.31.
-- The 0.1.32 setup portal uses the same bounded HTTP response writer as
-  the dashboard, with a new write window for each request. WiFiManager keeps
-  its routes, captive handling and credential flow. The redacted USB
-  `LH_WIFI_INFO` distinguishes an active portal, a listening port, and HTTP
-  responses attempted since startup. Actions run 45234468473 published all six
-  profiles. Live manifest, chip, flash, partition, OTA, checksum and ZIP checks
-  passed. The owner still reported a blank setup page and no Android captive
-  prompt on C3 and S3. Logs show a listening port and later AP joins.
-- In 0.1.33 the setup AP explicitly advertises its DNS address via DHCP.
-  Bind the portal HTTP listener to the AP address and expose its URL as
-  `setup_url` in USB `LH_INFO`. The WebFlasher displays this separately
-  from the home or local dashboard URL. Actions run 45243859636 published
-  all six profiles and passed the simulated browser and USB tests. The live
-  WebFlasher and all six packages passed verification. Physical setup
-  verification is pending.
+- The active 0.1.30 setup uses WiFiManager's normal auto-connect and portal
+  path. The setup experiments in 0.1.31 through 0.1.33 are historical.
 - Keep the 24-hex API key in NVS as the setup Wi-Fi password and integration
   key. First sign-in uses the key, then forces an own password. Store the
   salted PBKDF2-SHA256 hash, preserve optional username and session gates,

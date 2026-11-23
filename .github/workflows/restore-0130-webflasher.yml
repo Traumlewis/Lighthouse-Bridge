@@ -1,0 +1,47 @@
+name: Restore original 0.1.30 WebFlasher
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          run-id: 45163198385
+          github-token: ${{ github.token }}
+      - name: Restore the original site at the project root
+        run: |
+          mkdir published
+          tar -xf artifact.tar -C published
+          for manifest in published/*manifest.json; do
+            test "$(jq -r .version "$manifest")" = "0.1.30"
+          done
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: published
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

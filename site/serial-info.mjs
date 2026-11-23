@@ -1,13 +1,4 @@
 // USB-only information protocol. Keys stay in page memory, never storage or URLs.
-function validBridgeUrl(value) {
-  if (typeof value !== 'string') return false;
-  const url = new URL(value);
-  const ip = url.hostname.split('.');
-  return url.protocol === 'http:' && !url.username && !url.password && !url.port &&
-    url.pathname === '/' && !url.search && !url.hash &&
-    ip.length === 4 && ip.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-}
-
 export function parseDeviceInfo(line) {
   if (!line.startsWith('LH_INFO ')) return null;
   try {
@@ -16,8 +7,13 @@ export function parseDeviceInfo(line) {
         typeof value.version !== 'string' || value.version.length > 24 ||
         typeof value.setup_ssid !== 'string' || value.setup_ssid.length > 64 ||
         typeof value.wifi_connected !== 'boolean') return null;
-    if (value.url !== null && !validBridgeUrl(value.url)) return null;
-    if (value.setup_url !== undefined && !validBridgeUrl(value.setup_url)) return null;
+    if (value.url !== null) {
+      const url = new URL(value.url);
+      const ip = url.hostname.split('.');
+      if (url.protocol !== 'http:' || url.username || url.password || url.port ||
+          url.pathname !== '/' || url.search || url.hash ||
+          !(ip.length === 4 && ip.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255))) return null;
+    }
     if (value.network_mode !== undefined && !['home','local'].includes(value.network_mode)) return null;
     if (value.network_mode === 'local') {
       if (value.wifi_connected) return null;

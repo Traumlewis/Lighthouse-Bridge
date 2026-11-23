@@ -4,7 +4,6 @@
 #include <unistd.h>
 using String = std::string;
 using PGM_P = const char*;
-struct IPAddress {};
 uint32_t millis();
 void delay(unsigned);
 class NetworkClient {
@@ -19,11 +18,9 @@ protected:
   RequestArgument* _currentArgs = nullptr;
   int _currentArgCount = 0;
   NetworkClient _currentClient;
-  bool _server = false;
   virtual size_t _currentClientWrite(const char*,size_t) { return 0; }
   virtual size_t _currentClientWrite_P(PGM_P,size_t) { return 0; }
 public:
   explicit WebServer(uint16_t) {}
-  WebServer(IPAddress,uint16_t) {}
   void handleClient() {}
 };
