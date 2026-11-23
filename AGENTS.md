@@ -68,6 +68,9 @@ change. Keep current facts. User instructions win.
   linked C3 images containing machine-outlined functions. Keep the C3
   SDK log level at errors for slot capacity, with typed
   state, endpoint, network and heap traces preserved.
+  Actions run 45281600753 published 0.1.36. All six live packages passed;
+  all three C3 release ELFs are free of machine-outlined functions.
+  The Alexa commissioning result on C3 still needs a hardware check.
 - `tools/build_pages.py` assembles a clean site with the six boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
   Retire the old installer URLs. The default classic manifest is

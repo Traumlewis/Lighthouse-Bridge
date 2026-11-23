@@ -10,6 +10,12 @@ After the 0.1.35 crash, an authenticated LAN check found all four stations
 reachable, Matter ready, no fabric, and the commissioning window closed.
 Pairing through Alexa with the new build requires a hardware check.
 
+[Actions run 45281600753](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45281600753)
+published 0.1.36. All six live packages passed manifest, chip, partition,
+OTA, checksum and source ZIP verification. All three published C3 ELFs
+passed the no-outliner check. The new C3 SuperMini disassembly saves the
+correct command formatter before calling the Rust formatting helper.
+
 ## LH-Bridge 0.1.35: dashboard reconnect after saving stations
 
 The owner's C3 on 0.1.34 found and saved four stations. The configuration
