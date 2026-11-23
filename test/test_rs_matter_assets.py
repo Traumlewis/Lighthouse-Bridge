@@ -10,7 +10,7 @@ class RsMatterAssetsTests(unittest.TestCase):
     def test_exact_layout_and_ota_payload(self):
         folder=ROOT/'dist/rs-matter'
         manifest=json.loads((folder/'manifest.json').read_text())
-        self.assertEqual(manifest['version'],'0.1.35')
+        self.assertEqual(manifest['version'],'0.1.36')
         build=manifest['builds'][0]
         self.assertEqual(build['chipFamily'],'ESP32')
         self.assertEqual([p['offset'] for p in build['parts']],[0x1000,0x8000,0xe000,0x10000])
@@ -22,7 +22,7 @@ class RsMatterAssetsTests(unittest.TestCase):
         app=(folder/'lighthouse-rs-matter-app.bin').read_bytes()
         for marker in [b'rs-matter protocol: module=',b'case_sessions=',b'commissioning_complete_persisted',b'rs-matter path: operation=',b'rs-matter endpoint: id=',b'loop_stack_bytes=']:
             self.assertIn(marker,app)
-        ota=(folder/'lighthouse-bridge-0.1.35.lhota').read_bytes()
+        ota=(folder/'lighthouse-bridge-0.1.36.lhota').read_bytes()
         self.assertLessEqual(len(app),0x1e0000)
         self.assertEqual(struct.unpack_from('<H',app,12)[0],0)
         self.assertEqual(ota[64:],app)
@@ -37,7 +37,7 @@ class RsMatterAssetsTests(unittest.TestCase):
         for address in info['cache_safe_libc'].values():
             self.assertTrue(0x40000000 <= int(address,16) < 0x40070000 or 0x40080000 <= int(address,16) < 0x400a0000)
     def test_complete_rebuild_sources_and_no_private_logs(self):
-        with zipfile.ZipFile(ROOT/'dist/rs-matter/lighthouse-bridge-0.1.35.zip') as archive:
+        with zipfile.ZipFile(ROOT/'dist/rs-matter/lighthouse-bridge-0.1.36.zip') as archive:
             names=set(archive.namelist())
             self.assertIn('source/firmware/rust/src/diagnostics.rs',names)
             self.assertIn('source/firmware/rust/src/case_read_test.rs',names)

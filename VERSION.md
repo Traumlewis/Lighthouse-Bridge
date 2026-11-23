@@ -1,5 +1,11 @@
 # Version history
 
+## ESP32-C3 Matter commissioning — LH-Bridge 0.1.36
+
+- Disable the C3 compiler optimization responsible for the confirmed
+  crash while formatting a Matter command status.
+- Keep Matter error logs and typed state diagnostics on the C3.
+
 ## Dashboard recovery after station setup — LH-Bridge 0.1.35
 
 - Return to sign-in in the existing page after saving stations and restarting.

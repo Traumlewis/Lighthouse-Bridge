@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,7 +13,7 @@ from firmware_assets import APP_LIMIT, ROOT, render_dashboard, validate_segments
 from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
-VERSION = '0.1.35'
+VERSION = '0.1.36'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 CORE = '3.3.12'
 SEGMENTS = [('bootloader', 0x1000, 'RsMatter.ino.bootloader.bin'),
@@ -73,7 +74,12 @@ def main():
     if not args.skip_compile:
         version=subprocess.check_output(['rustc','+esp','--version'],text=True)
         if not version.startswith('rustc 1.97.0'): raise ValueError('Espressif Rust 1.97.0.0 required')
-        subprocess.run(['cargo','+esp','build','--locked','-Z','build-std=core,alloc','--target',board['target'],'--release','--manifest-path',str(crate/'Cargo.toml')],check=True)
+        rust_env = os.environ.copy()
+        if board['chip'] == 5:
+            # The pinned RISC-V outliner can clobber a live t1 in an outlined
+            # tail call. This was observed in the C3 commissioning crash.
+            rust_env['CARGO_TARGET_RISCV32IMC_UNKNOWN_NONE_ELF_RUSTFLAGS'] = '-C llvm-args=-enable-machine-outliner=never'
+        subprocess.run(['cargo','+esp','build','--locked','-Z','build-std=core,alloc','--target',board['target'],'--release','--manifest-path',str(crate/'Cargo.toml')],check=True,env=rust_env)
         # The CLI selects the installed core; refuse silent upgrades/downgrades.
         platforms = json.loads(subprocess.check_output([args.arduino_cli, 'core', 'list', '--format', 'json']))['platforms']
         if not any(p['id'] == 'esp32:esp32' and p.get('installed_version') == CORE for p in platforms):
@@ -102,6 +108,8 @@ def main():
     nm = Path(compiler_path) / ('riscv32-esp-elf-nm' if board['chip']==5 else 'xtensa-esp-elf-nm')
     nm_output = subprocess.check_output(
         [str(nm), '--defined-only', str(args.build_dir / 'RsMatter.ino.elf')], text=True)
+    if board['chip'] == 5 and 'OUTLINED_FUNCTION_' in nm_output:
+        raise ValueError('C3 firmware contains machine-outlined code')
     cache_symbols = validate_cache_safe_symbols(nm_output, board['family'])
     diagnostic_symbols = validate_diagnostics_symbols(nm_output, board['family'])
     wifi_wrapper = validate_wifi_wrapper(nm_output)

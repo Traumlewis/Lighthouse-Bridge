@@ -1,5 +1,15 @@
 # Firmware validation
 
+## LH-Bridge 0.1.36: C3 commissioning crash workaround
+
+Build the C3 with the pinned compiler's machine outliner disabled. The
+packager checks the final ELF for the absence of outlined functions.
+The C3 release limits SDK logs to errors to fit both existing slots.
+Typed endpoint, session, heap and transport diagnostics remain available.
+After the 0.1.35 crash, an authenticated LAN check found all four stations
+reachable, Matter ready, no fabric, and the commissioning window closed.
+Pairing through Alexa with the new build requires a hardware check.
+
 ## LH-Bridge 0.1.35: dashboard reconnect after saving stations
 
 The owner's C3 on 0.1.34 found and saved four stations. The configuration
@@ -30,6 +40,17 @@ place the failure before session establishment without establishing why the
 controller's Matter traffic failed to arrive. A follow-up LAN check could
 not reach the last reported bridge address and received no targeted mDNS
 response. Commissioning on C3 remains unverified.
+
+A later owner Alexa attempt on C3 SuperMini 0.1.35 established one PASE
+session and armed the fail-safe, then rebooted with a Store access fault
+before creating a fabric. The panic ELF digest prefix `0b62ee12d` matches the
+published C3 SuperMini debug ELF from run 45267392693. In that image the
+`CmdPath` Debug implementation puts the command formatter address in `t1`
+and then overwrites it with an outlined tail-call target. The outlined body
+saves the overwritten register as the formatter. The resulting indirect
+call enters a different outlined function mid-instruction, matching the
+register dump and store fault. The earlier allocation failures are separate
+evidence of heap pressure.
 
 ## LH-Bridge 0.1.34: ESP32-C3 heap headroom
 

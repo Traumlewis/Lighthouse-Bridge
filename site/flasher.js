@@ -1,5 +1,5 @@
 import { translations } from './translations.js?v=webflasher-2';
-import { boardFamilies, validRsMatterParts } from './flash-layout.mjs?v=0.1.35';
+import { boardFamilies, validRsMatterParts } from './flash-layout.mjs?v=0.1.36';
 import { watchDeviceInfo, parseDeviceInfo } from './serial-info.mjs?v=local-mode-0.1.15';
 import { parseMatterInfo } from './matter-info.mjs?v=0.1.29';
 

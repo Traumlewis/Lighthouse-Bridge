@@ -64,6 +64,10 @@ change. Keep current facts. User instructions win.
   memset, memcmp and strlen, diagnostic symbol guards, Wi-Fi init wrapper,
   pinned stack and arena sizes, host-only NimBLE configuration, and C3
   critical-section portable atomics. Fast paths must fit both OTA slots.
+- The C3 Rust release build disables the LLVM machine outliner. Reject
+  linked C3 images containing machine-outlined functions. Keep the C3
+  SDK log level at errors for slot capacity, with typed
+  state, endpoint, network and heap traces preserved.
 - `tools/build_pages.py` assembles a clean site with the six boards and the
   vendored ESP Web Tools bundle. The project root is the main WebFlasher.
   Retire the old installer URLs. The default classic manifest is
