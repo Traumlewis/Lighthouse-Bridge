@@ -171,6 +171,11 @@ change. Keep current facts. User instructions win.
   A subsequent 0.1.37 log kept its Matter fabric but showed two truncated
   full dashboard responses during sustained heap pressure.
   Keep eight subscriptions, two responders and existing stack reservations.
+- In 0.1.38 the static dashboard uses a content ETag and revalidates on
+  repeat loads. Keep credentials, sessions and API responses out of that
+  cache. On C3 full dashboard bodies use paced writes and defer the next
+  chunk while the largest internal DMA block is below 2 KiB. Preserve the
+  existing bounded socket deadlines. Physical C3 reload verification is pending.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

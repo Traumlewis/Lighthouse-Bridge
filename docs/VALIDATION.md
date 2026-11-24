@@ -1,5 +1,18 @@
 # Firmware validation
 
+## LH-Bridge 0.1.38: dashboard reloads
+
+The 0.1.37 owner log shows full responses of 23,977 bytes and later
+responses truncated at 3,840 and 18,544 bytes, even after a USB reset.
+Both failures coincided with repeated 1,528-byte allocation failures
+and a drop in the largest free internal block to 1,460 bytes.
+
+The static gzip has a build-generated ETag. A matching conditional GET
+returns 304 before reserving the BLE worker. Full responses on C3 send
+up to 768 bytes per step, with 12 ms pauses and a 2 KiB minimum largest
+internal DMA block before each write. The transport still bounds stalled
+connections. Repeat-load verification on physical C3 hardware is pending.
+
 ## LH-Bridge 0.1.37: C3 commissioning headroom
 
 Compare largest free internal and DMA-capable blocks, heap minimum,

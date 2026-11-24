@@ -1,5 +1,7 @@
 #include "WebServer.h"
+#define CONFIG_IDF_TARGET_ESP32C3 1
 #include "matter_http.h"
+#undef CONFIG_IDF_TARGET_ESP32C3
 #include "config_stream.h"
 #include <cassert>
 #include <cstring>
@@ -10,11 +12,18 @@ uint32_t clockMs = 0;
 int peer = -1;
 bool drain = true;
 unsigned pausesBeforeDrain = 20;
+unsigned pausesBeforeHeapRecovery = 0;
+size_t largestDmaBlock = 4096;
 char received[40000]; size_t receivedSize = 0;
 uint32_t millis() { return clockMs; }
+size_t heap_caps_get_largest_free_block(uint32_t caps) {
+  assert(caps == (MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+  return largestDmaBlock;
+}
 extern "C" int lh_rs_pump() { return 0; }
 void delay(unsigned ms) {
   clockMs += ms;
+  if (pausesBeforeHeapRecovery && --pausesBeforeHeapRecovery == 0) largestDmaBlock = 4096;
   if (pausesBeforeDrain) { --pausesBeforeDrain; return; }
   if (!drain || peer < 0) return;
   int count;
@@ -63,6 +72,33 @@ void transportChecks() {
   assert(pausesBeforeDrain == 0);
   assert(!std::memcmp(received+19,payload.data(),payload.size()));
   close(peer); peer = -1; server.socket(-1); close(sockets[0]);
+
+  assert(!socketpair(AF_UNIX,SOCK_STREAM,0,sockets));
+  server.socket(sockets[0]); peer = sockets[1];
+  server.handleClient();
+  receivedSize = 0;
+  largestDmaBlock = 1460;
+  pausesBeforeHeapRecovery = 4;
+  const uint32_t paceStart = clockMs;
+  assert(server.writeBytes(payload.data(),payload.size(),true) == payload.size());
+  delay(1);
+  const size_t chunks = (payload.size() + 767) / 768;
+  assert(pausesBeforeHeapRecovery == 0 && clockMs-paceStart == (4 + chunks - 1)*12 + 1);
+  assert(receivedSize == payload.size());
+  assert(!std::memcmp(received,payload.data(),payload.size()));
+  close(peer); peer = -1; server.socket(-1); close(sockets[0]);
+
+  assert(!socketpair(AF_UNIX,SOCK_STREAM,0,sockets));
+  server.socket(sockets[0]); peer = sockets[1];
+  server.handleClient();
+  receivedSize = 0;
+  largestDmaBlock = 1460;
+  const uint32_t heapWaitStart = clockMs;
+  assert(server.writeBytes(payload.data(),payload.size(),true) == 0);
+  assert(clockMs-heapWaitStart >= 2500 && clockMs-heapWaitStart < 2512);
+  assert(!receivedSize && server.socket() < 0);
+  close(peer); peer = -1;
+
   assert(!socketpair(AF_UNIX,SOCK_STREAM,0,sockets));
   server.socket(sockets[0]); peer = sockets[1]; drain = false;
   setsockopt(sockets[0],SOL_SOCKET,SO_SNDBUF,&small,sizeof(small));

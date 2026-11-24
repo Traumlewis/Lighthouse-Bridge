@@ -2,6 +2,9 @@
 #include "socket_write.h"
 #include <errno.h>
 #include <sys/socket.h>
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+#include <esp_heap_caps.h>
+#endif
 extern "C" int lh_rs_pump();
 
 class MatterWebServer : public WebServer {
@@ -9,13 +12,19 @@ class MatterWebServer : public WebServer {
   bool writing = false;
   struct Transport {
     NetworkClient& client;
+    bool paced;
     uint32_t now() { return millis(); }
     void pause() {
       lh_rs_pump();
-      delay(1);
+      delay(paced ? 12 : 1);
     }
     int tryWrite(const uint8_t* data,size_t size) {
       if (client.fd() < 0) return 0;
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+      // Leave room for the Wi-Fi driver to allocate its next frame buffer.
+      if (paced && heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA) < 2048)
+        return -1;
+#endif
       const int count = ::send(client.fd(),data,size,MSG_DONTWAIT);
       if (count >= 0) return count;
       return errno == EAGAIN || errno == ENOMEM || errno == ENOBUFS || errno == EINTR ? -1 : -2;
@@ -29,11 +38,12 @@ protected:
 public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
   void handleClient() { writing = false; WebServer::handleClient(); }
-  size_t writeBytes(const uint8_t* bytes,size_t size) {
+  size_t writeBytes(const uint8_t* bytes,size_t size,bool paced = false) {
+    if (_currentClient.fd() < 0) return 0;
     lh_rs_pump();
     if (!writing) { writing = true; writeStarted = millis(); }
-    Transport transport{_currentClient};
-    const size_t sent = bridge::writeSocketBody(transport,bytes,size,writeStarted);
+    Transport transport{_currentClient,paced};
+    const size_t sent = bridge::writeSocketBody(transport,bytes,size,writeStarted,paced ? 768 : 256);
     if (sent != size) _currentClient.stop();
     return sent;
   }

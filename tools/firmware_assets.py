@@ -1,5 +1,6 @@
 """Validation and dashboard packing shared by the rs-matter build and WebFlasher."""
 import gzip
+import hashlib
 from pathlib import Path
 import struct
 
@@ -45,4 +46,10 @@ def render_dashboard(version, html_path):
     compressed = compress(html.encode(), numiterations=15)
     if gzip.decompress(compressed) != html.encode():
         raise ValueError('Compressed dashboard round-trip failed')
-    return '#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {' + ','.join(str(byte) for byte in compressed) + '};\n'
+    etag = hashlib.sha256(compressed).hexdigest()
+    return (
+        '#pragma once\nconst unsigned char WEB_UI_GZIP[] PROGMEM = {'
+        + ','.join(str(byte) for byte in compressed)
+        + '};\n'
+        + f'const char WEB_UI_ETAG[] = "\\"{etag}\\"";\n'
+    )

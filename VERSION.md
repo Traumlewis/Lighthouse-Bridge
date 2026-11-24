@@ -1,5 +1,10 @@
 # Version history
 
+## Dashboard reloads on ESP32-C3 — LH-Bridge 0.1.38
+
+- Reuse the unchanged dashboard on repeat visits and reloads.
+- Pace full dashboard responses on C3 and wait for Wi-Fi buffer headroom.
+
 ## C3 Matter commissioning headroom — LH-Bridge 0.1.37
 
 - Briefly defer background Bluetooth and dashboard polling around an

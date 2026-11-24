@@ -691,12 +691,21 @@ struct DashboardTransfer {
 #endif
 
 void configureRoutes() {
-  const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie", "X-OTA-Token"};
-  server.collectHeaders(headers, 5);
+  const char* headers[] = {"X-API-Key", "Origin", "Content-Type", "Cookie", "X-OTA-Token", "If-None-Match"};
+  server.collectHeaders(headers, sizeof(headers) / sizeof(*headers));
   configureMaintenanceRoutes();
   configureRsMaintenanceRoutes();
   configureRemoteRoutes();
   server.on("/", HTTP_GET, [] {
+    // This asset contains only the static UI. Session and device data use the API.
+    if (server.header("If-None-Match") == WEB_UI_ETAG) {
+      server.sendHeader("Cache-Control", "private, no-cache");
+      server.sendHeader("ETag", WEB_UI_ETAG);
+      // A 304 has no body. If present, Content-Length describes the cached 200.
+      server.setContentLength(sizeof(WEB_UI_GZIP));
+      server.send(304, "text/html; charset=utf-8", "");
+      return;
+    }
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
     // Let an in-flight BLE job finish before streaming the full dashboard.
     const DashboardTransfer transfer;
@@ -705,7 +714,8 @@ void configureRoutes() {
       fail(503,"BLE_BUSY"); return;
     }
 #endif
-    server.sendHeader("Cache-Control", "no-store");
+    server.sendHeader("Cache-Control", "private, no-cache");
+    server.sendHeader("ETag", WEB_UI_ETAG);
     server.sendHeader("X-Content-Type-Options", "nosniff");
     server.sendHeader("X-Frame-Options", "DENY");
     server.sendHeader("Content-Encoding", "gzip");
@@ -714,7 +724,11 @@ void configureRoutes() {
                   unsigned(sizeof(WEB_UI_GZIP)), matterDataFree(), matterDataLargest());
     server.setContentLength(sizeof(WEB_UI_GZIP));
     server.send(200, "text/html; charset=utf-8", "");
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+    const size_t sent = server.writeBytes(WEB_UI_GZIP, sizeof(WEB_UI_GZIP), true);
+#else
     const size_t sent = server.writeBytes(WEB_UI_GZIP, sizeof(WEB_UI_GZIP));
+#endif
     Serial.printf("Web UI end: sent=%u/%u, complete=%s, handler_ms=%u, free_8bit=%u, largest_8bit=%u\n",
                   unsigned(sent), unsigned(sizeof(WEB_UI_GZIP)), sent == sizeof(WEB_UI_GZIP) ? "true" : "false",
                   unsigned(millis() - started), matterDataFree(), matterDataLargest());
