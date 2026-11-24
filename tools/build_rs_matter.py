@@ -13,7 +13,7 @@ from firmware_assets import APP_LIMIT, ROOT, render_dashboard, validate_segments
 from rs_boards import BOARDS
 from rs_matter_link import validate_cache_safe_symbols, validate_diagnostics_symbols, validate_wifi_wrapper
 
-VERSION = '0.1.38'
+VERSION = '0.1.39'
 RS_REV = '43f61585a439f1a1e90924b696a6280850ef0145'
 CORE = '3.3.12'
 SEGMENTS = [('bootloader', 0x1000, 'RsMatter.ino.bootloader.bin'),
@@ -71,6 +71,7 @@ def main():
     if args.skip_compile and (not stamp.exists() or stamp.read_text().strip()!=fingerprint):
         raise ValueError('Compiled rs-matter source fingerprint does not match; rebuild required')
     host_config='-include '+str(ROOT/'firmware/rs_nimble_config.h')+' '
+    raw_config='-DHTTP_RAW_BUFLEN=768 ' if board['chip']==5 else ''
     if not args.skip_compile:
         version=subprocess.check_output(['rustc','+esp','--version'],text=True)
         if not version.startswith('rustc 1.97.0'): raise ValueError('Espressif Rust 1.97.0.0 required')
@@ -89,7 +90,7 @@ def main():
         # compiler_builtins and crashes during flash initialization.
         subprocess.run([args.arduino_cli, 'compile', '--fqbn', fqbn, '--build-property',
                         f'upload.maximum_size={APP_LIMIT}', '--build-property',
-                        'compiler.cpp.extra_flags='+host_config+'-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
+                        'compiler.cpp.extra_flags='+host_config+raw_config+'-DWM_NODEBUG -DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz -flto ' + ' '.join('-I' + str(path) for path in
                           [ROOT / 'include', ROOT / 'src', ROOT/'firmware', sketch]),
                         '--build-property', 'compiler.c.extra_flags='+host_config+'-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_NIMBLE_MAX_CONNECTIONS=1 -DCONFIG_BT_NIMBLE_ROLE_PERIPHERAL_DISABLED -DCONFIG_BT_NIMBLE_ROLE_BROADCASTER_DISABLED -Oz',
                         '--build-property', 'compiler.c.elf.extra_flags=-Oz -flto -flto-partition=one -Wl,--wrap=esp_wifi_init',

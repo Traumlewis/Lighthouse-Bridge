@@ -17,6 +17,9 @@ protected:
   struct RequestArgument { String key,value; };
   RequestArgument* _currentArgs = nullptr;
   int _currentArgCount = 0;
+  int _clientContentLength = 0;
+  void* _currentRaw = nullptr;
+  void _clearResponseHeaders() {}
   NetworkClient _currentClient;
   virtual size_t _currentClientWrite(const char*,size_t) { return 0; }
   virtual size_t _currentClientWrite_P(PGM_P,size_t) { return 0; }

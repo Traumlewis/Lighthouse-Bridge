@@ -1,5 +1,10 @@
 # Version history
 
+## Lower-memory C3 firmware upload — LH-Bridge 0.1.39
+
+- Stream dashboard updates as raw binary through a 768-byte receive buffer.
+- Use ESP-IDF sequential OTA writes and retain multipart client support.
+
 ## Dashboard reloads on ESP32-C3 — LH-Bridge 0.1.38
 
 - Reuse the unchanged dashboard on repeat visits and reloads.

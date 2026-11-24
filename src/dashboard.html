@@ -266,7 +266,8 @@ $('ota-form').addEventListener('submit',async event=>{
    xhr.upload.onprogress=e=>{if(e.lengthComputable)$('ota-progress').value=Math.floor(e.loaded/e.total*100);};
    xhr.onerror=xhr.ontimeout=xhr.onabort=()=>reject(Object.assign(new Error(),{code:'NETWORK_ERROR'}));
    xhr.onload=()=>{let result;try{result=JSON.parse(xhr.responseText);}catch(_){}if(xhr.status===200&&result?.installed)resolve();else reject(Object.assign(new Error(),{code:result?.error||'OTA_INVALID'}));};
-   const body=new FormData();body.append('firmware',file);xhr.send(body);
+   if(prep.raw_upload){xhr.setRequestHeader('Content-Type','application/octet-stream');xhr.send(file);}
+   else{const body=new FormData();body.append('firmware',file);xhr.send(body);}
   });
   clearInterval(pollTimer);$('ota-status').textContent=t('otaDone');message(()=>t('otaDone'));prepared=false;clearTimeout(loadMatter.timer);waitForBridgeRestart(()=>{$('ota-status').textContent=t('otaReconnectFailed');message(()=>t('otaReconnectFailed'));});
  }catch(e){if(prepared){try{await api('/api/ota/cancel',{});}catch(_){}}$('ota-status').textContent=t(e.code||'NETWORK_ERROR');message(()=>t(e.code||'NETWORK_ERROR'),true);otaBusy=false;if(current)render(current);if($('matter-settings').open)loadMatter(false,true);}

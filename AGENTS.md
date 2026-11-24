@@ -176,6 +176,19 @@ change. Keep current facts. User instructions win.
   cache. On C3 full dashboard bodies use paced writes and defer the next
   chunk while the largest internal DMA block is below 2 KiB. Preserve the
   existing bounded socket deadlines. Physical C3 reload verification is pending.
+  Actions run 45416552562 published 0.1.38. All six live manifests, chip
+  and flash layouts, OTA payloads, checksums and source ZIPs passed.
+  Two owner-approved LAN OTA attempts from 0.1.37 lost the HTTP connection.
+  The C3 SuperMini still reported 0.1.37, four reachable stations and an
+  active Matter pairing afterward. No USB serial device was visible.
+- From 0.1.39 the C3 advertises raw OTA with a 768-byte WebServer buffer.
+  Preserve multipart clients. Both C3 paths use ESP-IDF sequential OTA
+  writes to the inactive slot, with boot selection only after verifying the
+  package, digest and complete ESP image. Classic ESP32 and S3 use the
+  existing multipart and Arduino Update path.
+  Keep personal-session authorization, upload token and cancellation.
+  All six local packages fit the existing slots. Physical OTA verification
+  is pending.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

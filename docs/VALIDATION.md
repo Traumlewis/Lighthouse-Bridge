@@ -1,5 +1,22 @@
 # Firmware validation
 
+## LH-Bridge 0.1.39: lower-memory OTA upload
+
+The C3 dashboard sends the existing OTA package directly as a binary body.
+The Arduino WebServer reads it in blocks of up to 768 bytes, while the
+ESP-IDF OTA API erases and writes the inactive partition sequentially.
+This removes the separate Arduino flash-writer sector buffer and avoids
+multipart parsing for the dashboard. Existing C3 multipart clients use
+the same sequential writer. Classic ESP32 exceeded its app slot with
+the new writer, so ESP32 and S3 retain the existing OTA path.
+The package format, chip and flash checks, digest,
+boot selection and session authorization still apply. Physical OTA testing
+is pending.
+
+All six local builds and package checks passed. The browser regression
+exercises both supported upload types, checks the raw body against the
+original file, and checks reconnect without a second upload.
+
 ## LH-Bridge 0.1.38: dashboard reloads
 
 The 0.1.37 owner log shows full responses of 23,977 bytes and later
@@ -12,6 +29,29 @@ returns 304 before reserving the BLE worker. Full responses on C3 send
 up to 768 bytes per step, with 12 ms pauses and a 2 KiB minimum largest
 internal DMA block before each write. The transport still bounds stalled
 connections. Repeat-load verification on physical C3 hardware is pending.
+
+[Actions run 45416552562](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45416552562)
+published 0.1.38. All six live board manifests, chip and flash geometry,
+USB and OTA checksums, partition tables and source ZIPs passed verification.
+
+Two authenticated, owner-approved C3 SuperMini OTA attempts from 0.1.37
+lost the connection during upload, including the slower second attempt.
+The verified package matched the C3 profile and OTA slot. After both
+attempts the bridge still reported 0.1.37, all four stations reachable,
+and an active Matter pairing.
+
+A subsequent 0.1.37 serial log shows four complete dashboard transfers.
+During the fourth, the largest free internal block fell from 7,668 to
+1,076 bytes. The allocation failure counter reached 877 immediately
+afterward and passed 1,000 during the recorded interval. BLE reads
+continued and the saved Matter fabric remained present. The log does
+not exercise the 0.1.38 changes.
+
+Another excerpt shows four complete responses followed by a fifth that
+stops at 10,496 of 23,977 bytes. The largest free internal block fell
+from 7,668 to 1,460 bytes and allocation failures passed 5,000. The
+excerpt starts after boot, but its response size matches the measured
+0.1.37 dashboard. BLE reads continued after the failed response.
 
 ## LH-Bridge 0.1.37: C3 commissioning headroom
 

@@ -8,8 +8,10 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <esp_wifi.h>
-#include <Update.h>
 #include <esp_ota_ops.h>
+#if !defined(CONFIG_IDF_TARGET_ESP32C3)
+#include <Update.h>
+#endif
 #include <mbedtls/sha256.h>
 #include <mbedtls/version.h>
 #include <memory>
@@ -545,17 +547,46 @@ void statusRoute() {
 }
 
 
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+struct OtaFlashWriter {
+  const esp_partition_t* target = nullptr;
+  esp_ota_handle_t handle = 0;
+  bool begin(uint32_t size) {
+    const auto* slot = esp_ota_get_next_update_partition(nullptr);
+    if (!slot || slot == esp_ota_get_running_partition() || size > slot->size ||
+        esp_ota_begin(slot, OTA_WITH_SEQUENTIAL_WRITES, &handle) != ESP_OK) return false;
+    target = slot;
+    return true;
+  }
+  bool write(uint8_t* bytes, size_t count) { return esp_ota_write(handle, bytes, count) == ESP_OK; }
+  void abort() { if (target) { esp_ota_abort(handle); target = nullptr; } }
+  bool commit() {
+    const auto* slot = target;
+    target = nullptr;  // esp_ota_end consumes the handle even when verification fails.
+    return slot && esp_ota_end(handle) == ESP_OK && esp_ota_set_boot_partition(slot) == ESP_OK;
+  }
+};
+#else
+struct OtaFlashWriter {
+  bool begin(uint32_t size) { return Update.begin(size, U_FLASH); }
+  bool write(uint8_t* bytes, size_t count) { return Update.write(bytes, count) == count; }
+  void abort() { Update.abort(); }
+  bool commit() { return Update.end(); }
+};
+#endif
+
 struct FirmwareOtaIO {
   mbedtls_sha256_context sha;
+  OtaFlashWriter flash;
   bool hashing = false;
   bool begin(uint32_t size) {
-    if (!Update.begin(size, U_FLASH)) return false;
+    if (!flash.begin(size)) return false;
     mbedtls_sha256_init(&sha); hashing = true;
     if (LH_SHA_START(&sha, 0)) { abort(); return false; }
     return true;
   }
   bool write(uint8_t* bytes, size_t count) {
-    return !LH_SHA_UPDATE(&sha, bytes, count) && Update.write(bytes, count) == count;
+    return !LH_SHA_UPDATE(&sha, bytes, count) && flash.write(bytes, count);
   }
   bool finishHash(uint8_t* digest) {
     const bool ok = !LH_SHA_FINISH(&sha, digest);
@@ -563,7 +594,7 @@ struct FirmwareOtaIO {
     return ok;
   }
   void abort() {
-    Update.abort();
+    flash.abort();
     if (hashing) { mbedtls_sha256_free(&sha); hashing = false; }
   }
 } otaIo;
@@ -591,25 +622,71 @@ void acceptOtaBytes(uint8_t* bytes, size_t count) {
   const char* error = otaStream.feed(bytes, count, partition->size);
   if (error) cancelOta(error);
 }
+void beginOtaUpload() {
+  otaRequestAuthorized = sameOtaOwner();
+  if (!otaRequestAuthorized) return;
+  if (otaUploading || otaStream.started || !blePaused || bleActive) { cancelOta("OTA_INVALID"); return; }
+  otaSucceeded = otaCandidateReady = false;
+  otaUploading = true; otaError = ""; otaStream.reset();
+}
+void finishOtaUpload() {
+  if (!otaRequestAuthorized || !otaUploading) return;
+  const char* error = otaStream.finish();
+  if (error) { cancelOta(error); return; }
+  // Select the boot slot only after accepting the complete HTTP request.
+  otaUploading = false; otaCandidateReady = true;
+}
+void abortOtaUpload() {
+  if (otaRequestAuthorized && (otaUploading || otaStream.started)) cancelOta("OTA_ABORTED");
+  otaRequestAuthorized = false;
+}
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+void rejectRawOta(int status, const char* error) {
+  // RAW_START runs before WebServer clears headers from the prior response.
+  server.clearResponseHeaders();
+  fail(status, error);
+  server.client().stop();
+}
+void rawOtaUpload() {
+  auto& raw = server.raw();
+  switch (raw.status) {
+    case RAW_START: {
+      beginOtaUpload();
+      if (!otaRequestAuthorized) { rejectRawOta(403, "LOGIN_REQUIRED"); break; }
+      const auto* slot = esp_ota_get_next_update_partition(nullptr);
+      const size_t size = server.requestBodySize();
+      if (server.header("Content-Type") != "application/octet-stream" || !slot ||
+          size < kOtaHeaderSize + 288 || size > slot->size + kOtaHeaderSize) {
+        cancelOta("OTA_INVALID"); rejectRawOta(400, "OTA_INVALID");
+      }
+      break;
+    }
+    case RAW_WRITE:
+      if (otaRequestAuthorized && otaUploading) acceptOtaBytes(raw.buf, raw.currentSize);
+      break;
+    case RAW_END: finishOtaUpload(); break;
+    case RAW_ABORTED: abortOtaUpload(); break;
+  }
+}
+#endif
 void otaUpload() {
   lh_rs_pump();
+  if (server.receivingRawBody()) {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+    rawOtaUpload();
+#else
+    server.client().stop();
+#endif
+    return;
+  }
   auto& upload = server.upload();
-  if (upload.status == UPLOAD_FILE_START) {
-    otaRequestAuthorized = false;
-    if (!sameOtaOwner()) { otaError = "LOGIN_REQUIRED"; return; }
-    otaRequestAuthorized = true;
-    if (otaUploading || otaStream.started || !blePaused || bleActive) { cancelOta("OTA_INVALID"); return; }
-    otaSucceeded = otaCandidateReady = false;
-    otaUploading = true; otaError = ""; otaStream.reset();
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (otaRequestAuthorized && otaUploading && otaError.isEmpty()) acceptOtaBytes(upload.buf, upload.currentSize);
-  } else if (upload.status == UPLOAD_FILE_ABORTED) {
-    if (otaRequestAuthorized && (otaUploading || otaStream.started)) cancelOta("OTA_ABORTED");
-  } else if (upload.status == UPLOAD_FILE_END && otaRequestAuthorized && otaUploading && otaError.isEmpty()) {
-    const char* error = otaStream.finish();
-    if (error) { cancelOta(error); return; }
-    // Do not commit the boot slot until the complete HTTP request is accepted.
-    otaUploading = false; otaCandidateReady = true;
+  switch (upload.status) {
+    case UPLOAD_FILE_START: beginOtaUpload(); break;
+    case UPLOAD_FILE_WRITE:
+      if (otaRequestAuthorized && otaUploading) acceptOtaBytes(upload.buf, upload.currentSize);
+      break;
+    case UPLOAD_FILE_END: finishOtaUpload(); break;
+    case UPLOAD_FILE_ABORTED: abortOtaUpload(); break;
   }
 }
 
@@ -643,6 +720,9 @@ void configureMaintenanceRoutes() {
     otaToken = randomHex(24); otaOwner = sessions[sessionIndex()].token;
     otaPreparedAt = millis(); otaError = ""; otaSucceeded = false; otaRequestAuthorized = false;
     StaticJsonDocument<256> doc; doc["token"] = otaToken; doc["ready"] = !bleActive;
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+    doc["raw_upload"] = true;
+#endif
     const auto* partition = esp_ota_get_next_update_partition(nullptr);
     doc["max_bytes"] = partition ? partition->size : 0;
     sendJson(202, doc);
@@ -666,7 +746,7 @@ void configureMaintenanceRoutes() {
     otaRequestAuthorized = false;
     if (otaCandidateReady && otaStream.started) {
       if (!sameOtaOwner()) { cancelOta("LOGIN_REQUIRED"); fail(403, "LOGIN_REQUIRED"); return; }
-      if (!Update.end()) { cancelOta("OTA_WRITE_FAILED"); fail(400, "OTA_WRITE_FAILED"); return; }
+      if (!otaIo.flash.commit()) { cancelOta("OTA_WRITE_FAILED"); fail(400, "OTA_WRITE_FAILED"); return; }
       otaStream.committed(); otaCandidateReady = false; otaSucceeded = true; otaToken = otaOwner = "";
       StaticJsonDocument<96> doc; doc["installed"] = true; doc["restarting"] = true;
       sendJson(200, doc); restartAt = millis(); restartPending = true;

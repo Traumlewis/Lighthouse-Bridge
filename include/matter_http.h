@@ -38,6 +38,9 @@ protected:
 public:
   explicit MatterWebServer(uint16_t port) : WebServer(port) {}
   void handleClient() { writing = false; WebServer::handleClient(); }
+  size_t requestBodySize() const { return _clientContentLength; }
+  bool receivingRawBody() const { return bool(_currentRaw); }
+  void clearResponseHeaders() { _clearResponseHeaders(); }
   size_t writeBytes(const uint8_t* bytes,size_t size,bool paced = false) {
     if (_currentClient.fd() < 0) return 0;
     lh_rs_pump();

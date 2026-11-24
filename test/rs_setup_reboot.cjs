@@ -5,7 +5,7 @@ const h=fs.readFileSync('.pio/rs-matter-sketch/RsMatter/web_ui_gzip.h','utf8');c
  const page=await browser.newPage({viewport:{width:390,height:1000}}),calls=[],errors=[];page.on('pageerror',e=>errors.push(e.message));let signed=false,fail=true,restarting=false;
  await page.route('http://bridge.test/**',route=>{const r=route.request(),p=new URL(r.url()).pathname;calls.push({p,method:r.method()});if(p==='/')return route.fulfill({contentType:'text/html',body:html});if(p==='/api/login'&&r.method()==='GET')return route.fulfill({json:{username_enabled:false}});if(p==='/api/login'){signed=true;return route.fulfill({json:{password_required:false}});}if(!signed||restarting)return route.fulfill({status:401,json:{error:'LOGIN_REQUIRED'}});
  if(p==='/api/account')return route.fulfill({json:{password_required:false,alexa_protocol:'matter',network_mode:'home',matter_ready:true,api_key:'111111111111111111111111',hostname:'synthetic'}});
- if(p==='/api/status')return route.fulfill({json:{version:'0.1.38',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]}});
+ if(p==='/api/status')return route.fulfill({json:{version:'0.1.39',network_mode:'home',wifi_connected:true,alexa_protocol:'matter',matter_ready:true,matter_paired:true,stations:[],discovered:[]}});
  if(p==='/api/refresh')return route.fulfill({status:202,json:{accepted:true}});
  if(p==='/api/wifi'){assert.equal(r.method(),'POST');assert.deepEqual(r.postDataJSON(),{});if(fail)return route.fulfill({status:500,json:{error:'SAVE_FAILED'}});restarting=true;return route.fulfill({status:202,json:{accepted:true}});}
  return route.fulfill({status:404,json:{error:'NOT_FOUND'}});});
