@@ -36,6 +36,14 @@ checksums and source ZIPs passed. The pairing heap diagnostics are present
 in the three C3 apps. The simulated browser verifies automatic polling
 pauses during the quiet period and explicit refresh is still available.
 
+A subsequent 0.1.37 C3 log retained one Matter fabric and resumed CASE
+sessions. Several full dashboard transfers completed. Two later transfers
+sent only 3840 and 18544 of 23977 bytes, each ending with a largest free
+internal block of 1460 bytes amid repeated 1528-byte allocation failures.
+The first failed transfer was followed by continued BLE reads. The reset
+shown later is a USB UART reset and the next dashboard transfer also
+truncated. The commissioning window stayed closed in this excerpt.
+
 ### C3 memory optimization ideas for later
 
 - Prototype a smaller streaming OTA upload to reduce the temporary multipart

@@ -168,6 +168,8 @@ change. Keep current facts. User instructions win.
   The owner confirmed Alexa commissioning on a C3 SuperMini with 0.1.37.
   The fabric survived a USB restart, and Matter ON/SLEEP were confirmed by
   readings for all four stations. Heap allocation failures still occurred.
+  A subsequent 0.1.37 log kept its Matter fabric but showed two truncated
+  full dashboard responses during sustained heap pressure.
   Keep eight subscriptions, two responders and existing stack reservations.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
