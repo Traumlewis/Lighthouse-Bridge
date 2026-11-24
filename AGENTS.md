@@ -164,6 +164,8 @@ change. Keep current facts. User instructions win.
   retain priority, and reads report measured freshness. The dashboard
   skips automatic status polling during this interval. Record redacted
   heap, DMA block, stack and failure samples around this interval.
+  Actions run 45292614164 published 0.1.37 and all six live packages passed.
+  Keep eight subscriptions and two responders pending physical measurements.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

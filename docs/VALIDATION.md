@@ -9,6 +9,19 @@ defers background reads and scans for up to 60 seconds. Power and verification
 remain scheduled. PASE and the 15-minute window use the existing Matter
 runtime. Physical pairing, OTA and stack minima under full load are pending.
 
+Independent C3 builds measured the same `MatterStack` with one setting
+changed at a time. Reducing subscriptions from eight to six changed its
+allocation from 52528 to 52416 bytes. Reducing the responder count from
+two to one kept the allocation at 52528 bytes with the existing fixed
+arena. The pinned dependency exposes four as the lowest interaction-model
+buffer count. The release keeps the current limits and stack reservations.
+
+[Actions run 45292614164](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45292614164)
+published 0.1.37. All six live manifests, flash layouts, USB and OTA apps,
+checksums and source ZIPs passed. The pairing heap diagnostics are present
+in the three C3 apps. The simulated browser verifies automatic polling
+pauses during the quiet period and explicit refresh is still available.
+
 ## LH-Bridge 0.1.36: C3 commissioning crash workaround
 
 After the original 0.1.29 artifact was temporarily republished by run
