@@ -175,7 +175,8 @@ change. Keep current facts. User instructions win.
   repeat loads. Keep credentials, sessions and API responses out of that
   cache. On C3 full dashboard bodies use paced writes and defer the next
   chunk while the largest internal DMA block is below 2 KiB. Preserve the
-  existing bounded socket deadlines. Physical C3 reload verification is pending.
+  existing bounded socket deadlines. The C3 reload path was verified on
+  physical hardware in 0.1.39.
   Actions run 45416552562 published 0.1.38. All six live manifests, chip
   and flash layouts, OTA payloads, checksums and source ZIPs passed.
   Two owner-approved LAN OTA attempts from 0.1.37 lost the HTTP connection.
@@ -191,6 +192,10 @@ change. Keep current facts. User instructions win.
   is pending.
   Actions run 45424333648 published 0.1.39. All six live manifests, USB
   and OTA apps, partition layouts, checksums and source ZIPs passed.
+  The owner-approved USB upgrade of the C3 SuperMini from 0.1.38 to 0.1.39
+  verified all four flash writes. After a bootloader watchdog reset the
+  bridge rejoined Wi-Fi with the same four reachable stations and Matter
+  fabric. Five full dashboard reads and 20 conditional GETs passed.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

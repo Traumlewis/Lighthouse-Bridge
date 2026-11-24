@@ -22,6 +22,18 @@ published 0.1.39. All six live packages passed manifest, chip, partition,
 USB, OTA, checksum and ZIP validation. The raw upload capability is present
 in all three C3 apps.
 
+The owner-approved USB upgrade from 0.1.38 used the published C3
+SuperMini package and verified all four writes without erasing NVS.
+The initial USB reset left the device in the bootloader. A bootloader
+watchdog reset started 0.1.39, and the authenticated follow-up confirmed
+the same four reachable stations and retained Matter pairing.
+
+Five consecutive full dashboard responses each delivered all 24,000
+bytes. Their largest free internal blocks at completion were 8,180 to
+8,692 bytes. Twenty further conditional GETs returned HTTP 304 without
+a body. The serial allocation-failure counter stayed at four across this
+short test. A real OTA upload using the new receiver remains untested.
+
 ## LH-Bridge 0.1.38: dashboard reloads
 
 The 0.1.37 owner log shows full responses of 23,977 bytes and later
@@ -33,7 +45,8 @@ The static gzip has a build-generated ETag. A matching conditional GET
 returns 304 before reserving the BLE worker. Full responses on C3 send
 up to 768 bytes per step, with 12 ms pauses and a 2 KiB minimum largest
 internal DMA block before each write. The transport still bounds stalled
-connections. Repeat-load verification on physical C3 hardware is pending.
+connections. The inherited path passed repeat-load verification on a
+physical C3 with 0.1.39.
 
 [Actions run 45416552562](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45416552562)
 published 0.1.38. All six live board manifests, chip and flash geometry,
