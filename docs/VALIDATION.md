@@ -22,6 +22,16 @@ checksums and source ZIPs passed. The pairing heap diagnostics are present
 in the three C3 apps. The simulated browser verifies automatic polling
 pauses during the quiet period and explicit refresh is still available.
 
+### C3 memory optimization ideas for later
+
+- Prototype a smaller streaming OTA upload to reduce the temporary multipart
+  and flash-writer buffers. Retain checksum and chip validation, the inactive
+  destination slot, and boot selection only after full verification.
+- Fetch Bluetooth discovery results only when needed for station setup. Measure
+  the largest free internal and DMA-capable heap blocks during normal polling.
+- For more flash space, use the linker map to look for removable library code.
+  Evaluate task-stack changes after measuring pairing, OTA and station control.
+
 ## LH-Bridge 0.1.36: C3 commissioning crash workaround
 
 After the original 0.1.29 artifact was temporarily republished by run
