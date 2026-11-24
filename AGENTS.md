@@ -165,7 +165,10 @@ change. Keep current facts. User instructions win.
   skips automatic status polling during this interval. Record redacted
   heap, DMA block, stack and failure samples around this interval.
   Actions run 45292614164 published 0.1.37 and all six live packages passed.
-  Keep eight subscriptions and two responders pending physical measurements.
+  The owner confirmed Alexa commissioning on a C3 SuperMini with 0.1.37.
+  The fabric survived a USB restart, and Matter ON/SLEEP were confirmed by
+  readings for all four stations. Heap allocation failures still occurred.
+  Keep eight subscriptions, two responders and existing stack reservations.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.

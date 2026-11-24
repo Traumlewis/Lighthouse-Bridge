@@ -7,7 +7,21 @@ foreground stack watermark and failed allocations in the USB samples before,
 during and after commissioning. On C3 an explicitly requested window
 defers background reads and scans for up to 60 seconds. Power and verification
 remain scheduled. PASE and the 15-minute window use the existing Matter
-runtime. Physical pairing, OTA and stack minima under full load are pending.
+runtime. Physical OTA and stack minima under full sustained load are pending.
+
+The owner's C3 SuperMini completed Alexa commissioning on 0.1.37. PASE and
+CASE established, the commissioning window closed, and the single fabric
+survived a subsequent USB restart. Matter ON and SLEEP commands for all
+four stations were physically confirmed by BLE reads. The prior pairing
+panic did not recur in this log.
+
+The reported largest free internal block stayed at 7668 bytes in the
+commissioning samples, compared with 2292 bytes in an earlier 0.1.35
+attempt under different conditions. The DMA-capable block reached 2420
+bytes in the samples, the foreground stack watermark reached 5212 bytes,
+and failed allocations rose from 4 to 25 during commissioning. After
+normal polling resumed, the largest internal block sometimes fell to
+2036 bytes and further allocation failures occurred.
 
 Independent C3 builds measured the same `MatterStack` with one setting
 changed at a time. Reducing subscriptions from eight to six changed its
