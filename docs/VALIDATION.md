@@ -17,6 +17,11 @@ All six local builds and package checks passed. The browser regression
 exercises both supported upload types, checks the raw body against the
 original file, and checks reconnect without a second upload.
 
+[Actions run 45424333648](https://github.com/Traumlewis/Lighthouse-Bridge/actions/runs/45424333648)
+published 0.1.39. All six live packages passed manifest, chip, partition,
+USB, OTA, checksum and ZIP validation. The raw upload capability is present
+in all three C3 apps.
+
 ## LH-Bridge 0.1.38: dashboard reloads
 
 The 0.1.37 owner log shows full responses of 23,977 bytes and later

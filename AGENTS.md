@@ -189,6 +189,8 @@ change. Keep current facts. User instructions win.
   Keep personal-session authorization, upload token and cancellation.
   All six local packages fit the existing slots. Physical OTA verification
   is pending.
+  Actions run 45424333648 published 0.1.39. All six live manifests, USB
+  and OTA apps, partition layouts, checksums and source ZIPs passed.
 - Keep Wi-Fi modem sleep enabled with WIFI_PS_MIN_MODEM before BLE and after
   reconnect. Seed the Matter network store from saved Wi-Fi. Preserve IPv6
   policy, custom hostname, AP and DNS-SD behavior.
